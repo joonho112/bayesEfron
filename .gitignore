@@ -1,0 +1,16 @@
+.DS_Store
+**/.DS_Store
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+bayesEfron.Rcheck/
+bayesEfron_*.tar.gz
+
+# Internal development logs and design artifacts
+# (excluded from public push; remain on PI's local disk for institutional record)
+/log/
+/log_documentation/
+/blueprint-bayesEfron-book/
+/Makefile
+/tools/

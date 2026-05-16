@@ -1,0 +1,21 @@
+pandoc: '3.8'
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  a1-getting-started: a1-getting-started.html
+  a2-anatomy-of-a-fit: a2-anatomy-of-a-fit.html
+  a3-metafor-bridge: a3-metafor-bridge.html
+  a4-choosing-a-grid: a4-choosing-a-grid.html
+  a5-diagnostics-in-practice: a5-diagnostics-in-practice.html
+  a6-plotting-and-visualization: a6-plotting-and-visualization.html
+  a7-case-study-lee-sui: a7-case-study-lee-sui.html
+  m1-empirical-bayes-deconvolution: m1-empirical-bayes-deconvolution.html
+  m2-efron-log-spline-prior: m2-efron-log-spline-prior.html
+  m3-bayesian-hierarchy: m3-bayesian-hierarchy.html
+  m4-grid-and-basis: m4-grid-and-basis.html
+  m5-stan-and-cache: m5-stan-and-cache.html
+  m6-verification-and-calibration: m6-verification-and-calibration.html
+last_built: 2026-05-16T11:31Z
+urls:
+  reference: https://joonho112.github.io/bayesEfron/reference
+  article: https://joonho112.github.io/bayesEfron/articles

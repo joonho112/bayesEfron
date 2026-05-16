@@ -1,0 +1,38 @@
+target_id,tier,description,tolerance_type,tolerance_value,expected_value,expected_value_lower,expected_value_upper,fixture_path,chapter_ref,release_blocking,status
+tier0_softmax_sum_to_one,0,Prior simplex sums to one,absolute,1e-15,1,NA,NA,NA,Ch08 sec 8.1,TRUE,active
+tier0_augmented_rank,0,Augmented basis has joint full rank,absolute,0,TRUE,NA,NA,NA,Ch06 sec 6.7 plus DEC-036 post.3,TRUE,active
+tier0_b_matrix_no_nan,0,Basis matrix contains no NaN or infinite values,absolute,0,TRUE,NA,NA,NA,Ch06 sec 6.2,TRUE,active
+tier0_cache_key_determinism,0,Fixed cache payload produces deterministic key,absolute,0,TRUE,NA,NA,NA,DEC-016,TRUE,active
+tier0_grid_method_realdata_byte_identity,0,paper_realdata grid fixture is byte identical,BYTE,NA,NA,NA,NA,_fixtures/grid/paper_realdata_grid.rds,Ch08 sec 8.5,TRUE,active
+tier0_grid_method_simulation_byte_identity,0,paper_simulation grid fixture is byte identical,BYTE,NA,NA,NA,NA,_fixtures/grid/paper_simulation_grid.rds,Ch08 sec 8.5,TRUE,active
+tier0_grid_method_sensitivity_byte_identity,0,paper_sensitivity grid fixture is byte identical,BYTE,NA,NA,NA,NA,_fixtures/grid/paper_sensitivity_grid.rds,Ch08 sec 8.5,TRUE,active
+tier0_prepare_stan_data_K_invariance,0,Prepared Stan data preserves K and vector lengths,absolute,0,TRUE,NA,NA,NA,Ch06 sec 6.1,TRUE,active
+tier0_metadata_field_count,0,bef_fit_re metadata has the locked field count,absolute,0,13,NA,NA,NA,Ch04 sec 4.3,TRUE,active
+tier0_gq_count,0,Stan generated quantity field count is locked,absolute,0,9,NA,NA,NA,Ch05 sec 5.3,TRUE,active
+tier0_locked_stan_sha256,0,Locked Stan source SHA256 matches ledger,BYTE,NA,inst/locked-core-checksums.txt#inst/stan/efron_re.stan,NA,NA,NA,Ch08 sec 8.3,TRUE,active
+tier0_locked_grid_R_sha256,0,Locked grid source SHA256 matches ledger,BYTE,NA,inst/locked-core-checksums.txt#R/grid.R,NA,NA,NA,Ch08 sec 8.3,TRUE,active
+tier0_locked_data_prep_R_sha256,0,Locked data prep source SHA256 matches ledger,BYTE,NA,inst/locked-core-checksums.txt#R/data-prep.R,NA,NA,NA,Ch08 sec 8.3,TRUE,active
+tier0_theta_sd_finite,0,Posterior theta sd values are finite,absolute,0,TRUE,NA,NA,NA,Ch08 sec 8.4,TRUE,active
+tier0_theta_sd_nonneg,0,Posterior theta sd values are nonnegative,absolute,0,TRUE,NA,NA,NA,Ch08 sec 8.4,TRUE,active
+tier0_effective_params_finite,0,Effective parameter summaries are finite,absolute,0,TRUE,NA,NA,NA,Ch08 sec 8.4,TRUE,active
+tier0_effective_params_in_K_range_diagnostic,0,Effective parameters in K range diagnostic,absolute,0,TRUE,NA,NA,NA,Ch08 sec 8.4,FALSE,active
+tier1_make_efron_grid_ns_agreement,1,Grid basis agrees with splines ns reference,absolute,1e-6,TRUE,NA,NA,NA,Ch06 sec 6.2,TRUE,active
+tier1_g_prop_table_discrete_prior,1,Discrete prior g agrees with prop table reference,absolute,1e-6,TRUE,NA,NA,NA,Ch02 sec 2.2,TRUE,active
+tier1_normal_normal_K2_posterior,1,K2 normal normal posterior agrees with closed form,absolute,1e-6,TRUE,NA,NA,NA,Ch02 sec 2.3,TRUE,active
+tier1_mean_g_gauss_hermite,1,mean_g agrees with Gauss Hermite quadrature,absolute,1e-6,TRUE,NA,NA,NA,App-A sec A.2,TRUE,active
+tier1_var_g_gauss_hermite,1,var_g agrees with Gauss Hermite quadrature,absolute,1e-6,TRUE,NA,NA,NA,App-A sec A.2,TRUE,active
+tier1_theta_map_optim_agreement,1,theta_map agrees with optim reference,absolute,1e-6,TRUE,NA,NA,NA,App-A sec A.3,TRUE,active
+tier1_posterior_quantile_base_r,1,posterior quantile agrees with base R quantile,absolute,1e-12,TRUE,NA,NA,NA,Ch07 sec 7.3,TRUE,active
+tier2_deconvolveR_theta_mean_K20_homo,2,theta mean agrees with deconvolveR at K20 homoscedastic,relative,0.05,TRUE,NA,NA,_fixtures/deconvolveR_baseline.rds,Ch03 sec 3.2,FALSE,deferred
+tier2_deconvolveR_theta_mean_K50_homo,2,theta mean agrees with deconvolveR at K50 homoscedastic,relative,0.05,TRUE,NA,NA,_fixtures/deconvolveR_baseline.rds,Ch03 sec 3.2,FALSE,deferred
+tier2_deconvolveR_theta_mean_K100_homo,2,theta mean agrees with deconvolveR at K100 homoscedastic,relative,0.05,TRUE,NA,NA,_fixtures/deconvolveR_baseline.rds,Ch03 sec 3.2,FALSE,deferred
+tier2_deconvolveR_g_mean_K100_homo,2,g mean agrees with deconvolveR at K100 homoscedastic,relative,0.10,TRUE,NA,NA,_fixtures/deconvolveR_baseline.rds,Ch03 sec 3.2,FALSE,deferred
+tier2_deconvolveR_grid_count,2,deconvolveR parity grid count matches default,absolute,0,101,NA,NA,_fixtures/deconvolveR_baseline.rds,Ch03 sec 3.2,FALSE,deferred
+tier2_deconvolveR_basis_df,2,deconvolveR parity basis degrees of freedom match default,absolute,0,6,NA,NA,_fixtures/deconvolveR_baseline.rds,Ch03 sec 3.2,FALSE,deferred
+tier3_theta_rep_coverage_paper_realdata_K50,3,theta_rep nominal 90 aggregate coverage over 20 Lee-Sui replications at K50,interval,NA,NA,0.87,0.92,_fixtures/lee_sui_K50.rds,@sec-appB-DEC-008,TRUE,active
+tier3_theta_rep_coverage_paper_realdata_K100,3,theta_rep nominal 90 aggregate coverage over 20 Lee-Sui replications at K100,interval,NA,NA,0.87,0.92,_fixtures/lee_sui_K100.rds,@sec-appB-DEC-008,TRUE,active
+tier3_theta_rep_coverage_paper_realdata_K200,3,theta_rep nominal 90 aggregate coverage over 20 Lee-Sui replications at K200,interval,NA,NA,0.87,0.92,_fixtures/lee_sui_K200.rds,@sec-appB-DEC-008,TRUE,active
+tier3_theta_rep_coverage_paper_realdata_K500,3,theta_rep nominal 90 aggregate coverage over 20 Lee-Sui replications at K500,interval,NA,NA,0.87,0.92,_fixtures/lee_sui_K500.rds,@sec-appB-DEC-008,TRUE,active
+tier3_theta_rep_coverage_paper_realdata_K1500,3,theta_rep nominal 90 aggregate coverage over 20 Lee-Sui replications at K1500,interval,NA,NA,0.87,0.92,_fixtures/lee_sui_K1500.rds,@sec-appB-DEC-008,TRUE,active
+tier3_theta_mean_coverage_diagnostic_K500,3,theta_mean by design undercoverage diagnostic at K500,interval,NA,NA,0.06,0.14,_fixtures/lee_sui_K500.rds,Ch08 sec 8.1,FALSE,deferred
+tier3_paper_realdata_runtime_under_300s,3,paper realdata live fit runtime is under 300 seconds,absolute,0,300,NA,NA,_fixtures/lee_sui_K500.rds,Ch08 sec 8.4,FALSE,deferred

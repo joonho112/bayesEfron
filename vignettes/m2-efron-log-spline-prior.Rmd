@@ -1,0 +1,435 @@
+---
+title: "M2 · The Efron log-spline prior"
+description: "Derivation, simplex normalisation, half-Cauchy hyperprior, and a smoothness sweep."
+output:
+  rmarkdown::html_vignette:
+    fig_width: 7
+    fig_height: 4.5
+vignette: >
+  %\VignetteIndexEntry{M2 · The Efron log-spline prior}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo     = TRUE,
+  collapse = TRUE,
+  comment  = "#>",
+  message  = FALSE,
+  warning  = FALSE,
+  fig.width  = 7,
+  fig.height = 4.5
+)
+library(bayesEfron)
+has_ggplot2 <- requireNamespace("ggplot2", quietly = TRUE)
+```
+
+## Scope of this vignette
+
+This is the second vignette in the methodological track. M1
+established the deconvolution setting and motivated the log-spline
+family as the prior on the mixing distribution $g$. M2 specifies
+that prior. The goal is a complete account of the parameterisation
+that the package's Stan source implements: the continuous form on
+$\mathbb{R}$, the discretisation onto the grid, the softmax
+normalisation that yields a proper simplex, the identifiability
+convention that fixes the intercept-induced ridge, the Gaussian
+conditional prior on the spline coefficients, the half-Cauchy
+hyperprior on the smoothness precision, and the visual character
+of the family under varying precision.
+
+## Notation reminder
+
+M1 introduced the symbols. They recur unchanged: $K$ is the number of
+sites; $\theta_i$ is the latent effect at site $i$ and $\hat\theta_i$
+its observed estimate; $\sigma_i$ is the known within-study standard
+error; $g$ is the mixing distribution to be recovered; $L$ is the
+grid length; $M$ is the spline dimension; $\alpha \in \mathbb{R}^M$ is
+the spline-coefficient vector; and $\lambda$ is the smoothness
+precision that governs the Gaussian prior on $\alpha$. No new symbols
+are introduced in this vignette except auxiliary intermediates used in
+the derivations.
+
+## The continuous form
+
+On the real line, the log-spline prior writes the unnormalised
+log-density of $g$ at $\theta$ as a linear function of $\alpha$:
+$$
+\log \tilde g_{\alpha}(\theta) \;=\; B(\theta)^{\top} \alpha,
+\qquad
+g_{\alpha}(\theta) \;\propto\; \exp\!\big(B(\theta)^{\top}\alpha\big),
+$$
+where $B(\theta) = (B_1(\theta), \ldots, B_M(\theta))^{\top}$ is the
+length-$M$ natural-cubic-spline basis vector evaluated at $\theta$.
+The basis functions $B_k(\cdot)$ are fixed by choosing knot locations
+and the degree of the polynomial pieces; only $\alpha$ is a
+parameter.
+
+The exponential parameterisation is not a cosmetic choice. Three of
+its properties shape every downstream computation in the package.
+
+First, the map $\alpha \mapsto g_{\alpha}$ is unconstrained on
+$\mathbb{R}^M$. Replacing the linear form $B(\theta)^{\top}\alpha$
+with $g_{\alpha}(\theta)$ directly would require sign constraints to
+keep $g$ non-negative, which is awkward both analytically and
+algorithmically. The $\exp(\,\cdot\,)$ wrapper enforces positivity
+identically in $\alpha$, so $\alpha$ can range freely over
+$\mathbb{R}^M$ without boundary handling.
+
+Second, the family $\{g_{\alpha} : \alpha \in \mathbb{R}^M\}$ is an
+exponential family with natural parameter $\alpha$ and sufficient
+statistic $B(\theta)$. Its log-density is linear in $\alpha$, and the
+log-partition function
+$$
+\phi(\alpha) \;=\; \log \int \exp\!\big(B(\theta)^{\top}\alpha\big)\,
+\mathrm{d}\theta
+$$
+is convex on $\mathbb{R}^M$ (this is a standard consequence of
+Hölder's inequality and is recorded in the package's derivation
+appendix). Convexity of $\phi$ supplies stable derivatives for the
+normalised log-spline density. HMC performance on the $\alpha$
+block at fixed $\lambda$ is therefore an empirical diagnostic
+question, not a consequence of global log-concavity: the marginal
+likelihood under the deconvolution mixture is a log of a weighted
+Gaussian mixture, which is not generally log-concave in $\alpha$.
+
+Third, the gradient of the log-density with respect to $\alpha$ is
+just $B(\theta) - \nabla\phi(\alpha)$, and $\nabla\phi(\alpha)$ is the
+expectation of $B(\Theta)$ under $g_{\alpha}$. Reverse-mode autodiff
+in Stan computes this gradient at every leapfrog step in a single
+matrix-vector multiplication of cost $O(LM)$.
+
+## Discretisation onto a grid
+
+`bayesEfron` does not work with the continuous form directly. Instead
+the package fixes a length-$L$ grid $\{\theta_1, \ldots, \theta_L\}
+\subset \mathbb{R}$ chosen before sampling, replaces the integral in
+$\phi$ with a sum, and treats $g$ as a probability mass on the grid.
+The discrete prior is
+$$
+g_l(\alpha) \;=\;
+\frac{\exp\!\big(B_l^{\top}\alpha\big)}
+     {\sum_{j=1}^{L} \exp\!\big(B_j^{\top}\alpha\big)},
+\qquad l = 1, \ldots, L,
+$$
+where $B_l \in \mathbb{R}^M$ is the $l$-th row of the basis matrix
+$B \in \mathbb{R}^{L \times M}$ evaluated at the grid:
+$B = \mathrm{ns}(\theta_1, \ldots, \theta_L;\ \mathrm{df} = M,\
+\mathrm{intercept} = \mathrm{FALSE})$. The denominator is the
+finite-sum log-partition
+$$
+\phi(\alpha) \;=\;
+\log \sum_{j=1}^{L} \exp\!\big(B_j^{\top}\alpha\big)
+\;=\; \mathrm{log\_sum\_exp}(B\alpha),
+$$
+and the discrete prior is the softmax of $B\alpha$:
+$g(\alpha) = \mathrm{softmax}(B\alpha)$, lying in the simplex
+$\Delta^{L-1}$ by construction.
+
+Two properties of this discretisation are worth stating explicitly.
+
+The normalisation is **exact** on the grid, not approximate. The
+continuous-form integral $\int \exp(B(\theta)^{\top}\alpha)\,
+\mathrm{d}\theta$ would itself need to be approximated by a
+quadrature rule, but the discrete model has no integral to
+approximate: it replaces the continuum by the grid and normalises the
+mass on the grid exactly. The relation between the discrete prior
+and the continuous form is the usual Riemann-sum limit
+$\sum_{j:\theta_j \le t} g_j \to \int_{-\infty}^{t} g(\theta)\,
+\mathrm{d}\theta$ as the grid spacing tends to zero, but the
+**inferential** target is the discrete prior $g$; vignette M4
+discusses the grid-resolution trade-off in detail.
+
+The Stan source computes $\log g = \log \mathrm{softmax}(B\alpha) =
+B\alpha - \phi(\alpha)\,\mathbf{1}_L$ via Stan's built-in
+`log_softmax`, which is implemented using the max-shift identity to
+avoid overflow when $B\alpha$ spans tens of orders of magnitude. The
+quantity $\log g$ is what enters the mixture log-likelihood (M3);
+the simplex $g = \exp(\log g)$ is what enters the prior-summary
+generated quantities.
+
+## Identifiability of the spline coefficients
+
+The softmax is invariant to a constant shift of its argument:
+$$
+\mathrm{softmax}(B\alpha + c\,\mathbf{1}_L) \;=\;
+\mathrm{softmax}(B\alpha)
+$$
+for any $c \in \mathbb{R}$. If the basis matrix $B$ has the constant
+vector $\mathbf{1}_L$ in its column space — that is, if there exists
+$v_0 \in \mathbb{R}^M$ with $B v_0 = \mathbf{1}_L$ — then $\alpha$
+and $\alpha + t v_0$ produce identical $g$ for every $t$, and the
+joint posterior is degenerate along that direction. The package
+handles this two ways.
+
+The first is parameterisation. The basis matrix is constructed with
+`splines::ns(grid, df = M, intercept = FALSE)`, where
+`intercept = FALSE` instructs `splines::ns()` to omit the constant
+column from the natural-cubic-spline basis. The resulting $B$ does
+not include the constant direction by construction, so the most
+direct form of the shift invariance is removed at the basis
+construction step.
+
+The second is a runtime guard. Whether the columns of $B$ span the
+orthogonal complement of $\mathbf{1}_L$ — and hence whether
+$\mathbf{1}_L \notin \mathrm{col}(B)$ — is not an automatic algebraic
+consequence of `intercept = FALSE` for every admissible grid
+configuration. The package therefore enforces a rank postcondition
+in `make_efron_grid()`: the augmented matrix $[\mathbf{1}_L \;\;\; B]$
+must have rank $M + 1$. The check is `qr(cbind(1, B), tol =
+sqrt(.Machine$double.eps))$rank == M + 1L`. Failure raises the
+typed condition `bef_grid_rank_deficient` before any Stan
+compilation occurs. With the rank postcondition satisfied, $\alpha$
+is identified on $\mathbb{R}^M$ and the joint posterior on
+$(\alpha, \lambda)$ is proper.
+
+## The smoothness hyperprior
+
+The conditional prior on $\alpha$ is a centred Gaussian whose
+variance is parameterised by the inverse of $\lambda$:
+$$
+\alpha \mid \lambda \;\sim\;
+\mathcal{N}\!\left(\mathbf{0},\, \lambda^{-1}\,\mathbf{I}_M\right).
+$$
+The convention is variance-form: the second argument of
+$\mathcal{N}(\mu, \sigma^2)$ is variance, so each component of
+$\alpha$ has variance $1/\lambda$ and standard deviation
+$\lambda^{-1/2}$. The Stan source declares the same prior in
+standard-deviation form as `alpha ~ normal(0, inv_sqrt(lambda))`,
+which Stan's `normal(mu, sd)` interprets identically.
+
+The role of $\lambda$ is shrinkage on $\alpha$. Larger $\lambda$
+concentrates $\alpha$ near zero, so $B\alpha$ is small for every
+$\theta$, the softmax is close to uniform, and $g$ is smooth and
+flat. Smaller $\lambda$ admits larger $\alpha$, so $B\alpha$ can vary
+substantially across the grid and the resulting $g$ can exhibit
+peaks, asymmetry, and modest multimodality.
+
+Because $\lambda$ controls the effective smoothness of $g$ but is
+itself unknown, the package places a hyperprior on it. The choice is
+the half-Cauchy:
+$$
+\lambda \;\sim\; \mathrm{Cauchy}^{+}(0, 5),
+$$
+a half-Cauchy on $\lambda$ with scale parameter $5$. Two properties
+of the half-Cauchy commend it for this role, following the
+weakly-informative-prior tradition canonically framed by Gelman
+(2006, *Bayesian Analysis*).
+
+The first is heavy tails. The half-Cauchy has no moments, so neither
+its mean nor its variance is defined; the implicit prior weight at
+large $\lambda$ decays only as $\lambda^{-2}$. This is heavy enough
+that the data can override the prior when shape evidence is strong,
+pulling $\lambda$ either upward (more smoothing) or downward (less
+smoothing) without resistance from prior-induced curvature. The
+heavy upper tail in particular means that the prior does not force
+$\lambda$ to be small even when the data are uninformative; the
+prior admits "smooth" as a default consistent with weak data.
+
+The second is mass at small $\lambda$. The half-Cauchy assigns
+non-negligible density to small positive values of $\lambda$,
+allowing the conditional Gaussian on $\alpha$ to be wide when the
+data warrant a wiggly $g$. A half-normal alternative would have a
+lighter upper tail, placing less prior mass on very large $\lambda$
+than the half-Cauchy. Near zero, both priors can assign
+non-negligible density.
+
+The combination of the proper conditional prior on $\alpha$ given
+$\lambda$ and the proper hyperprior on $\lambda$ is sufficient,
+together with the bounded mixture likelihood (M3), for a proper
+joint posterior on $(\alpha, \lambda)$. The package documents the
+proper-posterior conditions in its derivation appendix; the
+appropriate forward reference is M3.
+
+The Cauchy citation here is to Gelman's weakly-informative-prior
+rationale rather than to a specific prescription that the
+half-Cauchy belongs on a precision parameter — Gelman's exposition
+canonically places the half-Cauchy on a scale parameter, e.g., a
+hierarchical-Gaussian standard deviation. The half-Cauchy on
+$\lambda$ used here is paper-faithful to the published Lee & Sui
+(2025) implementation, and the bijection $\sigma_\alpha =
+\lambda^{-1/2}$ relates the two parameterisations.
+
+## A smoothness sweep
+
+The visual character of the family $\{g_{\alpha}\}$ under varying
+implicit smoothness is most easily appreciated by sampling $\alpha$
+from the conditional prior at several values of $\lambda$ and
+plotting the corresponding $g$. The figure below shows three such
+draws on the package's default `paper_realdata` grid. The standard
+deviations correspond to $\lambda \in \{1, 4, 100\}$ — high-variance
+(loose) at $\lambda = 1$, moderate at $\lambda = 4$, and tight at
+$\lambda = 100$.
+
+```{r sweep-figure, fig.cap = "Three log-spline priors g_alpha(theta) at decreasing alpha variance: low precision (lambda = 1, top), medium precision (lambda = 4, middle), and high precision (lambda = 100, bottom). Higher precision pulls the density toward the spline-uniform reference; lower precision admits multimodality."}
+set.seed(2026)
+
+grid_obj <- make_efron_grid(
+  theta_hat = seq(-1.0, 1.0, length.out = 9),
+  sigma     = rep(0.15, 9),
+  L         = 101L,
+  M         = 6L
+)
+theta_grid <- grid_obj$grid
+B          <- grid_obj$B
+M          <- grid_obj$M
+
+log_sum_exp <- function(x) {
+  m <- max(x)
+  m + log(sum(exp(x - m)))
+}
+g_alpha <- function(alpha) {
+  log_w <- as.numeric(B %*% alpha)
+  exp(log_w - log_sum_exp(log_w))
+}
+
+alpha_low  <- rnorm(M, sd = 1.0)   # lambda = 1
+alpha_med  <- rnorm(M, sd = 0.5)   # lambda = 4
+alpha_high <- rnorm(M, sd = 0.1)   # lambda = 100
+g_low  <- g_alpha(alpha_low)
+g_med  <- g_alpha(alpha_med)
+g_high <- g_alpha(alpha_high)
+
+if (has_ggplot2) {
+  df_sweep <- rbind(
+    data.frame(theta = theta_grid, mass = g_low,
+               panel = "lambda = 1 (loose)"),
+    data.frame(theta = theta_grid, mass = g_med,
+               panel = "lambda = 4 (moderate)"),
+    data.frame(theta = theta_grid, mass = g_high,
+               panel = "lambda = 100 (tight)")
+  )
+  df_sweep$panel <- factor(
+    df_sweep$panel,
+    levels = c("lambda = 1 (loose)",
+               "lambda = 4 (moderate)",
+               "lambda = 100 (tight)")
+  )
+  ggplot2::ggplot(df_sweep,
+                  ggplot2::aes(x = theta, y = mass)) +
+    ggplot2::geom_line(colour = "black", linewidth = 0.5) +
+    ggplot2::facet_wrap(~ panel, ncol = 1, scales = "free_y") +
+    ggplot2::labs(
+      x = expression(theta),
+      y = expression(g[alpha](theta)),
+      title = NULL
+    ) +
+    ggplot2::theme_minimal(base_size = 11)
+} else {
+  par(mfrow = c(3, 1), mar = c(4, 4, 1.5, 1))
+  plot(theta_grid, g_low,  type = "l", lwd = 1,
+       xlab = expression(theta), ylab = expression(g[alpha](theta)),
+       main = "lambda = 1 (loose)")
+  plot(theta_grid, g_med,  type = "l", lwd = 1,
+       xlab = expression(theta), ylab = expression(g[alpha](theta)),
+       main = "lambda = 4 (moderate)")
+  plot(theta_grid, g_high, type = "l", lwd = 1,
+       xlab = expression(theta), ylab = expression(g[alpha](theta)),
+       main = "lambda = 100 (tight)")
+}
+```
+
+The three panels exhibit the expected behaviour. At $\lambda = 100$
+(bottom), $\alpha$ is tightly shrunk toward zero, $B\alpha$ is small
+in magnitude, and the softmax sits close to the spline-uniform
+reference: the density is broad, gently sloped, and lacks distinct
+modes. At $\lambda = 4$ (middle), some shape structure emerges but
+the density remains unimodal or nearly so. At $\lambda = 1$ (top),
+$\alpha$ has substantial dispersion, $B\alpha$ varies markedly across
+the grid, and the resulting $g$ shows asymmetry and multimodality.
+The contrast across the panels is what motivates the data-driven
+choice of $\lambda$: the family is rich enough to express both
+near-uniform and visibly multimodal priors, and the half-Cauchy
+hyperprior lets the marginal likelihood select among them rather
+than fixing a single smoothness level by hand.
+
+## The four-level Bayesian hierarchy
+
+Composing the components specified above yields the full
+hierarchical model on $K$ sites. Reading from the data upward:
+$$
+\begin{aligned}
+\hat\theta_i \mid \theta_i &\;\sim\;
+   \mathcal{N}\!\left(\theta_i, \sigma_i^2\right),
+   \qquad i = 1, \ldots, K, \\
+\theta_i \mid g &\;\stackrel{\mathrm{iid}}{\sim}\; g, \\
+g_{\alpha}(\theta_l) &\;=\;
+   \frac{\exp\!\big(B_l^{\top}\alpha\big)}
+        {\sum_{j=1}^{L} \exp\!\big(B_j^{\top}\alpha\big)},
+   \qquad l = 1, \ldots, L, \\
+\alpha \mid \lambda &\;\sim\;
+   \mathcal{N}\!\left(\mathbf{0},\, \lambda^{-1}\,\mathbf{I}_M\right), \\
+\lambda &\;\sim\; \mathrm{Cauchy}^{+}(0, 5).
+\end{aligned}
+$$
+The four levels are: the sampling model that relates the observed
+estimates to the latent effects (level 1); the categorical draw of
+the latent effects from the discrete prior $g$ on the grid (level 2);
+the log-spline parameterisation of $g$ in terms of the spline
+coefficients $\alpha$ (level 3); and the smoothness hyperprior on
+$\lambda$ that regularises $\alpha$ (level 4).
+
+The latent $\theta_i$ are integrated out of the joint analytically:
+the per-site marginal likelihood is the finite mixture
+$p(\hat\theta_i \mid g, \sigma_i) = \sum_{j=1}^{L} g_j\,
+\mathcal{N}(\hat\theta_i;\, \theta_j, \sigma_i^2)$, and the sampler
+runs over the unconstrained pair $(\alpha, \lambda)$ in dimension
+$M + 1$ (default $7$) regardless of $K$. Vignette M3 unpacks the
+hierarchy level by level, derives the marginal likelihood, and
+characterises the small-$K$ prior-dominance regime that follows from
+the heavy-tailed hyperprior on $\lambda$.
+
+## Computational structure for HMC
+
+The log-posterior of $(\alpha, \lambda)$ under the hierarchy above
+is everywhere differentiable. The log-spline parameterisation
+contributes a term linear in $\alpha$ (through $B\alpha$) plus the
+log-partition $\phi(\alpha)$, whose gradient is $\nabla\phi(\alpha) =
+\sum_j g_j(\alpha)\, B_j$ and whose Hessian is the covariance matrix
+of $B_J$ under $g_{\alpha}$ — both available in closed form. The
+conditional prior on $\alpha$ contributes a quadratic-in-$\alpha$
+term, and the half-Cauchy on $\lambda$ contributes a smooth
+$\log(1 + \lambda^2/25)$ term. Combined with the mixture log-sum-exp
+of the likelihood (M3), the entire target is twice continuously
+differentiable in $(\alpha, \lambda)$, and reverse-mode autodiff in
+Stan produces the gradient at cost $O(KL + LM)$ per leapfrog step.
+
+This differentiability is the algorithmic reason the log-spline
+prior is HMC-friendly, and it is the reason `bayesEfron` is
+implemented in Stan rather than in a Metropolis-style sampler. The
+Stan source `inst/stan/efron_re.stan` exploits the structure via
+Stan's `log_softmax`, `log_sum_exp`, and `normal` primitives, all of
+which are differentiable through reverse-mode autodiff. Vignette M5
+walks through the Stan source line by line and documents the ten
+numerical-stability disciplines that the source obeys.
+
+## Reading map
+
+This vignette specified the prior. The remaining methodological
+vignettes carry the construction into implementation and
+verification.
+
+- **M3 — The random-effects hierarchy.** Unpacks the four levels,
+  derives the per-site mixture likelihood, characterises the
+  per-site posterior weights via the max-shift trick, distinguishes
+  `theta_mean` (estimator) from `theta_rep` (parameter draw), and
+  states the proper-posterior conditions.
+- **M4 — Grid construction.** Documents the four grid recipes
+  exposed by `make_efron_grid()` — `paper_realdata`,
+  `paper_simulation`, `paper_sensitivity`, and the experimental
+  KL-target recipe — and the trade-offs between grid width and
+  resolution.
+- **M5 — Stan model and cache.** The byte-locked Stan source,
+  the numerical-stability disciplines (`log_softmax`,
+  `log_sum_exp`, max-shift normalisation, two-pass variance), and
+  the cache that prevents redundant compilation.
+- **M6 — Verification and calibration.** End-to-end coverage
+  verification on the locked benchmark fixtures and the
+  release-blocking acceptance band on the per-site replicate
+  intervals.
+
+A reader who has followed M1 and M2 has the complete model
+specification in hand; the remaining vignettes connect that
+specification to its computational realisation and its empirical
+calibration.

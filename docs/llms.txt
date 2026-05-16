@@ -1,0 +1,304 @@
+# bayesEfron
+
+**Fully Bayesian Efron log-spline deconvolution for univariate
+random-effects meta-analysis with heteroscedastic standard errors.**
+
+You arrive with per-site effect estimates $`\hat\theta_i`$ and
+within-study standard errors $`\sigma_i`$, one pair per study, with
+$`\sigma_i`$ free to vary across sites. The estimates are noisy
+realizations of latent site effects $`\theta_i`$ drawn from an unknown
+mixing distribution $`g(\theta)`$. The conventional random-effects
+meta-analysis collapses $`g`$ to a Gaussian summarized by a single
+heterogeneity parameter, which discards information whenever the latent
+effects are skewed, heavy-tailed, or multimodal.
+
+`bayesEfron` returns two posterior objects from a single fit. The first
+is a continuous nonparametric estimate of $`g(\theta)`$ itself,
+expressed through Efron’s log-spline prior on a fixed grid of
+effect-size values. The second is the per-site posterior
+$`\theta_i \mid \hat\theta_i, \sigma_i`$ — empirical-Bayes shrunken
+estimates that borrow strength under the estimated $`g`$. Deconvolution
+is the operation that recovers $`g`$ from the noisy
+$`(\hat\theta_i, \sigma_i)`$ pairs; it is what makes the per-site
+posteriors honest about the population they are drawn from.
+
+## Installation
+
+``` r
+
+# install.packages("remotes")
+remotes::install_github("joonho112/bayesEfron")
+```
+
+CmdStan is required to fit models but not to install the package or to
+load cached fixtures. See
+`system.file("INSTALL.md", package = "bayesEfron")` for the CmdStan
+setup guide.
+
+## Quick start
+
+``` r
+
+library(bayesEfron)
+fit <- readRDS(system.file("examples", "cached_fit_re_smoke.rds", package = "bayesEfron"))
+summary(fit)
+confint(fit, type = "theta")
+plot(fit, type = "caterpillar")
+```
+
+The cached fixture is a five-site smoke fit produced by
+[`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+with `L = 51`, `M = 3`, one chain, and 100 sampling iterations; it
+carries no CmdStan dependency at read time. The verbatim `summary(fit)`
+output:
+
+    <summary.bef_fit>
+
+    Prior g:
+      mean: 0.174
+      var:  0.2094
+      sd:   0.4549
+
+    Diagnostics:
+      Rhat:              1.203
+      ESS bulk:          12.53
+      ESS tail:          105
+      Divergences:       0
+      Max treedepth:     0
+      Effective params:  mean 0.3754, sd 0.3722
+      Log marginal lik.: mean -2.433, sd 0.443
+      Runtime:           0.2906 sec
+      Stan SHA-256:      57d1f55c8ccd721800193e61eb247f315be3afd401a19f58a51f84c103ceca3e
+
+    Theta summary:
+      site      mean        sd     lower     upper       map
+      1      -0.1948    0.1713    -0.456     0.036   -0.1956
+      2       0.0401    0.1471   -0.1608       0.2   0.03862
+      3       0.1808    0.2128   -0.1952    0.4968    0.1787
+      4       0.3652    0.1869   0.06716    0.6608     0.363
+      5       0.5658    0.2197    0.2984    0.9216    0.5847
+
+The **Prior g** block holds the posterior-mean summary of the mixing
+distribution. **Theta summary** is the per-site posterior table.
+**Diagnostics** are at smoke-scale by construction; production fits use
+the package defaults (`L = 101`, `M = 6`, four chains, 1000 warmup, 3000
+sampling).
+
+## Key features
+
+- **Fully Bayesian inference.** The spline coefficients for
+  $`g(\theta)`$ are sampled jointly with the latent $`\theta_i`$,
+  propagating uncertainty about $`g`$ into every per-site posterior —
+  not a plug-in empirical-Bayes point estimate of $`g`$ followed by a
+  separate conditional step.
+- **Exact heteroscedasticity.** Each site enters the likelihood with its
+  own $`\sigma_i`$; the model never collapses the within-study standard
+  errors to a single pooled value or a meta-analytic typical variance.
+- **Two-tier compile cache.** A first fit compiles the Stan model and
+  stores the binary in both an in-session cache and an on-disk cache
+  keyed on model source, package version, CmdStan version, and platform.
+  Later fits with matching keys skip compilation entirely.
+
+## Where to next
+
+- **A1 · Getting started** — a runnable five-minute walkthrough of the
+  same five-site fixture, with both inferential targets read off the fit
+  object.
+- **A3 · From
+  [`metafor::escalc()`](https://wviechtb.github.io/metafor/reference/escalc.html)
+  to bayesEfron** — the end-to-end aggregate-data path, starting from
+  group treatment and control summaries through a working fit and its
+  outputs.
+- **M1 · The empirical-Bayes deconvolution problem** — the formal
+  motivation for the log-spline prior, the role of fully Bayesian
+  inference over Efron’s original empirical-Bayes formulation, and the
+  connection to the broader literature.
+
+## Citation
+
+To cite `bayesEfron`, see `citation("bayesEfron")` for the canonical
+reference.
+
+## Funding and disclaimer
+
+This research was supported by the Institute of Education Sciences, U.S.
+Department of Education, through Grant R305D240078 to the University of
+Alabama. The opinions expressed are those of the authors and do not
+represent views of the Institute or the U.S. Department of Education.
+
+# Package index
+
+## Package
+
+- [`bayesEfron-package`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-package.md)
+  [`bayesEfron`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-package.md)
+  : bayesEfron: Fully Bayesian Inference for the Empirical-Bayes
+  Deconvolution Problem
+
+## Fit
+
+Primary entry point for fitting the fully Bayesian Efron log-spline
+prior to a univariate random-effects deconvolution problem.
+
+- [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  : Fit the Bayesian Efron random-effects model
+
+## Data preparation
+
+Convert effect-size inputs (plain list or
+[`metafor::escalc()`](https://wviechtb.github.io/metafor/reference/escalc.html)
+object) into the canonical `bef_data` class consumed by the fit
+pipeline.
+
+- [`as_bef_data()`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
+  : Convert input data to a bayesEfron data object
+
+## Grid construction
+
+Build the discrete support and natural-cubic-spline basis used by the
+Stan model. Four recipes covering the paper’s real-data, simulation,
+sensitivity, and an experimental KL-target setting.
+
+- [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  : Construct an Efron log-spline grid
+
+## Compile and cache
+
+Pre-warm the Stan model cache and maintain the on-disk and in-session
+cache layers.
+
+- [`bayes_efron_compile()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_compile.md)
+  : Pre-compile the bayesEfron Stan model
+- [`bayes_efron_clear_cache()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_clear_cache.md)
+  : Clear bayesEfron compilation cache artifacts
+
+## Diagnostics
+
+Sampler-health and convergence diagnostics produced by the fit pipeline.
+
+- [`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  : Extract sampler diagnostics from a bayesEfron fit
+
+## Visualization
+
+Caterpillar, prior-summary, sensitivity, and diagnostic views. Both
+ggplot2 and base-graphics backends.
+
+- [`plot(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/plot.bef_fit_re.md)
+  : Plot a bayesEfron random-effects fit
+
+## S3 methods
+
+Family-agnostic methods on the parent `bef_fit` class (`summary`,
+`print`, `coef`, `vcov`, `confint`, `as.data.frame`, `nobs`, `logLik`,
+[`posterior::as_draws`](https://mc-stan.org/posterior/reference/draws.html))
+plus `format`/`print`/`summary` on `bef_data` and `bef_diagnostic`.
+
+- [`format(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`format(`*`<summary.bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`format(`*`<bef_data>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`format(`*`<bef_diagnostic>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`print(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`summary(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`print(`*`<summary.bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`summary(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`coef(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`vcov(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`confint(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`as.data.frame(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`print(`*`<bef_data>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`summary(`*`<bef_data>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`print(`*`<bef_diagnostic>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`summary(`*`<bef_diagnostic>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`nobs(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`logLik(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  [`as_draws(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-methods.md)
+  : S3 methods for bayesEfron objects
+
+# Articles
+
+### Applied Track
+
+Workflow-oriented walkthroughs from a five-minute landing example
+through anatomy of a fit, the
+[`metafor::escalc()`](https://wviechtb.github.io/metafor/reference/escalc.html)
+bridge, grid choice, diagnostics, plotting, and a worked case study.
+
+- [A1 · Getting
+  started](https://joonho112.github.io/bayesEfron/articles/a1-getting-started.md):
+
+  A five-minute first fit on a five-site toy dataset.
+
+- [A2 · Anatomy of a bayesEfron
+  fit](https://joonho112.github.io/bayesEfron/articles/a2-anatomy-of-a-fit.md):
+
+  Every field of the bef_fit_re object and every S3 method.
+
+- [A3 · From metafor::escalc() to
+  bayesEfron](https://joonho112.github.io/bayesEfron/articles/a3-metafor-bridge.md):
+
+  End-to-end path from group-arm summaries through escalc to a fitted
+  bayesEfron model.
+
+- [A4 · Choosing a
+  grid](https://joonho112.github.io/bayesEfron/articles/a4-choosing-a-grid.md):
+
+  Side-by-side comparison of the four grid recipes.
+
+- [A5 · Diagnostics in
+  practice](https://joonho112.github.io/bayesEfron/articles/a5-diagnostics-in-practice.md):
+
+  How to read diagnose() and decide whether a fit is releasable.
+
+- [A6 · Plotting and
+  visualization](https://joonho112.github.io/bayesEfron/articles/a6-plotting-and-visualization.md):
+
+  Four diagnostic-and-summary views of a fitted bayesEfron model.
+
+- [A7 · Case study — Lee–Sui replication
+  light](https://joonho112.github.io/bayesEfron/articles/a7-case-study-lee-sui.md):
+
+  One K=50 replication of the Lee–Sui benchmark, end to end.
+
+### Methodological Track
+
+Mathematical background — the empirical-Bayes deconvolution problem, the
+Efron log-spline prior, the random-effects hierarchy, grid construction
+and spline basis, the Stan model and cache, and the verification ladder
+that gates the v0.1 release.
+
+- [M1 · The empirical-Bayes deconvolution
+  problem](https://joonho112.github.io/bayesEfron/articles/m1-empirical-bayes-deconvolution.md):
+
+  The Robbins-Efron formulation, prior-art landscape, and motivation for
+  the fully Bayesian log-spline approach.
+
+- [M2 · The Efron log-spline
+  prior](https://joonho112.github.io/bayesEfron/articles/m2-efron-log-spline-prior.md):
+
+  Derivation, simplex normalisation, half-Cauchy hyperprior, and a
+  smoothness sweep.
+
+- [M3 · Bayesian random-effects
+  hierarchy](https://joonho112.github.io/bayesEfron/articles/m3-bayesian-hierarchy.md):
+
+  The four-level hierarchy, posterior factorisation, and the package’s
+  metadata payload.
+
+- [M4 · Grid construction and spline
+  basis](https://joonho112.github.io/bayesEfron/articles/m4-grid-and-basis.md):
+
+  Mathematical specification of the four grid recipes and the
+  natural-cubic-spline basis.
+
+- [M5 · Stan model, sampler, and
+  cache](https://joonho112.github.io/bayesEfron/articles/m5-stan-and-cache.md):
+
+  The locked Stan model, the seven-field data block, and the two-tier
+  compile cache.
+
+- [M6 · Verification and
+  calibration](https://joonho112.github.io/bayesEfron/articles/m6-verification-and-calibration.md):
+
+  The verification tier ladder and the Lee-Sui aggregate coverage
+  evidence that gates v0.1.0.

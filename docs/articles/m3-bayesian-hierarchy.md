@@ -1,0 +1,465 @@
+# M3 · Bayesian random-effects hierarchy
+
+## Scope of this vignette
+
+M1 motivated the empirical-Bayes deconvolution problem and M2 specified
+the log-spline prior on the mixing distribution $`g`$. M3 composes those
+pieces into the full four-level Bayesian hierarchy that `bayesEfron`
+v0.1 fits. The vignette has four jobs. First, it states the hierarchy as
+a single equation block so the entire generative model is visible at one
+glance. Second, it draws the corresponding directed acyclic graph and
+walks through the conditional dependencies. Third, it derives the
+marginal of inferential interest — the per-site posterior $`p(\theta_i
+\mid \hat{\boldsymbol\theta})`$ — and explains how the package’s
+generated quantities relate to that marginal and to functionals of
+$`g`$. Fourth, it maps each of the thirteen named fields of
+`fit$metadata` back to the node in the DAG from which it originates.
+
+## Notation reminder
+
+The notation is unchanged from M1 and M2. $`K`$ is the number of sites;
+$`\theta_i`$ is the latent effect at site $`i`$ and $`\hat\theta_i`$ its
+observed estimate; $`\sigma_i`$ is the known within-study standard
+error; $`g`$ is the discrete mixing distribution on a fixed length-$`L`$
+grid $`\{\theta_1, \ldots, \theta_L\}`$;
+$`B \in \mathbb{R}^{L \times M}`$ is the fixed natural-cubic-spline
+basis evaluated at the grid; $`\alpha \in
+\mathbb{R}^M`$ is the spline-coefficient vector that determines $`g`$
+through the softmax map of M2; and $`\lambda > 0`$ is the smoothness
+precision that governs the Gaussian conditional prior on $`\alpha`$. No
+new symbols are introduced.
+
+## The four-level hierarchy
+
+The full generative model for $`K`$ sites is, reading from the data
+upward:
+
+``` math
+\begin{aligned}
+\text{Level 1 (likelihood):} \quad
+\hat\theta_i \mid \theta_i
+  &\;\sim\; \mathcal{N}\!\left(\theta_i, \sigma_i^2\right),
+  \qquad i = 1, \ldots, K, \\
+\text{Level 2 (latent effects):} \quad
+\theta_i \mid g
+  &\;\stackrel{\mathrm{iid}}{\sim}\; g, \\
+\text{Level 3 (mixing-distribution prior):} \quad
+g_{\alpha}(\theta_l)
+  &\;=\; \frac{\exp\!\big(B_l^{\top}\alpha\big)}
+            {\sum_{j=1}^{L} \exp\!\big(B_j^{\top}\alpha\big)},
+  \quad l = 1, \ldots, L, \\
+\text{Level 4 (hyperprior):} \quad
+\alpha \mid \lambda
+  &\;\sim\; \mathcal{N}\!\left(\mathbf{0},\, \lambda^{-1}\mathbf{I}_M\right), \\
+\lambda
+  &\;\sim\; \mathrm{Cauchy}^{+}(0, 5).
+\end{aligned}
+```
+
+Three points about the level structure are worth recording before
+discussing the DAG.
+
+The first concerns the role of the grid. The grid
+$`\boldsymbol{\theta} = (\theta_1, \ldots, \theta_L)`$ at Level 3 is
+fixed before sampling by
+[`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+(vignette M4) and is **not** a parameter of the model. The basis matrix
+$`B`$ is likewise fixed, being
+$`B = \mathrm{ns}(\boldsymbol\theta;\ \mathrm{df} = M,\ \mathrm{intercept}
+= \mathrm{FALSE})`$. The Level 3 line above therefore specifies the
+deterministic map $`\alpha \mapsto g`$ rather than a stochastic step:
+conditional on $`\alpha`$, the prior $`g`$ is a function, not a draw.
+
+The second is that the latent $`\theta_i`$ at Level 2 are integrated out
+analytically. The per-site marginal likelihood,
+``` math
+p(\hat\theta_i \mid g, \sigma_i)
+  \;=\; \sum_{j=1}^{L} g_j\, \mathcal{N}\!\left(\hat\theta_i;\, \theta_j, \sigma_i^2\right),
+```
+is a finite mixture of $`L`$ Gaussians, and it is this quantity that
+enters the Stan model block. The Hamiltonian Monte Carlo sampler runs
+over the unconstrained pair $`(\alpha, \lambda)`$ in dimension $`M + 1`$
+(default $`7`$) regardless of $`K`$. The per-site posteriors on
+$`\theta_i`$ are recovered in the generated-quantities block after
+sampling.
+
+The third is the variance-versus-standard-deviation convention on
+$`\alpha \mid \lambda`$. The display above writes the conditional prior
+in **variance** form, so each component of $`\alpha`$ has variance
+$`1/\lambda`$ and standard deviation $`\lambda^{-1/2}`$. The Stan source
+declares the same prior in standard-deviation form
+(`alpha ~ normal(0, inv_sqrt(lambda))`); the two are identical. The
+reference paper for the package’s prior writes the conditional prior in
+standard-deviation form, which the Stan source retains for
+paper-faithfulness. All three notations describe the same distribution.
+
+## DAG diagram
+
+The directed acyclic graph corresponding to the hierarchy is shown
+below. Each node is a random or fixed quantity; each arrow encodes a
+conditional dependence of the head node on the tail node.
+
+``` r
+
+old_par <- par(no.readonly = TRUE)
+on.exit(par(old_par), add = TRUE)
+par(mar = c(0.5, 0.5, 0.5, 0.5))
+
+plot.new()
+plot.window(xlim = c(0, 10), ylim = c(0, 6.5), asp = 1)
+
+draw_circle <- function(x, y, r = 0.45, lwd = 1.3) {
+  ang <- seq(0, 2 * pi, length.out = 200)
+  polygon(x + r * cos(ang), y + r * sin(ang), border = "black",
+          col = "white", lwd = lwd)
+}
+draw_square <- function(x, y, r = 0.45, lwd = 1.3) {
+  polygon(x + c(-r, r, r, -r), y + c(-r, -r, r, r),
+          border = "black", col = "white", lwd = lwd)
+}
+
+# Coordinates: top to bottom.
+x_lambda <- 2.0; y_lambda <- 5.7
+x_alpha  <- 4.0; y_alpha  <- 5.7
+x_g      <- 6.0; y_g      <- 5.7
+x_B      <- 8.0; y_B      <- 5.7
+
+x_theta  <- 5.0; y_theta  <- 3.3
+x_hat    <- 5.0; y_hat    <- 1.1
+x_sigma  <- 7.5; y_sigma  <- 1.1
+
+# Plate enclosing the per-site sub-graph.
+plate_x <- c(3.6, 8.4, 8.4, 3.6)
+plate_y <- c(0.3, 0.3, 4.1, 4.1)
+polygon(plate_x, plate_y, border = "grey55", lty = 2, lwd = 1)
+text(8.25, 0.55, expression(italic(i) == 1 * "," ~ ldots * "," ~ italic(K)),
+     cex = 0.85, col = "grey35", adj = c(1, 0))
+
+# Nodes.
+draw_circle(x_lambda, y_lambda)
+text(x_lambda, y_lambda, expression(lambda), cex = 1.25)
+
+draw_circle(x_alpha,  y_alpha)
+text(x_alpha,  y_alpha,  expression(alpha),  cex = 1.25)
+
+draw_circle(x_g, y_g)
+text(x_g, y_g, expression(italic(g)), cex = 1.25)
+
+draw_square(x_B, y_B)
+text(x_B, y_B, expression(italic(B)), cex = 1.1)
+
+draw_circle(x_theta, y_theta)
+text(x_theta, y_theta, expression(theta[italic(i)]), cex = 1.1)
+
+draw_circle(x_hat, y_hat)
+text(x_hat, y_hat, expression(hat(theta)[italic(i)]), cex = 1.1)
+
+draw_square(x_sigma, y_sigma)
+text(x_sigma, y_sigma, expression(sigma[italic(i)]), cex = 1.1)
+
+# Arrows.
+arrow_between <- function(x0, y0, x1, y1, r = 0.45, length = 0.10) {
+  dx <- x1 - x0; dy <- y1 - y0; d <- sqrt(dx^2 + dy^2)
+  ux <- dx / d;  uy <- dy / d
+  arrows(x0 + r * ux, y0 + r * uy, x1 - r * ux, y1 - r * uy,
+         length = length, angle = 22, lwd = 1.2, col = "black")
+}
+arrow_between(x_lambda, y_lambda, x_alpha, y_alpha)
+arrow_between(x_alpha,  y_alpha,  x_g,     y_g)
+arrow_between(x_B,      y_B,      x_g,     y_g)
+arrow_between(x_g,      y_g,      x_theta, y_theta)
+arrow_between(x_theta,  y_theta,  x_hat,   y_hat)
+arrow_between(x_sigma,  y_sigma,  x_hat,   y_hat)
+
+# Legend.
+legend(
+  "topleft", bty = "n", cex = 0.8,
+  legend = c("random quantity", "fixed input"),
+  pch    = c(1, 0), pt.cex = 1.3
+)
+```
+
+![Directed acyclic graph of the four-level Bayesian random-effects
+hierarchy fit by bayesEfron. The smoothness precision lambda controls
+the Gaussian conditional prior on the spline coefficients alpha; alpha
+and the fixed basis B together determine the discrete mixing
+distribution g; latent site effects theta_i are drawn iid from g;
+observed estimates hat_theta_i are Gaussian around theta_i with known
+standard errors sigma_i. Random quantities are shown as circles, fixed
+inputs as squares. The plate over i = 1, ..., K indicates K independent
+replicates of the per-site
+sub-graph.](m3-bayesian-hierarchy_files/figure-html/dag-figure-1.png)
+
+Directed acyclic graph of the four-level Bayesian random-effects
+hierarchy fit by bayesEfron. The smoothness precision lambda controls
+the Gaussian conditional prior on the spline coefficients alpha; alpha
+and the fixed basis B together determine the discrete mixing
+distribution g; latent site effects theta_i are drawn iid from g;
+observed estimates hat_theta_i are Gaussian around theta_i with known
+standard errors sigma_i. Random quantities are shown as circles, fixed
+inputs as squares. The plate over i = 1, …, K indicates K independent
+replicates of the per-site sub-graph.
+
+The diagram resolves the conditional dependence structure of the joint
+distribution. The hyperprior on $`\lambda`$ controls the conditional
+Gaussian prior on $`\alpha`$; the spline coefficients $`\alpha`$,
+together with the fixed basis $`B`$, deterministically produce the
+discrete prior $`g`$; iid draws from $`g`$ produce the latent site
+effects $`\theta_i`$; and each observed estimate $`\hat\theta_i`$ is
+Gaussian around its latent counterpart $`\theta_i`$ with the known
+standard error $`\sigma_i`$. The plate captures the conditional
+independence of the $`K`$ per-site sub-graphs given the upper-level
+quantities $`(\lambda, \alpha, g)`$: $`\theta_i`$ and $`\theta_{i'}`$
+are conditionally independent given $`g`$, and $`\hat\theta_i`$ and
+$`\hat\theta_{i'}`$ are conditionally independent given
+$`(\theta_i, \theta_{i'})`$ and the corresponding standard errors.
+Random quantities are circles; fixed inputs ($`\sigma_i`$ supplied by
+the user, $`B`$ constructed by
+[`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md))
+are squares. The graph is acyclic and the joint factorises as
+$`p(\lambda)\, p(\alpha \mid
+\lambda)\, \prod_i p(\theta_i \mid g)\, p(\hat\theta_i \mid \theta_i,
+\sigma_i)`$.
+
+## The marginal of inferential interest
+
+The hierarchy is fit so that the per-site posterior $`p(\theta_i \mid
+\hat{\boldsymbol\theta})`$ — and its functionals — can be summarised. At
+fixed $`g`$ the per-site posterior factorises by Bayes’s rule applied to
+the convolution:
+``` math
+p(\theta_i \mid \hat\theta_i, \sigma_i, g)
+  \;=\; \frac{p(\hat\theta_i \mid \theta_i, \sigma_i)\; g(\theta_i)}
+             {p(\hat\theta_i \mid \sigma_i, g)},
+```
+with denominator the per-site marginal likelihood
+$`p(\hat\theta_i \mid \sigma_i, g) = \sum_j g_j\, \mathcal{N}(\hat\theta_i;
+\theta_j, \sigma_i^2)`$ already encountered above. On the grid this
+specialises to a discrete posterior on
+$`\{\theta_1, \ldots, \theta_L\}`$ with weights
+``` math
+w_{ij}
+  \;\propto\;
+  \exp\!\big\{\log g_j + \log \mathcal{N}(\hat\theta_i;\, \theta_j, \sigma_i^2)\big\},
+  \qquad \sum_j w_{ij} = 1.
+```
+The Stan source computes $`w_{ij}`$ in the generated-quantities block
+using the max-shift normalisation discussed in M5 to prevent underflow
+when individual log-components differ by tens of units.
+
+The crucial subtlety is that the package does **not** report
+$`p(\theta_i
+\mid \hat\theta_i, \sigma_i, g)`$ at a fixed $`g`$. It reports the
+marginal posterior
+``` math
+p(\theta_i \mid \hat{\boldsymbol\theta})
+  \;=\; \int p(\theta_i \mid \hat\theta_i, \sigma_i, g(\alpha))\;
+        p(\alpha, \lambda \mid \hat{\boldsymbol\theta})\,
+        \mathrm{d}\alpha\,\mathrm{d}\lambda,
+```
+which integrates the at-fixed-$`g`$ posterior over the joint posterior
+of $`(\alpha, \lambda)`$. The integration is performed Monte Carlo via
+the HMC draws: at each iteration $`s = 1, \ldots, S`$ the sampler
+produces $`(\alpha^{(s)}, \lambda^{(s)})`$, the deterministic map yields
+$`g^{(s)} = \mathrm{softmax}(B \alpha^{(s)})`$, the per-site weights
+$`w_{ij}^{(s)}`$ are recomputed at $`g^{(s)}`$, and the per-site
+posterior summaries (mean, standard deviation, MAP, replicate) are
+computed at that iteration’s $`g^{(s)}`$. Posterior summaries on
+$`\theta_i`$ are then Monte Carlo averages or quantiles over the $`S`$
+iterations. The integration over $`(\alpha, \lambda)`$ is therefore
+implicit in the across-iteration aggregation.
+
+The shrinkage interpretation of the per-site posterior follows from the
+weights formula. Each $`w_{ij}`$ is the product of the prior mass
+$`g_j`$ at grid point $`\theta_j`$ and the Gaussian sampling kernel
+$`\mathcal{N}(\hat\theta_i; \theta_j, \sigma_i^2)`$, normalised across
+$`j`$. When $`\sigma_i`$ is small the kernel is sharp at
+$`\hat\theta_i`$ and the weights concentrate near grid points close to
+$`\hat\theta_i`$, so the posterior on $`\theta_i`$ sits close to
+$`\hat\theta_i`$ regardless of $`g`$. When $`\sigma_i`$ is large the
+kernel is broad and the prior $`g`$ dominates the weights, so the
+posterior on $`\theta_i`$ is pulled toward the mass of $`g`$. The
+strength of shrinkage toward $`g`$ is therefore site-specific and
+continuous in $`\sigma_i`$, which is the standard Robbins-Efron
+empirical-Bayes shrinkage pattern adapted to a heteroscedastic sampling
+design.
+
+## Functionals of $`g`$
+
+The package also reports posterior summaries of two functionals of
+$`g`$: its mean and its variance. At a single iteration $`s`$ with
+$`g^{(s)} =
+\mathrm{softmax}(B \alpha^{(s)})`$, these functionals are deterministic
+sums on the grid:
+``` math
+\mathbb{E}_{g^{(s)}}[\theta]
+  \;=\; \sum_{l=1}^{L} \theta_l\, g_l^{(s)},
+  \qquad
+  \mathrm{Var}_{g^{(s)}}[\theta]
+  \;=\; \sum_{l=1}^{L} \big(\theta_l - \mathbb{E}_{g^{(s)}}[\theta]\big)^2\, g_l^{(s)}.
+```
+The standard deviation is $`\sqrt{\mathrm{Var}_{g^{(s)}}[\theta]}`$.
+Stan computes these as the generated quantities `mean_g`, `var_g`, and
+`sd_g`, respectively, using the two-pass form $`\mathbb{E}[\theta^2] -
+\mathbb{E}[\theta]^2`$ on the grid (vignette M5 documents the numerical
+discipline).
+
+The metadata fields `mean_g_summary`, `var_g_summary`, and
+`sd_g_summary` carry posterior summaries of these draw-wise quantities
+across the $`S`$ HMC iterations. A posterior median of `mean_g_summary`
+is therefore the median across iterations of
+$`\sum_l \theta_l\, g_l^{(s)}`$ — an expectation under the posterior of
+$`g`$, not a property of any single $`g`$-curve. Two facts about this
+construction deserve emphasis.
+
+First, the package does not return a posterior summary of an arbitrary
+functional $`T(g)`$. The three functionals it does return (the first
+moment, the variance, and the standard deviation) are sufficient for the
+calibration claims the package makes and parsimonious enough to fit in
+the 13-field metadata contract; richer functionals (quantiles of $`g`$,
+tail probabilities, density values at user-specified anchors) are
+available through `fit$draws` for users willing to compute them
+externally.
+
+Second, the integration over the joint posterior of
+$`(\alpha, \lambda)`$ is the load-bearing distinction between the
+package’s reports of $`g`$ and a fixed-$`g`$ plug-in. The plug-in
+summaries from an empirical-Bayes estimator condition on
+$`\hat g = g_{\hat\alpha}`$ as if it were known; the posterior summaries
+here propagate the uncertainty in $`(\alpha, \lambda)`$ into every
+functional of $`g`$ that the package returns.
+
+## The 13-field metadata contract from the hierarchy perspective
+
+The `fit$metadata` list has exactly thirteen named fields and four
+durable attributes. The named fields are `model_family`, `grid_method`,
+`seed`, `cmdstan_version`, `stan_file_sha256`, `data_list`,
+`runtime_seconds`, `mean_g_summary`, `var_g_summary`, `theta_summary`,
+`theta_rep_draws`, `effective_params_summary`, and
+`log_marginal_likelihood_summary`. The durable attributes are
+`sd_g_summary`, `diagnostics`, `diagnostic_skipped`, and
+`sampler_diagnostics_failed`. The provenance from the DAG nodes is
+direct.
+
+**Two fields are per-site posterior summaries on $`\theta_i`$**, derived
+from the marginal $`p(\theta_i \mid \hat{\boldsymbol\theta})`$ of the
+Level 1 + Level 2 sub-graph after integration over
+$`(\alpha, \lambda)`$:
+
+- `theta_summary` — posterior point summaries (mean, standard deviation,
+  posterior intervals) of $`\theta_i`$ for each $`i = 1, \ldots, K`$.
+- `theta_rep_draws` — full draws of the posterior predictive replicate
+  $`\theta_i^{\mathrm{rep}}`$ (see next section), retained because the
+  release-blocking coverage diagnostic is built from across-draw
+  quantiles of these replicates rather than from across-draw quantiles
+  of the posterior mean estimator.
+
+**Two named fields plus one attribute are posterior summaries of
+functionals of $`g`$**, derived from the Level 3 sub-graph after
+integration over $`(\alpha, \lambda)`$:
+
+- `mean_g_summary` — posterior summary of $`\mathbb{E}_g[\theta]`$
+  (named field).
+- `var_g_summary` — posterior summary of $`\mathrm{Var}_g[\theta]`$
+  (named field).
+- `sd_g_summary` — posterior summary of $`\mathrm{SD}_g[\theta]`$,
+  stored as a durable attribute of `fit$metadata`. The attribute layout
+  is documented on
+  [`?bayes_efron_fit`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md).
+
+**Two fields are model-quality diagnostics** on the joint posterior:
+
+- `effective_params_summary` — posterior summary of the diagnostic
+  effective-parameter count $`p_{\mathrm{eff}} = K - \sum_i
+  \mathrm{Var}[\theta_i \mid \hat\theta_i, g] / \sigma_i^2`$. The
+  quantity is exposed for inspection only; vignette M5 discusses the
+  $`\sigma_i \to 0`$ amplification that limits its usefulness as a
+  model-comparison statistic.
+- `log_marginal_likelihood_summary` — posterior summary of $`\sum_i
+  \log p(\hat\theta_i \mid g, \sigma_i)`$, the data’s log-marginal under
+  the per-iteration $`g`$. Future versions (v0.2+) will build a
+  publication-ready LOO-CV facility on top of this quantity.
+
+**Seven fields are reproducibility and bookkeeping metadata** rather
+than nodes in the DAG:
+
+- `model_family` — the model identifier (`"RE"` for v0.1).
+- `grid_method` — the grid recipe used to construct
+  $`\boldsymbol\theta`$ and $`B`$ (vignette M4).
+- `data_list` — the seven-field Stan data block that was actually sent
+  to CmdStan (`K`, `theta_hat`, `sigma`, `L`, `grid`, `M`, `B`).
+- `runtime_seconds` — sampler wall-clock.
+- `seed`, `cmdstan_version`, `stan_file_sha256` — the integer seed used
+  for the run (auto-generated if `seed = NULL` at the call site), the
+  CmdStan version string, and the SHA-256 of the byte-locked Stan
+  source. Together with `data_list` and a matching toolchain
+  environment, these support practical re-play of the fit.
+
+The remaining three durable attributes (`diagnostics`,
+`diagnostic_skipped`, `sampler_diagnostics_failed`) surface the
+sampler-diagnostic findings; they are consumed by
+[`summary()`](https://rdrr.io/r/base/summary.html) and
+[`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+rather than read directly. Together with `sd_g_summary`, they make up
+the four attribute payloads stated at the top of this section.
+
+## Posterior predictive replicates
+
+The release-blocking interval estimand is the posterior predictive
+replicate $`\theta_i^{\mathrm{rep}}`$. At each MCMC iteration $`s`$,
+with $`g^{(s)}`$ available and per-site weights $`w_{ij}^{(s)}`$
+computed, $`\theta_i^{\mathrm{rep}}`$ is drawn from the per-site
+posterior on the grid:
+``` math
+\theta_i^{\mathrm{rep}, (s)}
+  \;\sim\;
+  \mathrm{Categorical}_{\boldsymbol\theta}\!\big(\mathbf{w}^{(i, s)}\big),
+  \qquad
+  w_{ij}^{(s)} \propto \exp\!\big\{\log g_j^{(s)} +
+    \log \mathcal{N}(\hat\theta_i;\, \theta_j, \sigma_i^2)\big\}.
+```
+This is a draw from the distribution $`p(\theta \mid \hat\theta_i,
+\sigma_i, g^{(s)}) \propto g^{(s)}(\theta)\, p(\hat\theta_i \mid \theta,
+\sigma_i)`$ on the grid, for fixed site $`i`$ and at the current
+iteration’s $`g^{(s)}`$.
+
+The distinction from the per-iteration posterior mean
+$`\theta_i^{\mathrm{mean}, (s)} = \sum_j w_{ij}^{(s)}\, \theta_j`$ is
+load-bearing. Quantiles of `theta_mean` across MCMC iterations give a
+credible interval for the **estimator**; they omit the conditional
+posterior dispersion of $`\theta_i`$ around its mean at each iteration.
+Quantiles of `theta_rep` across MCMC iterations integrate over both the
+across-iteration uncertainty in $`(\alpha, \lambda, g)`$ and the
+within-iteration posterior on $`\theta_i`$, giving a calibrated
+parameter-uncertainty interval. The package stores the full draws as
+`theta_rep_draws` precisely so that the calibrated intervals can be
+recomputed from the fit object without re-sampling. Vignette M6 reports
+the empirical coverage of these intervals on the locked Lee-Sui
+benchmark.
+
+## Reading map
+
+This vignette stated the hierarchy, diagrammed it, derived the marginal
+and the functionals of $`g`$ that the package returns, and mapped the
+thirteen metadata fields back to the DAG. The remaining methodological
+vignettes carry the construction into implementation and verification.
+
+- **M4 — Grid construction.** The four grid recipes exposed by
+  [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  (`paper_realdata`, `paper_simulation`, `paper_sensitivity`,
+  `kl_target_experimental`), the construction of the basis matrix $`B`$,
+  the rank-postcondition guard against identifiability failure, and the
+  trade-offs between grid width and resolution.
+- **M5 — Stan model and cache.** The byte-locked Stan source
+  `inst/stan/efron_re.stan`, the ten numerical-stability disciplines
+  (`log_softmax`, `log_sum_exp`, max-shift normalisation, two-pass
+  variance), and the two-tier cache that prevents redundant compilation.
+- **M6 — Verification and calibration.** End-to-end coverage
+  verification on the locked benchmark fixtures, the release-blocking
+  acceptance band on the per-site replicate intervals ($`[0.87, 0.92]`$
+  at nominal $`0.90`$), and the diagnostic surface of the fitted object.
+
+A reader who has followed M1–M3 now has the complete model specification
+and a clear picture of the inferential payload `fit$metadata` carries;
+M4–M6 close the loop from specification to implementation and verified
+calibration.

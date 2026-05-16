@@ -1,0 +1,160 @@
+url: https://joonho112.github.io/bayesEfron/
+
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#3D348B"
+  opengraph:
+    image:
+      src: man/figures/logo.png
+      alt: "bayesEfron hex sticker"
+
+authors:
+  JoonHo Lee:
+    href: https://github.com/joonho112
+
+home:
+  title: "bayesEfron — Fully Bayesian Efron log-spline deconvolution"
+  description: |
+    A Bayesian R package for univariate random-effects meta-analytic
+    deconvolution with heteroscedastic within-study standard errors.
+    Given per-site effect estimates and standard errors, `bayesEfron`
+    fits the fully Bayesian Efron log-spline prior through CmdStan
+    and returns posterior site effects together with a continuous
+    estimate of the underlying mixing distribution.
+
+    This research was supported by the Institute of Education
+    Sciences, U.S. Department of Education, through Grant
+    R305D240078 to the University of Alabama. The opinions expressed
+    are those of the authors and do not represent views of the
+    Institute or the U.S. Department of Education.
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, news]
+    right: [search, github]
+  components:
+    intro:
+      text: Get started
+      href: articles/a1-getting-started.html
+    articles:
+      text: Vignettes
+      menu:
+      - text: '--- Applied Track ---'
+      - text: A1 · Getting started
+        href: articles/a1-getting-started.html
+      - text: A2 · Anatomy of a bayesEfron fit
+        href: articles/a2-anatomy-of-a-fit.html
+      - text: A3 · From metafor::escalc() to bayesEfron
+        href: articles/a3-metafor-bridge.html
+      - text: A4 · Choosing a grid
+        href: articles/a4-choosing-a-grid.html
+      - text: A5 · Diagnostics in practice
+        href: articles/a5-diagnostics-in-practice.html
+      - text: A6 · Plotting and visualization
+        href: articles/a6-plotting-and-visualization.html
+      - text: A7 · Case study — Lee–Sui replication light
+        href: articles/a7-case-study-lee-sui.html
+      - text: '--- Methodological Track ---'
+      - text: M1 · The empirical-Bayes deconvolution problem
+        href: articles/m1-empirical-bayes-deconvolution.html
+      - text: M2 · The Efron log-spline prior
+        href: articles/m2-efron-log-spline-prior.html
+      - text: M3 · Bayesian random-effects hierarchy
+        href: articles/m3-bayesian-hierarchy.html
+      - text: M4 · Grid construction and spline basis
+        href: articles/m4-grid-and-basis.html
+      - text: M5 · Stan model, sampler, and cache
+        href: articles/m5-stan-and-cache.html
+      - text: M6 · Verification and calibration
+        href: articles/m6-verification-and-calibration.html
+    github:
+      icon: fab fa-github
+      href: https://github.com/joonho112/bayesEfron
+      aria-label: GitHub
+
+articles:
+- title: Applied Track
+  desc: >
+    Workflow-oriented walkthroughs from a five-minute landing
+    example through anatomy of a fit, the `metafor::escalc()`
+    bridge, grid choice, diagnostics, plotting, and a worked case
+    study.
+  navbar: ~
+  contents:
+  - "a1-getting-started"
+  - "a2-anatomy-of-a-fit"
+  - "a3-metafor-bridge"
+  - "a4-choosing-a-grid"
+  - "a5-diagnostics-in-practice"
+  - "a6-plotting-and-visualization"
+  - "a7-case-study-lee-sui"
+- title: Methodological Track
+  desc: >
+    Mathematical background — the empirical-Bayes deconvolution
+    problem, the Efron log-spline prior, the random-effects
+    hierarchy, grid construction and spline basis, the Stan model
+    and cache, and the verification ladder that gates the v0.1
+    release.
+  navbar: ~
+  contents:
+  - "m1-empirical-bayes-deconvolution"
+  - "m2-efron-log-spline-prior"
+  - "m3-bayesian-hierarchy"
+  - "m4-grid-and-basis"
+  - "m5-stan-and-cache"
+  - "m6-verification-and-calibration"
+
+reference:
+- title: Package
+  contents:
+  - bayesEfron-package
+- title: Fit
+  desc: >
+    Primary entry point for fitting the fully Bayesian Efron
+    log-spline prior to a univariate random-effects deconvolution
+    problem.
+  contents:
+  - bayes_efron_fit
+- title: Data preparation
+  desc: >
+    Convert effect-size inputs (plain list or `metafor::escalc()`
+    object) into the canonical `bef_data` class consumed by the
+    fit pipeline.
+  contents:
+  - as_bef_data
+- title: Grid construction
+  desc: >
+    Build the discrete support and natural-cubic-spline basis used
+    by the Stan model. Four recipes covering the paper's
+    real-data, simulation, sensitivity, and an experimental
+    KL-target setting.
+  contents:
+  - make_efron_grid
+- title: Compile and cache
+  desc: >
+    Pre-warm the Stan model cache and maintain the on-disk and
+    in-session cache layers.
+  contents:
+  - bayes_efron_compile
+  - bayes_efron_clear_cache
+- title: Diagnostics
+  desc: >
+    Sampler-health and convergence diagnostics produced by the fit
+    pipeline.
+  contents:
+  - diagnose
+- title: Visualization
+  desc: >
+    Caterpillar, prior-summary, sensitivity, and diagnostic views.
+    Both ggplot2 and base-graphics backends.
+  contents:
+  - plot.bef_fit_re
+- title: S3 methods
+  desc: >
+    Family-agnostic methods on the parent `bef_fit` class
+    (`summary`, `print`, `coef`, `vcov`, `confint`,
+    `as.data.frame`, `nobs`, `logLik`, `posterior::as_draws`) plus
+    `format`/`print`/`summary` on `bef_data` and `bef_diagnostic`.
+  contents:
+  - bayesEfron-methods

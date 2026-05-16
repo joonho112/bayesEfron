@@ -1,0 +1,51 @@
+Package: bayesEfron
+Type: Package
+Title: Fully Bayesian Inference for the Empirical-Bayes Deconvolution Problem
+Version: 0.1.0
+Authors@R: person("JoonHo", "Lee",
+    role = c("aut", "cre", "cph"),
+    email = "joonho112@users.noreply.github.com",
+    comment = c(ORCID = "0009-0006-4019-8703"))
+Description: Fits the fully Bayesian Efron log-spline prior for
+    meta-analytic deconvolution in univariate random-effects settings with
+    heteroscedastic within-study standard errors. The package takes
+    study-level effect estimates and standard errors, estimates a continuous
+    mixing distribution, and returns posterior summaries for latent site
+    effects. CmdStan is invoked through 'cmdstanr' with lazy compilation and
+    a two-tier on-disk cache. Supporting utilities cover grid construction,
+    input conversion from 'metafor' and tidy data frames, sampler
+    diagnostics, posterior plotting, and reproducibility metadata.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Language: en-US
+Depends:
+    R (>= 4.1.0)
+Imports:
+    stats,
+    splines,
+    posterior (>= 1.5.0),
+    checkmate (>= 2.2.0),
+    rlang (>= 1.1.0),
+    digest (>= 0.6.30)
+Suggests:
+    cmdstanr (>= 0.7.0),
+    cli (>= 3.6.0),
+    ggplot2 (>= 3.4.0),
+    ps (>= 1.7.0),
+    jsonlite (>= 1.8.0),
+    knitr (>= 1.45),
+    rmarkdown (>= 2.25),
+    testthat (>= 3.2.0),
+    metafor (>= 4.4.0),
+    withr (>= 2.5.0),
+    desc (>= 1.4.0)
+SystemRequirements: CmdStan (>= 2.34.0; https://mc-stan.org/cmdstanr/)
+Additional_repositories: https://stan-dev.r-universe.dev
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Config/testthat/parallel: true
+URL: https://github.com/joonho112/bayesEfron, https://joonho112.github.io/bayesEfron/
+BugReports: https://github.com/joonho112/bayesEfron/issues
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+LazyData: false

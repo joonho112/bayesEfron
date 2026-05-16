@@ -1,0 +1,175 @@
+name: R-CMD-check
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      live:
+        description: "Optional live-test envelope"
+        type: choice
+        options: ["none", "smoke", "full"]
+        default: "none"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: R-CMD-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  R-CMD-check:
+    runs-on: ${{ matrix.config.os }}
+    timeout-minutes: 90
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {os: ubuntu-latest, r: "release"}
+          - {os: ubuntu-latest, r: "devel"}
+          - {os: ubuntu-latest, r: "oldrel-1"}
+          - {os: macos-latest, r: "release"}
+          - {os: macos-latest, r: "devel"}
+          - {os: macos-latest, r: "oldrel-1"}
+          - {os: windows-latest, r: "release"}
+          - {os: windows-latest, r: "devel"}
+          - {os: windows-latest, r: "oldrel-1"}
+
+    env:
+      R_KEEP_PKG_SOURCE: yes
+      _R_CHECK_FORCE_SUGGESTS_: true
+      BAYESEFRON_RUN_PARITY: ${{ matrix.config.os == 'ubuntu-latest' && matrix.config.r == 'release' && '1' || '0' }}
+      BAYESEFRON_RUN_LIVE: ${{ matrix.config.os == 'ubuntu-latest' && matrix.config.r == 'release' && ((github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'live-ci')) || (github.event_name == 'workflow_dispatch' && inputs.live == 'smoke')) && '1' || '0' }}
+      BAYESEFRON_RUN_FULL_LIVE: ${{ matrix.config.os == 'ubuntu-latest' && matrix.config.r == 'release' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.live == 'full')) && '1' || '0' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.r }}
+          use-public-rspm: true
+
+      - name: Cache CmdStan and bayesEfron compiled models
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cmdstan
+            ~/.cache/R/bayesEfron
+            ~/Library/Caches/org.R-project.R/R/bayesEfron
+            ~\AppData\Local\R\Cache\R\bayesEfron
+            ~\AppData\Local\R\bayesEfron
+          key: ${{ runner.os }}-r-${{ matrix.config.r }}-cmdstan-${{ hashFiles('DESCRIPTION', 'inst/stan/efron_re.stan') }}
+          restore-keys: |
+            ${{ runner.os }}-r-${{ matrix.config.r }}-cmdstan-
+            ${{ runner.os }}-cmdstan-
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: |
+            any::rcmdcheck
+            stan-dev/cmdstanr
+          needs: check
+
+      - name: Install CmdStan
+        if: matrix.config.os == 'ubuntu-latest' && matrix.config.r == 'release'
+        run: Rscript -e 'cmdstanr::install_cmdstan(cores = 2)'
+
+      - name: Prepare Tier 3 full-live replay matrix
+        if: env.BAYESEFRON_RUN_FULL_LIVE == '1'
+        shell: bash
+        run: |
+          Rscript --vanilla - <<'RS'
+          source_matrix <- file.path(
+            Sys.getenv("GITHUB_WORKSPACE"),
+            "log",
+            "142_step7.7-tier3-full-live-matrix_evidence",
+            "tier3-full-live-matrix.csv"
+          )
+          if (!file.exists(source_matrix)) {
+            stop("Accepted Tier 3 full-live replay matrix is missing: ", source_matrix, call. = FALSE)
+          }
+
+          matrix <- utils::read.csv(
+            source_matrix,
+            stringsAsFactors = FALSE,
+            check.names = FALSE
+          )
+          workspace <- normalizePath(Sys.getenv("GITHUB_WORKSPACE"), mustWork = TRUE)
+          workspace_normalized <- normalizePath(workspace, winslash = "/", mustWork = TRUE)
+
+          is_absolute_path <- function(x) {
+            grepl("^([A-Za-z]:[/\\\\]|/|~)", x)
+          }
+
+          resolve_workspace_path <- function(x) {
+            if (is.na(x) || !nzchar(x)) {
+              return(x)
+            }
+            x <- path.expand(x)
+            if (is_absolute_path(x)) {
+              resolved <- normalizePath(x, winslash = "/", mustWork = FALSE)
+              workspace_prefix <- paste0(workspace_normalized, "/")
+              if (!identical(resolved, workspace_normalized) && !startsWith(resolved, workspace_prefix)) {
+                stop(
+                  "Tier 3 full-live matrix path must be repo-relative or under GITHUB_WORKSPACE: ",
+                  x,
+                  call. = FALSE
+                )
+              }
+              return(resolved)
+            }
+            normalizePath(file.path(workspace, x), winslash = "/", mustWork = FALSE)
+          }
+
+          path_columns <- intersect(
+            c("evidence_path", "evidence_log", "source_aggregate", "source_per_replication"),
+            names(matrix)
+          )
+          for (column in path_columns) {
+            matrix[[column]] <- vapply(matrix[[column]], resolve_workspace_path, character(1))
+          }
+
+          if ("evidence_path" %in% names(matrix)) {
+            missing_evidence <- matrix$evidence_path[!dir.exists(matrix$evidence_path)]
+            if (length(missing_evidence) > 0L) {
+              stop(
+                "Tier 3 full-live evidence directories are missing after CI path rewrite: ",
+                paste(missing_evidence, collapse = ", "),
+                call. = FALSE
+              )
+            }
+          }
+          file_columns <- intersect(
+            c("evidence_log", "source_aggregate", "source_per_replication"),
+            names(matrix)
+          )
+          for (column in file_columns) {
+            missing_files <- matrix[[column]][!file.exists(matrix[[column]])]
+            if (length(missing_files) > 0L) {
+              stop(
+                "Tier 3 full-live matrix files are missing after CI path resolution: ",
+                paste(missing_files, collapse = ", "),
+                call. = FALSE
+              )
+            }
+          }
+
+          out <- file.path(Sys.getenv("RUNNER_TEMP"), "tier3-full-live-matrix-ci.csv")
+          utils::write.csv(matrix, out, row.names = FALSE, na = "")
+          cat("BAYESEFRON_TIER3_FULL_LIVE_MATRIX=", out, "\n", file = Sys.getenv("GITHUB_ENV"), append = TRUE, sep = "")
+          cat("Prepared Tier 3 full-live replay matrix: ", out, "\n", sep = "")
+          RS
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          args: 'c("--no-manual", "--as-cran")'
+          build_args: 'c("--no-manual")'
+          error-on: '"warning"'

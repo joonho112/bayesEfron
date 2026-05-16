@@ -1,0 +1,221 @@
+---
+title: "A1 · Getting started"
+description: "A five-minute first fit on a five-site toy dataset."
+output:
+  rmarkdown::html_vignette:
+    fig_width: 7
+    fig_height: 4.5
+vignette: >
+  %\VignetteIndexEntry{A1 · Getting started}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo     = TRUE,
+  collapse = TRUE,
+  comment  = "#>",
+  message  = FALSE,
+  warning  = FALSE
+)
+library(bayesEfron)
+```
+
+## Problem framing
+
+`bayesEfron` addresses the canonical univariate random-effects
+meta-analytic deconvolution problem. For each of $K$ sites the
+analyst observes a point estimate $\hat\theta_i$ and a within-study
+standard error $\sigma_i$, with $\sigma_i$ allowed to vary across
+sites (heteroscedastic). The generative assumption is two-stage:
+the latent site effects $\theta_i$ are drawn from a continuous
+mixing distribution $g(\theta)$, and the observed estimates satisfy
+$\hat\theta_i \mid \theta_i \sim \mathcal{N}(\theta_i,\,\sigma_i^2)$.
+
+The package decomposes the meta-analyst's question into **two
+distinct inferential targets**:
+
+1. **The mixing distribution $g(\theta)$ itself.** A nonparametric
+   density estimated through Efron's log-spline prior on a fixed
+   grid of effect-size values. This is the "population"
+   distribution of true site effects.
+2. **The per-site posteriors $\theta_i \mid \hat\theta_i, \sigma_i$.**
+   Empirical-Bayes shrunken estimates, with each $\theta_i$ pulled
+   toward $g$ by an amount that depends on $\sigma_i$.
+
+A single call to `bayes_efron_fit()` returns both. The remainder of
+this vignette walks through a five-site toy fit and reads the two
+targets off the returned object.
+
+## Inputs
+
+The toy dataset is five sites with effect estimates ranging from
+$-0.21$ to $0.61$ and within-study standard errors between $0.15$
+and $0.24$.
+
+```{r inputs}
+theta_hat <- c(-0.21, 0.04, 0.19, 0.38, 0.61)
+sigma     <- c( 0.18, 0.15, 0.22, 0.19, 0.24)
+```
+
+## Convert with `as_bef_data()`
+
+The package's input class normalizes the two parallel vectors and
+records a `source` tag for provenance.
+
+```{r as-bef}
+dat <- as_bef_data(list(theta_hat = theta_hat, sigma = sigma))
+dat
+```
+
+## The fit call
+
+```{r fit-call, eval = FALSE}
+fit <- bayes_efron_fit(
+  theta_hat     = c(-0.21, 0.04, 0.19, 0.38, 0.61),
+  sigma         = c( 0.18, 0.15, 0.22, 0.19, 0.24),
+  L             = 51L,
+  M             = 3L,
+  chains        = 1L,
+  iter_warmup   = 150L,
+  iter_sampling = 100L,
+  seed          = 1234L
+)
+```
+
+`L = 51L` is the discrete-grid resolution and `M = 3L` is the
+natural-cubic-spline degrees of freedom; both are deliberately small
+for a smoke-scale fit. The warmup and sampling counts are short for
+the same reason. Substantive analyses raise these to package
+defaults (four chains × 1000 warmup × 3000 sampling, $L = 101$,
+$M = 6$); see the **Scaling up** section at the end.
+
+## Cached fixture
+
+To keep this vignette free of a CmdStan dependency at render time
+we load a cached fixture produced by exactly the call above.
+
+```{r load-fit}
+fit <- readRDS(
+  system.file("examples", "cached_fit_re_smoke.rds",
+              package = "bayesEfron")
+)
+class(fit)
+```
+
+## `summary(fit)`
+
+```{r summary}
+fit_summary <- summary(fit)
+fit_summary
+```
+
+The printed object has three blocks. **Prior g** holds the
+posterior-mean summary of the mixing distribution — the answer to
+target (1). **Diagnostics** reports Hamiltonian Monte Carlo health
+and the Stan-model fingerprint. **Theta summary** is the per-site
+posterior table — the answer to target (2).
+
+## The two targets, side by side
+
+The same `fit` object carries the population-level and site-level
+quantities. Pulling them into one table makes the contrast
+explicit.
+
+```{r two-targets}
+ps         <- fit_summary$prior_summary
+post_means <- coef(fit)
+
+prior_row <- data.frame(
+  level    = "Prior g (population)",
+  site     = NA_integer_,
+  estimate = ps$mean,
+  scale    = ps$sd,
+  note     = "mean and sd of g(theta)"
+)
+
+site_rows <- data.frame(
+  level    = "Posterior theta_i (per site)",
+  site     = seq_along(post_means),
+  estimate = unname(post_means),
+  scale    = fit_summary$theta_summary$sd,
+  note     = "posterior mean and sd"
+)
+
+knitr::kable(
+  rbind(prior_row, site_rows),
+  digits  = 3,
+  caption = paste(
+    "Two inferential targets from one fit:",
+    "the prior g (top row) and the per-site posterior latent",
+    "effects (rows 1-5)."
+  )
+)
+```
+
+Two patterns to read off the table. First, every posterior
+`estimate` falls between the corresponding raw $\hat\theta_i$ and
+the prior mean of $g$ — the shrinkage signature. Site 5, the most
+extreme observed estimate ($\hat\theta_5 = 0.61$), shrinks furthest
+in absolute terms toward the prior mean. Second, each posterior
+`scale` value is smaller than the corresponding $\sigma_i$,
+reflecting the precision gain from partial pooling under $g$.
+
+## Caterpillar plot
+
+The caterpillar plot reads the posterior table visually.
+
+```{r caterpillar, fig.cap = "Per-site posterior latent effects with 90 percent credible intervals from the cached five-site smoke fit. Sites are ordered by site index."}
+plot(fit, type = "caterpillar")
+```
+
+The vertical scatter of the posterior means traces the rank order
+of the raw estimates; the interval half-widths reflect $\sigma_i$
+together with the regularization induced by $g$.
+
+## Diagnostics, briefly
+
+The cached fixture uses one chain with 100 sampling iterations — a
+smoke-scale configuration. The **Diagnostics** block in
+`summary(fit)` shows $\widehat{R} \approx 1.2$ and bulk ESS in the
+low teens, both well outside the conventional release thresholds
+($\widehat{R} < 1.01$, ESS $> 400$). That is expected for a
+deliberately short run and is the reason this configuration is
+reserved for compile-and-run verification, not for inference. See
+the **A5 · Diagnostics in practice** vignette for the diagnostic
+checklist used on substantive fits.
+
+## What's next
+
+Three follow-on vignettes carry the workflow forward:
+
+- **A2 · Anatomy of a `bayesEfron` fit** — every field of the
+  returned object, every S3 method on the parent / RE-child class
+  hierarchy.
+- **A3 · From `metafor::escalc()` to bayesEfron** — the
+  end-to-end path starting from group treatment / control summaries
+  through a working fit and its outputs.
+- **M1 · The empirical-Bayes deconvolution problem** — the formal
+  motivation for the log-spline prior, the role of fully Bayesian
+  inference over Efron's original empirical-Bayes formulation, and
+  the connection to the broader literature.
+
+## Scaling up
+
+The cached fit uses five sites, one chain, and 100 sampling
+iterations. Production analyses should:
+
+* Use the package defaults (`L = 101`, `M = 6`,
+  `chains = 4`, `iter_warmup = 1000`, `iter_sampling = 3000`).
+* Confirm $\widehat{R} < 1.01$ with bulk ESS above 400 for the
+  posterior-of-interest summaries.
+* Replace the toy vectors with `as_bef_data()` applied to either a
+  named list of `theta_hat` / `sigma` or a `metafor::escalc()`
+  object — the **A3** vignette walks through the latter.
+
+The compile-and-cache layer ensures the Stan model is compiled
+once; subsequent fits with matching model source, package version,
+CmdStan version, and platform reuse the cached binary. The first
+call in a fresh session pays the compilation cost (typically tens
+of seconds); later calls do not.

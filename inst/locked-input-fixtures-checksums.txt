@@ -1,0 +1,4 @@
+target_id	path	sha256	provenance
+tier0_input_fixture_paper_realdata_sha256	tests/testthat/_fixtures/grid/paper_realdata_inputs.rds	21de0669bbdfa51ff123341b2bc43face002e00756e7f081f8a4709bc2a643b5	Lee-Sui public real-data source-input fixture for the Tier 0 paper_realdata grid.
+tier0_input_fixture_paper_simulation_sha256	tests/testthat/_fixtures/grid/paper_simulation_inputs.rds	f43a48c460cbe1ed4f8dd314b121bbb961df934e5153177ef07fc8c5518822f0	Lee-Sui public simulation source-input fixture for the Tier 0 paper_simulation grid.
+tier0_input_fixture_paper_sensitivity_sha256	tests/testthat/_fixtures/grid/paper_sensitivity_inputs.rds	5bcfb234813bf604e13a9c1c20e80cb3ef84bc71264be73b68999444fe21340a	Lee-Sui public simulation source-input fixture for the Tier 0 paper_sensitivity grid.

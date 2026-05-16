@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 580" width="500" height="580">
+  <defs>
+    <clipPath id="hexClip">
+      <polygon points="490,290 370,498 130,498 10,290 130,82 370,82"/>
+    </clipPath>
+  </defs>
+  <rect x="0" y="0" width="500" height="580" fill="#FFFFFF"/>
+  <polygon points="490,290 370,498 130,498 10,290 130,82 370,82"
+           fill="#FFFFFF" stroke="#3D348B" stroke-width="6" stroke-linejoin="round"/>
+  <g clip-path="url(#hexClip)">
+    <g fill="#C9B8E8" fill-opacity="0.55" stroke="none">
+      <rect x="115" y="305" width="32" height="55"/>
+      <rect x="150" y="270" width="32" height="90"/>
+      <rect x="185" y="220" width="32" height="140"/>
+      <rect x="220" y="190" width="32" height="170"/>
+      <rect x="255" y="210" width="32" height="150"/>
+      <rect x="290" y="245" width="32" height="115"/>
+      <rect x="325" y="295" width="32" height="65"/>
+    </g>
+    <line x1="100" y1="360" x2="400" y2="360" stroke="#5D4E91" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="100" y1="350" x2="100" y2="372" stroke="#5D4E91" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="400" y1="350" x2="400" y2="372" stroke="#5D4E91" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M 100,358 C 140,355 170,340 195,300 C 215,265 230,210 250,185 C 270,210 285,250 305,290 C 325,325 355,348 400,358"
+          fill="none" stroke="#3D348B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <g fill="#3D348B" stroke="#FFFFFF" stroke-width="1.5">
+      <circle cx="130" cy="360" r="9"/>
+      <circle cx="190" cy="360" r="9"/>
+      <circle cx="250" cy="360" r="9"/>
+      <circle cx="310" cy="360" r="9"/>
+      <circle cx="370" cy="360" r="9"/>
+    </g>
+  </g>
+  <text x="250" y="455" text-anchor="middle" font-family="serif" font-size="44" fill="#3D348B">
+    <tspan font-style="italic">bayes</tspan><tspan font-style="normal">Efron</tspan>
+  </text>
+</svg>

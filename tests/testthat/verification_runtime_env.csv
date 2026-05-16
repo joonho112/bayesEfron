@@ -1,0 +1,7 @@
+target_id,R_version_string,splines_pkg_version,RDS_serialization_version,platform,BLAS_LAPACK
+tier0_grid_method_realdata_byte_identity,R version 4.5.1 (2025-06-13),4.5.1,3,aarch64-apple-darwin20,BLAS=/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib | LAPACK=NA
+tier0_grid_method_simulation_byte_identity,R version 4.5.1 (2025-06-13),4.5.1,3,aarch64-apple-darwin20,BLAS=/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib | LAPACK=NA
+tier0_grid_method_sensitivity_byte_identity,R version 4.5.1 (2025-06-13),4.5.1,3,aarch64-apple-darwin20,BLAS=/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib | LAPACK=NA
+tier0_locked_stan_sha256,R version 4.5.1 (2025-06-13),4.5.1,3,aarch64-apple-darwin20,BLAS=/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib | LAPACK=NA
+tier0_locked_grid_R_sha256,R version 4.5.1 (2025-06-13),4.5.1,3,aarch64-apple-darwin20,BLAS=/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib | LAPACK=NA
+tier0_locked_data_prep_R_sha256,R version 4.5.1 (2025-06-13),4.5.1,3,aarch64-apple-darwin20,BLAS=/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib | LAPACK=NA
