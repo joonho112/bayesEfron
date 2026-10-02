@@ -1,0 +1,235 @@
+# bayesEfron
+
+A meta-analysis or a multisite trial gives an estimate and a standard
+error for each site. The usual random-effects model assumes that the
+true effects behind the estimates follow a normal distribution.
+bayesEfron fits the same model without that assumption. It estimates the
+distribution of true effects, which may be skewed or have more than one
+peak, together with the effect of each site. The distribution is
+represented by Efron’s log-spline family and the model is fully
+Bayesian, so that the intervals for the site effects include the
+uncertainty about the distribution ([Lee and Sui,
+2025](https://doi.org/10.3390/math13162639)).
+
+## Installation
+
+The package is installed from GitHub.
+
+``` r
+
+# install.packages("remotes")
+remotes::install_github("joonho112/bayesEfron")
+```
+
+The vignettes are on the [package
+website](https://joonho112.github.io/bayesEfron/). To install them with
+the package, install knitr and rmarkdown, make sure that Pandoc is
+available (RStudio includes it), and add `build_vignettes = TRUE` to the
+call above.
+
+Fitting a model also needs the cmdstanr package and CmdStan, neither of
+which is on CRAN.
+
+``` r
+
+install.packages("cmdstanr",
+                 repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
+cmdstanr::install_cmdstan()
+```
+
+CmdStan is built from source and needs a C++ toolchain;
+[`cmdstanr::check_cmdstan_toolchain()`](https://mc-stan.org/cmdstanr/reference/install_cmdstan.html)
+says whether one is present, and the [cmdstanr
+documentation](https://mc-stan.org/cmdstanr/articles/cmdstanr.html)
+describes the setup for each operating system. The examples and
+vignettes of bayesEfron run without CmdStan.
+
+## Example
+
+`raudenbush1985` holds the results of 19 experiments on the effect of
+teachers’ expectations on their pupils’ IQ scores.
+
+``` r
+
+library(bayesEfron)
+
+fit <- bayes_efron_fit(
+  theta_hat = raudenbush1985$yi,   # the estimates
+  sigma = raudenbush1985$sei,      # their standard errors
+  seed = 1985
+)
+```
+
+The first call compiles the Stan model, which can take up to a minute.
+The result of this call is stored in the package as `raudenbush_fit`, so
+the lines below run without CmdStan.
+
+``` r
+
+fit <- raudenbush_fit
+summary(fit)               # the distribution of effects and each study's effect
+confint(fit, type = "g")   # mean and standard deviation of the distribution
+plot(fit, type = "g")      # the estimated distribution
+plot(fit)                  # the effect of each study, with intervals
+diagnose(fit)              # convergence diagnostics
+```
+
+With as few studies as these, the result for a study whose estimate is
+extreme and imprecise can depend on the width of the grid and on the
+number of spline functions.
+[`vignette("choosing-a-grid")`](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.md)
+shows how far it does for study 4 of this example, and such a result
+should be compared over a few specifications before it is reported.
+
+## Documentation
+
+[`vignette("bayesEfron")`](https://joonho112.github.io/bayesEfron/articles/bayesEfron.md)
+goes through this example.
+[`vignette("choosing-a-grid")`](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.md)
+and
+[`vignette("diagnostics")`](https://joonho112.github.io/bayesEfron/articles/diagnostics.md)
+cover the choices and the checks that go with a fit, and
+[`vignette("model")`](https://joonho112.github.io/bayesEfron/articles/model.md)
+states the model. The reference and all vignettes are at
+<https://joonho112.github.io/bayesEfron/>.
+
+## Citation
+
+To cite the package, cite the paper, as `citation("bayesEfron")` shows:
+
+> Lee, J. and Sui, D. (2025). Fully Bayesian inference for meta-analytic
+> deconvolution using Efron’s log-spline prior. *Mathematics*, 13(16),
+> 2639. <https://doi.org/10.3390/math13162639>
+
+## Funding
+
+This research was supported by the Institute of Education Sciences, U.S.
+Department of Education, through Grant R305D240078 to the University of
+Alabama. The opinions expressed are those of the authors and do not
+represent views of the Institute or the U.S. Department of Education.
+
+# Package index
+
+## Fit the model
+
+[`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+fits the model, and
+[`?bef_fit`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+describes the object that it returns and the methods for it.
+
+- [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  : Fit the Efron log-spline model to estimates and standard errors
+- [`print(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`summary(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`summary(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`print(`*`<summary.bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`coef(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`confint(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`vcov(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`fitted(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`as.data.frame(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`nobs(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`logLik(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`as_draws(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`format(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`format(`*`<summary.bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  : Fitted Efron log-spline model objects
+- [`predict(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/predict.bef_fit_re.md)
+  : Predict the effect or the estimate at a new site
+
+## Prepare the data and the grid
+
+Check the estimates and their standard errors, and build the grid and
+the spline basis on which the distribution of effects is represented.
+
+- [`as_bef_data()`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
+  [`print(`*`<bef_data>`*`)`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
+  [`summary(`*`<bef_data>`*`)`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
+  [`format(`*`<bef_data>`*`)`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
+  : Extract estimates and standard errors for a fit
+- [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  : Build the grid and spline basis for the effect distribution
+
+## Check and plot a fit
+
+Convergence diagnostics and plots of a fitted model.
+
+- [`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  [`print(`*`<bef_diagnostic>`*`)`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  [`summary(`*`<bef_diagnostic>`*`)`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  [`format(`*`<bef_diagnostic>`*`)`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  : Convergence diagnostics of a fitted model
+- [`plot(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/plot.bef_fit_re.md)
+  : Plot a fitted model
+
+## Compare models
+
+Leave-one-out cross-validation for one fit, and a comparison of several
+specifications of the grid and the spline basis.
+
+- [`loo(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/loo.bef_fit.md)
+  [`waic(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/loo.bef_fit.md)
+  : Leave-one-out cross-validation for a fitted model
+- [`compare_efron_grids()`](https://joonho112.github.io/bayesEfron/reference/compare_efron_grids.md)
+  [`print(`*`<bef_grid_comparison>`*`)`](https://joonho112.github.io/bayesEfron/reference/compare_efron_grids.md)
+  : Compare grids and numbers of spline functions by cross-validation
+
+## Compile the model
+
+Compile the Stan program before the first fit, or delete the compiled
+model.
+
+- [`bayes_efron_compile()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_compile.md)
+  [`bayes_efron_clear_cache()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_compile.md)
+  : Compile the Stan model ahead of time, or remove the compiled model
+
+## Data
+
+The teacher expectancy studies and the model fitted to them.
+
+- [`raudenbush1985`](https://joonho112.github.io/bayesEfron/reference/raudenbush1985.md)
+  : Teacher expectancy studies
+- [`raudenbush_fit`](https://joonho112.github.io/bayesEfron/reference/raudenbush_fit.md)
+  : Model fitted to the teacher expectancy studies
+
+## Package
+
+- [`bayesEfron-package`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-package.md)
+  [`bayesEfron`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-package.md)
+  : bayesEfron: Fully Bayesian Inference for the Empirical-Bayes
+  Deconvolution Problem
+
+# Articles
+
+### Vignettes
+
+- [Using metafor and data frames as
+  input](https://joonho112.github.io/bayesEfron/articles/data-input.md):
+
+  Getting estimates and standard errors into the model from a data
+  frame, a list or metafor, and labeling the results.
+
+- [Choosing the grid and comparing
+  models](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.md):
+
+  What the grid and the spline basis do, and how to check whether the
+  results depend on them.
+
+- [Checking convergence and
+  plotting](https://joonho112.github.io/bayesEfron/articles/diagnostics.md):
+
+  Reading the convergence diagnostics of a fit, acting on the warnings,
+  and the four plots.
+
+- [The model](https://joonho112.github.io/bayesEfron/articles/model.md):
+
+  The deconvolution problem, the log-spline family for the distribution
+  of effects, its prior, and the posterior distribution of a site
+  effect.
+
+- [Implementation and
+  checks](https://joonho112.github.io/bayesEfron/articles/implementation.md):
+
+  Reproducing a fit, the Stan model, the checks the package makes,
+  coverage on a benchmark with known effects, and the notation of the
+  paper.

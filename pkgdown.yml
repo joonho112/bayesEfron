@@ -1,0 +1,14 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  bayesEfron: bayesEfron.html
+  choosing-a-grid: choosing-a-grid.html
+  data-input: data-input.html
+  diagnostics: diagnostics.html
+  implementation: implementation.html
+  model: model.html
+last_built: 2026-10-02T22:32Z
+urls:
+  reference: https://joonho112.github.io/bayesEfron/reference
+  article: https://joonho112.github.io/bayesEfron/articles
