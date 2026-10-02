@@ -6,69 +6,42 @@
 \alias{bayesEfron}
 \title{bayesEfron: Fully Bayesian Inference for the Empirical-Bayes Deconvolution Problem}
 \description{
-\code{bayesEfron} fits the fully Bayesian Efron log-spline prior for
-univariate random-effects meta-analytic deconvolution with
-heteroscedastic within-study standard errors. The package is for
-the applied meta-analyst who has a vector of study-level effect
-estimates and their standard errors and wants two related
-quantities: posterior summaries of the latent site effects, and a
-continuous, smoothly regularised estimate of the underlying mixing
-distribution that generated those effects. Both objects are
-returned from a single fit, with calibrated credible intervals
-derived from the same posterior draws.
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+
+Estimates the distribution of true effects from a set of estimates with known standard errors, as in a meta-analysis or a multisite trial, using the fully Bayesian version of Efron's log-spline prior described in Lee and Sui (2025) \doi{10.3390/math13162639}. The fit returns posterior draws and summaries for each effect and for the effect distribution, with sampler diagnostics, plots, and model comparison by approximate leave-one-out cross-validation. The model is written in 'Stan' and is fitted with 'CmdStan' through the 'cmdstanr' package.
 }
 \details{
-For sites \eqn{i = 1, \ldots, K},
-\deqn{\hat\theta_i \mid \theta_i \sim \mathcal{N}(\theta_i, \sigma_i^2),
-  \qquad \theta_i \mid g \sim g,}
-where \eqn{g} is the unknown mixing distribution. The package
-represents \eqn{g} as a discrete distribution on a fixed grid of
-length \eqn{L} (default \eqn{L = 101}) whose log-density is a
-linear combination of \eqn{M} natural-cubic-spline basis functions
-(default \eqn{M = 6}). The spline coefficients receive a weakly
-informative Gaussian prior whose precision \eqn{\lambda} is in turn
-assigned a half-Cauchy hyperprior, so the smoothness of the
-deconvolved density is itself part of what the sampler learns.
-
-Posterior computation is delegated to CmdStan via the \code{cmdstanr}
-package, with two-tier compile caching so that repeated fits with
-the same model code reuse the compiled binary. The within-study
-standard errors enter exactly: each site's likelihood contribution
-uses its own \eqn{\sigma_i}, with no homoscedasticity assumption.
+For sites \eqn{i = 1, \ldots, K} the model is
+\deqn{\hat\theta_i \mid \theta_i \sim N(\theta_i, \sigma_i^2),
+  \qquad \theta_i \sim g,}
+where the standard errors \eqn{\sigma_i} are taken as known and may
+differ between sites. The distribution \eqn{g} is represented on a
+grid, with log probabilities that are a combination of natural cubic
+spline functions; the spline coefficients have a normal prior whose
+precision has a half-Cauchy prior. \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} gives the
+details.
 }
-\section{User-facing entry points}{
+\section{Main functions}{
 
-\describe{
-\item{\code{\link[=bayes_efron_fit]{bayes_efron_fit()}}}{Primary fitting entry. Takes per-site
-effect estimates and standard errors, runs the eight-stage
-pipeline (validation, grid construction, Stan-data preparation,
-cache-backed model retrieval, sampling, draw extraction,
-postprocessing, assembly), and returns a fitted \code{bef_fit_re}
-object carrying posterior draws, the deconvolved density, and
-posterior summaries of the site effects.}
-\item{\code{\link[=make_efron_grid]{make_efron_grid()}}}{Constructs the discrete support of
-\eqn{g} and the natural-cubic-spline basis evaluated on it.
-Four recipes: paper real-data, paper simulation, paper
-sensitivity, and an experimental KL-target recipe.}
-\item{\code{\link[=as_bef_data]{as_bef_data()}}}{Input adapter. Converts a plain list of
-\code{theta_hat}/\code{sigma}, an \code{\link[metafor:escalc]{metafor::escalc()}} object, or an
-existing \code{bef_data} object into the canonical input class.}
-\item{\code{\link[=diagnose]{diagnose()}}}{Diagnostic producer. Returns a
-\code{bef_diagnostic} object summarising R-hat, effective sample
-sizes, divergent transitions, max-treedepth saturations, and
-other sampler-health quantities.}
-}
+\itemize{
+\item \code{\link[=as_bef_data]{as_bef_data()}} takes the estimates and standard errors out of a list,
+a data frame or a \code{metafor::escalc()} object and checks them.
+\item \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} fits the model and returns a \link{bef_fit} object,
+which has \code{summary()}, \code{coef()}, \code{confint()} and other methods.
+\item \code{\link[=diagnose]{diagnose()}} returns the convergence diagnostics of a fit.
+\item \link[=plot.bef_fit_re]{plot()} draws the site effects, the estimated
+distribution of effects, the diagnostics or the Pareto k values.
+\item \link[=predict.bef_fit_re]{predict()} draws the effect or the estimate of a
+new site.
+\item \code{\link[=make_efron_grid]{make_efron_grid()}} builds the grid and the spline basis, and
+\code{\link[=compare_efron_grids]{compare_efron_grids()}} compares several of them by leave-one-out
+cross-validation.
+\item \code{\link[=bayes_efron_compile]{bayes_efron_compile()}} compiles the Stan model before the first fit,
+and \code{\link[=bayes_efron_clear_cache]{bayes_efron_clear_cache()}} removes the compiled model.
 }
 
-\section{Where to start}{
-
-New users should begin with the applied vignette \emph{A1 \enc{·}{.}
-Getting started}, which walks through a minimal end-to-end fit on
-a five-site toy dataset. The companion methodological vignette
-\emph{M1 \enc{·}{.} The empirical-Bayes deconvolution problem}
-develops the statistical background, motivates the log-spline
-prior, and explains how the deconvolved density \eqn{\hat g}
-relates to the posterior site effects \eqn{\theta_i}.
+The examples use the data set \link{raudenbush1985} and the fit
+\link{raudenbush_fit}. \code{vignette("bayesEfron")} is the place to start.
 }
 
 \section{Funding}{
@@ -90,7 +63,12 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: JoonHo Lee \email{joonho112@users.noreply.github.com} (\href{https://orcid.org/0009-0006-4019-8703}{ORCID}) [copyright holder]
+\strong{Maintainer}: JoonHo Lee \email{jlee296@ua.edu} (\href{https://orcid.org/0009-0006-4019-8703}{ORCID}) [copyright holder]
+
+Authors:
+\itemize{
+  \item JoonHo Lee \email{jlee296@ua.edu} (\href{https://orcid.org/0009-0006-4019-8703}{ORCID}) [copyright holder]
+}
 
 }
 \keyword{internal}

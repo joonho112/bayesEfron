@@ -1,101 +1,106 @@
-#' Extract sampler diagnostics from a bayesEfron fit
+#' Convergence diagnostics of a fitted model
 #'
 #' @description
-#' Return a structured `bef_diagnostic` object that bundles the
-#' sampler-health and model-quality summaries already computed by
-#' [bayes_efron_fit()]. The function does not re-process draws or
-#' run new computations; it surfaces information that the fit
-#' pipeline stored as attributes of `fit$metadata`, behind the
-#' supported access path.
-#'
-#' Use `diagnose()` together with `summary(fit)` to triage a fit:
-#' `summary()` gives the user-facing posterior summaries; `diagnose()`
-#' gives the structured sampler-health view that pairs with
-#' `plot(fit, type = "diagnostic")`.
+#' `diagnose()` collects the diagnostics of the sampler that
+#' [bayes_efron_fit()] computed when the model was fitted and names those
+#' that fail a check. It computes nothing new from the draws.
 #'
 #' @details
-#' # The `bef_diagnostic` schema
+#' A diagnostic is named in `sampler_diagnostics_failed` if an R-hat value
+#' exceeds 1.05 or if there is a divergent transition. It is named in
+#' `sampler_diagnostics_warned` if an R-hat value lies between 1.01 and
+#' 1.05, a bulk or tail effective sample size is below 400, an iteration
+#' reached the maximum tree depth, or the E-BFMI of a chain is below 0.2.
+#' R-hat below 1.01 and effective sample sizes above 400 are the
+#' recommendations of Vehtari et al. (2021); the other thresholds are
+#' choices of this package.
 #'
-#' A `bef_diagnostic` object carries:
+#' With fewer than 400 draws in all, R-hat and the effective sample sizes
+#' are too unreliable to act on. Their values are still returned, but they
+#' are not compared with the thresholds, and `diagnostic_skipped` holds
+#' `"rhat_check"`, `"ess_bulk_check"` and `"ess_tail_check"` to say so.
+#' Divergent transitions, the maximum tree depth and E-BFMI are checked
+#' however short the run.
 #'
-#' | Field | Type | Meaning |
-#' |:------|:-----|:--------|
-#' | `rhat` | numeric vector | Per-parameter R-hat (Gelman–Rubin) statistic. Values close to 1 (typically `< 1.01`) indicate convergence. |
-#' | `ess_bulk` | numeric vector | Per-parameter bulk effective sample size; large values support reliable posterior means. |
-#' | `ess_tail` | numeric vector | Per-parameter tail ESS; large values support reliable tail-quantile / interval estimates. |
-#' | `divergences` | numeric vector or NA | Number of divergent transitions per chain. |
-#' | `max_treedepth` | numeric vector or NA | Number of max-treedepth saturations per chain. |
-#' | `effective_params_summary` | named list | Posterior summary of effective parameters. |
-#' | `model_family` | character | `"RE"` for v0.1. |
-#' | `stan_file_sha256` | character | SHA-256 of the locked Stan source used for the fit. |
-#' | `runtime_seconds` | numeric | Sampler wall-clock for the fit. |
-#' | `diagnostic_skipped` | character vector | Diagnostics intentionally not computed (rare). |
-#' | `sampler_diagnostics_failed` | character vector | Diagnostics requested but failed at extract time (rare). |
+#' R-hat and the effective sample sizes are undefined for a quantity that
+#' takes the same value in every draw, such as the posterior mode of a site
+#' whose mode never moves from one grid point, and are `NA` for it. If one
+#' of the three diagnostics cannot be computed at all, or comes out
+#' infinite for some quantity, all its values are `NA` and its name is in
+#' `diagnostic_skipped`. `vignette("diagnostics")` discusses what to do
+#' about each kind of warning.
 #'
-#' The returned object is validated internally before return.
+#' @param fit A `bef_fit` object from [bayes_efron_fit()].
+#' @param ... For `diagnose()`, these dots are for future extensions and
+#'   must be empty. The `print()` method passes them on to `format()`;
+#'   `format()` and `summary()` do not use them.
+#' @param x,object A `bef_diagnostic` object.
+#' @inheritParams bef_fit
 #'
-#' # Reading the result
+#' @return A list of class `bef_diagnostic`. `rhat`, `ess_bulk` and
+#'   `ess_tail` are numeric vectors with one value for each quantity in the
+#'   draws. `divergences` and `max_treedepth` are the numbers of divergent
+#'   transitions and of iterations that reached the maximum tree depth,
+#'   totaled over the chains, and `ebfmi` has one value for each chain; the
+#'   three are `NA` if CmdStan did not report them. `model_family`,
+#'   `stan_file_sha256`, `runtime_seconds` and `effective_params_summary`
+#'   repeat values from `fit$metadata`. `sampler_diagnostics_failed`,
+#'   `sampler_diagnostics_warned` and `diagnostic_skipped` are character
+#'   vectors that name the diagnostics that fail a check, those that
+#'   deserve a warning, and those that could not be computed or were not
+#'   checked (see Details). All three are empty for a fit of 400 or more
+#'   draws without problems.
 #'
-#' Call `summary()` on a `bef_diagnostic` for the most-extreme value
-#' per field (max R-hat, min ESS, total divergences, total
-#' max-treedepth saturations); call `print()` for a one-screen
-#' textual view. The `plot(fit, type = "diagnostic")` view consumes
-#' the same attribute payload through this generic.
+#' @references
+#' Vehtari, A., Gelman, A., Simpson, D., Carpenter, B. and Bürkner, P.-C.
+#' (2021). Rank-normalization, folding, and localization: An improved
+#' R-hat for assessing convergence of MCMC. *Bayesian Analysis*, 16(2).
+#' \doi{10.1214/20-BA1221}
 #'
-#' @param fit A `bef_fit` object returned by [bayes_efron_fit()].
-#' @param ... Reserved for future expansion; must be empty in v0.1.
-#'
-#' @return A validated `bef_diagnostic` object with the schema
-#'   tabulated in \strong{Details}.
-#'
-#' @seealso
-#'   * [bayes_efron_fit()] for the upstream pipeline that populates
-#'     these diagnostics.
-#'   * [summary.bef_diagnostic()][bayesEfron-methods] for the
-#'     extreme-value summary.
-#'   * [plot.bef_fit_re()] for the graphical companion view.
-#'   * The methodological vignette M6 ("Verification and
-#'     calibration") for what each diagnostic means in the context of
-#'     the package's verification ledger.
+#' @seealso [bayes_efron_fit()], [plot.bef_fit_re()], `vignette("diagnostics")`
 #'
 #' @examples
-#' # Load the cached five-site smoke fit shipped with the package.
-#' fit <- readRDS(system.file(
-#'   "examples", "cached_fit_re_smoke.rds",
-#'   package = "bayesEfron"
-#' ))
+#' diag <- diagnose(raudenbush_fit)
+#' diag
 #'
-#' diag <- diagnose(fit)
-#' print(diag)
-#' summary(diag)
+#' # The worst value of R-hat and the quantity that has it.
+#' summary(diag)$rhat
 #'
+#' # The three quantities with the smallest bulk effective sample size.
+#' head(sort(diag$ess_bulk), 3)
+#'
+#' @order 1
 #' @export
 diagnose <- function(fit, ...) {
   UseMethod("diagnose")
 }
 
+#' @order 2
 #' @rdname diagnose
 #' @export
 diagnose.default <- function(fit, ...) {
   .bef_abort_invalid_fit(
     "`fit` must inherit from class \"bef_fit\".",
-    arg = "fit",
-    module = "diagnose"
+    arg = "fit"
   )
 }
 
+#' @order 3
 #' @rdname diagnose
 #' @export
 diagnose.bef_fit <- function(fit, ...) {
   dots <- list(...)
   if (length(dots) > 0L) {
     .bef_abort_invalid_args(
-      "`diagnose()` does not accept additional arguments in bayesEfron v0.1.",
-      arg = "...",
-      module = "diagnose"
+      "`diagnose()` takes no arguments other than `fit`.",
+      arg = "..."
     )
   }
   .bef_require_inherits(fit, "bef_fit", "fit", "bef_invalid_fit")
+  .bef_fit_summary_version(fit)
+  if (.bef_is_v01_fit(fit)) {
+    .bef_abort_v01_fit("diagnose")
+  }
 
   metadata <- fit$metadata
   diagnostics <- .bef_metadata_attr(metadata, "diagnostics")
@@ -105,6 +110,7 @@ diagnose.bef_fit <- function(fit, ...) {
     ess_tail = diagnostics$ess_tail,
     divergences = diagnostics$divergences,
     max_treedepth = diagnostics$max_treedepth,
+    ebfmi = if (is.null(diagnostics$ebfmi)) NA_real_ else diagnostics$ebfmi,
     model_family = metadata$model_family,
     stan_file_sha256 = metadata$stan_file_sha256,
     effective_params_summary = metadata$effective_params_summary,
@@ -113,7 +119,11 @@ diagnose.bef_fit <- function(fit, ...) {
     sampler_diagnostics_failed = .bef_metadata_attr(
       metadata,
       "sampler_diagnostics_failed"
-    )
+    ),
+    sampler_diagnostics_warned = {
+      warned <- .bef_metadata_attr(metadata, "sampler_diagnostics_warned")
+      if (is.null(warned)) character() else warned
+    }
   )
   validate_bef_diagnostic(out)
 }

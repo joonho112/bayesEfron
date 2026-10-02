@@ -2,107 +2,73 @@
 % Please edit documentation in R/plot.R
 \name{plot.bef_fit_re}
 \alias{plot.bef_fit_re}
-\title{Plot a bayesEfron random-effects fit}
+\title{Plot a fitted model}
 \usage{
 \method{plot}{bef_fit_re}(
   x,
-  type = c("caterpillar", "g", "sensitivity", "diagnostic"),
+  type = c("caterpillar", "g", "diagnostic", "loo"),
   level = 0.9,
   sort_by = c("mean", "sigma", "none"),
-  ...
+  ...,
+  backend = c("ggplot2", "base")
 )
 }
 \arguments{
-\item{x}{A \code{bef_fit_re} object returned by \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}.}
+\item{x}{A \code{bef_fit_re} object from \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}.}
 
-\item{type}{Plot type. One of \code{"caterpillar"} (default), \code{"g"},
-\code{"sensitivity"}, or \code{"diagnostic"}.}
+\item{type}{Character string, the plot to draw. \code{"caterpillar"}
+(the default) shows for each site the posterior mean of
+\eqn{\theta_i}, an interval of probability \code{level} as a thin line and
+the central 50\% interval as a thick line; a dashed vertical line marks
+the posterior mean of the mean of \eqn{g}. \code{"g"} shows the posterior
+mean of the probability that \eqn{g} gives to each grid point, with a
+pointwise band of probability \code{level}. \code{"diagnostic"} shows the
+largest R-hat, the smallest bulk and tail effective sample sizes and
+the numbers of divergent transitions and of iterations at the maximum
+tree depth, as \code{\link[=diagnose]{diagnose()}} reports them; E-BFMI is not drawn.
+\code{"loo"} shows the Pareto k value of each site from \code{\link[=loo.bef_fit]{loo.bef_fit()}},
+with reference lines at 0.5 and 0.7; it needs the loo package.}
 
-\item{level}{Numeric credible level in \eqn{(0, 1)}. Defaults to
-\code{0.9}.}
+\item{level}{Number between 0 and 1, the probability content of the
+intervals and of the band. Defaults to \code{0.9}.}
 
-\item{sort_by}{Caterpillar ordering. One of \code{"mean"} (default),
-\code{"sigma"}, or \code{"none"}. Ignored by \code{"g"} and \code{"diagnostic"}
-views.}
+\item{sort_by}{Character string, the order of the sites in the
+caterpillar plot: \code{"mean"} (the default) for the order of the
+posterior means, \code{"sigma"} for the order of the standard errors, or
+\code{"none"} for the order of the data.}
 
-\item{...}{Reserved for future expansion; must be empty in v0.1.}
+\item{...}{Not used.}
+
+\item{backend}{Character string, \code{"ggplot2"} or \code{"base"}. If it is not
+given, ggplot2 is used when it is installed and base graphics
+otherwise.}
 }
 \value{
-Backend-dependent:
-\itemize{
-\item \strong{ggplot2 backend} (\code{ggplot2} installed and
-\code{BAYESEFRON_NO_GGPLOT2 != "1"}): returns a
-\code{ggplot2::ggplot} object visibly so it can be assigned and
-extended.
-\item \strong{Base backend}: draws on the active graphics device and
-returns \code{invisible(NULL)}.
-}
+With ggplot2, a \code{ggplot} object, to which layers can be added.
+With base graphics the plot is drawn and \code{NULL} is returned invisibly.
 }
 \description{
-Draw one of four diagnostic-or-summary views of a fitted
-\code{bef_fit_re} object. The four views support visual answers to the
-four most common questions a meta-analyst asks of a deconvolution
-fit: where do the per-site effects sit (caterpillar), what does
-the underlying mixing distribution look like (prior summary), how
-sensitive are the per-site intervals to alternative credible
-levels (sensitivity), and is the sampler healthy (diagnostic).
-
-Both \code{ggplot2} and base-graphics backends are available. The
-\code{ggplot2} backend is used when the package is installed and the
-environment variable \code{BAYESEFRON_NO_GGPLOT2} is not exactly \code{"1"};
-otherwise the base backend is used.
+\code{plot()} draws one of four plots of a fitted model: the site effects
+with their intervals, the estimated distribution of effects, the
+convergence diagnostics, or the Pareto k values of leave-one-out
+cross-validation.
 }
-\section{Plot types}{
-\tabular{lll}{
-   \code{type} \tab Shows \tab Notes \cr
-   \code{"caterpillar"} \tab Per-site posterior means with credible intervals. The intervals are at the requested \code{level}. \tab Use \code{sort_by = "mean"} (default) to order by point estimate, \code{"sigma"} to order by within-study uncertainty, or \code{"none"} to keep input order. \cr
-   \code{"g"} \tab Posterior summary of the mixing distribution \eqn{g}: posterior mean ± credible band over the discrete grid. \tab Reads \code{mean_g_summary} and \code{var_g_summary} from \code{fit$metadata}; reads \code{sd_g_summary} from the \code{sd_g_summary} attribute when available. \cr
-   \code{"sensitivity"} \tab Caterpillar overlay at the requested \code{level} against the default 90\% intervals. \tab Useful for checking interval-width sensitivity to \code{level}. \cr
-   \code{"diagnostic"} \tab Sampler-diagnostic summary view: \code{rhat}, \code{ess_bulk}, \code{ess_tail}, divergences, max-treedepth flags. \tab Reads from \code{fit$metadata}'s diagnostic attribute. Pairs with \code{\link[=diagnose]{diagnose()}}. \cr
-}
-}
-
-\section{Backend selection}{
-By default, the function returns a \code{ggplot2::ggplot} object when
-\code{ggplot2} is available, allowing downstream \code{+ theme(...)} and
-\code{+ labs(...)} chaining. Setting \code{BAYESEFRON_NO_GGPLOT2=1} in the
-environment forces the base-graphics path, which writes to the
-active graphics device and returns \code{invisible(NULL)}.
-
-Code that needs to chain \code{ggplot2} layers should guard against the
-base path with \code{inherits(p, "ggplot")} before applying \code{+ theme()}
-or \code{+ labs()} (see the \verb{@examples} block).
-}
-
 \examples{
-# Load the cached five-site smoke fit shipped with the package.
-fit <- readRDS(system.file(
-  "examples", "cached_fit_re_smoke.rds",
-  package = "bayesEfron"
-))
+plot(raudenbush_fit)
+plot(raudenbush_fit, sort_by = "sigma", level = 0.95)
+plot(raudenbush_fit, type = "g")
+plot(raudenbush_fit, type = "diagnostic", backend = "base")
 
-\donttest{
-plot(fit, type = "caterpillar")
-plot(fit, type = "caterpillar", sort_by = "sigma", level = 0.95)
-plot(fit, type = "g")
-plot(fit, type = "sensitivity", level = 0.95)
-plot(fit, type = "diagnostic")
-
-# Chain ggplot2 layers when the ggplot2 backend is active.
-p <- plot(fit, type = "caterpillar")
-if (inherits(p, "ggplot") && requireNamespace("ggplot2", quietly = TRUE)) {
-  p + ggplot2::theme_minimal() +
-      ggplot2::labs(title = "Per-site posterior intervals")
-}
+# With ggplot2 the result can be extended.
+p <- plot(raudenbush_fit, type = "g")
+if (inherits(p, "ggplot")) {
+  p + ggplot2::labs(title = "Teacher expectancy effects")
 }
 
+\dontshow{if (requireNamespace("loo", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+plot(raudenbush_fit, type = "loo")
+\dontshow{\}) # examplesIf}
 }
 \seealso{
-\itemize{
-\item \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} for producing the fit.
-\item \code{\link[=diagnose]{diagnose()}} for a structured (non-graphical) diagnostic
-producer that pairs with \code{type = "diagnostic"}.
-\item \link[=bayesEfron-methods]{confint.bef_fit_re()} for the numeric
-intervals shown in the caterpillar view.
-}
+\link{bef_fit}, \code{\link[=diagnose]{diagnose()}}, \code{\link[=loo.bef_fit]{loo.bef_fit()}}
 }

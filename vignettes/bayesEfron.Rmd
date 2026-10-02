@@ -1,0 +1,323 @@
+---
+title: "Getting started with bayesEfron"
+description: "A first fit: the distribution of effects in 19 teacher expectancy studies and the effect of each study."
+output:
+  rmarkdown::html_vignette:
+    fig_width: 7
+    fig_height: 4.5
+bibliography: references.bib
+link-citations: true
+vignette: >
+  %\VignetteIndexEntry{Getting started with bayesEfron}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(bayesEfron)
+options(bayesEfron.use_cli = FALSE, width = 80)
+num <- function(x, digits = 2) formatC(x, format = "f", digits = digits)
+```
+
+@raudenbush1985 analyzed 19 studies of the effect of teachers' expectations
+on their pupils' IQ scores. In each study teachers were led to expect that
+certain pupils, in fact chosen at random, would show unusual intellectual
+growth. Each study gives an estimate of the effect of that expectation, as
+a standardized mean difference, and a standard error. The studies differ a
+great deal in size, so their standard errors differ too.
+
+A meta-analysis of such studies usually asks first what the average effect
+is. Often a second question is of more interest: how the true effects are
+distributed over studies, and what the effect in each study is once the
+other studies are taken into account. The random-effects model answers the
+second question by assuming that the true effects follow a normal
+distribution [@raudenbush1985]. For these studies, however, there is reason
+to doubt that assumption. @raudenbush1984 argued that an expectation that
+the experimenter tries to induce carries less conviction with a teacher who
+already knows the pupils, and that the effect should therefore be found
+mainly in the studies where teacher and pupils had met only recently. If a
+minority of the studies have sizable effects and the others have effects
+near zero, the distribution of true effects is skewed.
+
+bayesEfron fits the same two-level model as a random-effects
+meta-analysis, but it does not take the distribution of true effects,
+called $g$ below, to be normal: $g$ may have any smooth shape that a small
+number of spline functions can describe [@efron2016; @lee2025]. This
+vignette fits the model to the 19 studies and interprets the two things
+that the fit returns: the estimated $g$, and the effect of each study.
+
+## The studies
+
+The data are in the package as `raudenbush1985`.
+
+```{r data}
+transform(
+  raudenbush1985[, c("author", "year", "weeks", "yi", "sei")],
+  sei = round(sei, 3)
+)
+```
+
+`yi` is the standardized mean difference and `sei` its standard error.
+`weeks` is the number of weeks for which the teacher had known the pupils
+when the expectation was induced.
+
+```{r by-weeks}
+recent <- raudenbush1985$weeks <= 1
+contact <- ifelse(recent, "at most 1 week", "2 weeks or more")
+tapply(raudenbush1985$yi, contact, mean)
+```
+
+The estimates average `r num(mean(raudenbush1985$yi[recent]))` in the
+`r sum(recent)` studies with at most a week of prior contact and
+`r num(mean(raudenbush1985$yi[!recent]))` in the other `r sum(!recent)`,
+which is the pattern that Raudenbush expected. The model below has no
+covariates and does not use `weeks`. It is given only the estimates and
+their standard errors, and the question is what it makes of the
+distribution of effects from those alone.
+
+`as_bef_data()` takes the two columns out of the data frame and checks
+them. The package calls the units sites, since they may equally be the
+sites of a multisite trial; here each site is one study. There must be at
+least five of them, with no missing values and with positive standard
+errors. Other forms of input are described in `vignette("data-input")`.
+
+```{r as-bef-data}
+dat <- as_bef_data(raudenbush1985)
+dat
+```
+
+In the printed object and in what follows, `theta_hat` holds the estimates
+and `sigma` their standard errors.
+
+## Fitting the model
+
+Fitting needs the cmdstanr package, which is not on CRAN, and CmdStan,
+which needs a C++ compiler. Both are installed once.
+
+```{r install, eval = FALSE}
+install.packages("cmdstanr",
+                 repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
+cmdstanr::install_cmdstan()
+```
+
+The model is then fitted with one call.
+
+```{r fit-call, eval = FALSE}
+fit <- bayes_efron_fit(theta_hat = dat$theta_hat, sigma = dat$sigma,
+                       seed = 1985)
+```
+
+The model is fitted by Markov chain Monte Carlo, which produces a sample of
+values, called draws, from the posterior distribution of every quantity in
+the model; the estimates and intervals below are computed from the draws.
+By default four chains are run, each with 1,000 warmup iterations, which
+are discarded, and 3,000 sampling iterations, which are kept. The first
+call compiles the Stan model, which can take up to a minute. For these data
+the sampling then took `r num(raudenbush_fit$metadata$runtime_seconds, 1)`
+seconds.
+
+The model represents $g$ by the probabilities that it gives to 101 equally
+spaced values of the effect, called the grid. The default grid was used
+here; `vignette("choosing-a-grid")` discusses it, and `vignette("model")`
+sets out the model.
+
+So that this vignette can be built without CmdStan, the result of the call
+above is stored in the package as `raudenbush_fit`, which keeps one
+posterior draw in fifteen.
+
+```{r fit}
+fit <- raudenbush_fit
+fit
+```
+
+The line of diagnostics gives the worst value of each convergence
+diagnostic over all the quantities in the model. R-hat and the effective
+sample sizes are satisfactory and there is no divergent transition. The
+warning says that an iteration reached the maximum tree depth, which
+concerns the efficiency of the sampler and not the validity of the draws.
+`vignette("diagnostics")` explains the diagnostics and what to do when one
+of them fails.
+
+## The distribution of effects
+
+```{r g-summary}
+confint(fit, type = "g")
+```
+
+```{r g-numbers, include = FALSE}
+g_ci <- confint(fit, type = "g")
+rownames(g_ci) <- g_ci$site
+grid <- fit$metadata$data_list$grid
+g_mean <- colMeans(exp(posterior::as_draws_matrix(fit)[, sprintf("log_g[%d]", seq_along(grid))]))
+peak <- grid[which.max(g_mean)]
+```
+
+The rows are the mean, the variance and the standard deviation of $g$, each
+with its posterior mean (`point`) and a 90% posterior interval, which runs
+from the 5% to the 95% quantile of the draws. Such an interval is often
+called a credible interval; `level = 0.95` gives a 95% interval, the level
+that metafor uses by default for its confidence intervals. The mean of $g$
+is the average effect over studies of this kind. It is estimated as
+`r num(g_ci["mean_g", "point"])`, with an
+interval from `r num(g_ci["mean_g", "lower"])` to
+`r num(g_ci["mean_g", "upper"])`. The standard deviation of $g$ is
+estimated as `r num(g_ci["sd_g", "point"])`, with an interval from
+`r num(g_ci["sd_g", "lower"])` to `r num(g_ci["sd_g", "upper"])`.
+
+```{r g-plot, fig.alt = "The estimated distribution of effects on the grid, with a 90 percent band."}
+plot(fit, type = "g")
+```
+
+The line is the posterior mean of the probability that $g$ gives to each
+point of the grid, and the band is a pointwise 90% interval. The estimated
+distribution is concentrated near zero and has a long tail to the right.
+About `r round(100 * sum(g_mean[abs(grid) <= 0.2]))`% of its probability
+lies between $-0.2$ and $0.2$, and about
+`r round(100 * sum(g_mean[grid > 0.5]))`% lies above $0.5$. It is not
+symmetric about its peak at `r num(peak)`:
+`r round(100 * sum(g_mean[grid > peak + 0.4]))`% of the probability lies
+more than 0.4 above the peak and
+`r round(100 * sum(g_mean[grid < peak - 0.4]))`% more than 0.4 below it.
+
+The model was not told which studies had recent contact. The posterior
+mean of $g$ nevertheless puts most effects near zero and a few well above
+it, although the band shows how little 19 studies say about the right tail.
+The curve also turns up slightly at the two ends of the grid, where there
+are no estimates. The data hardly bear on $g$ there, so the band is wide
+and the shape of the curve reflects the prior and the spline functions.
+
+`predict()` turns the estimated $g$ into statements about a study that has
+not been done. It draws the effect of a new study from $g$, with a
+different posterior draw of $g$ each time, so that the uncertainty about
+$g$ is part of the result.
+
+```{r predict}
+theta_new <- predict(fit, seed = 1)
+quantile(theta_new, c(0.05, 0.25, 0.5, 0.75, 0.95))
+mean(theta_new > 0.2)
+```
+
+The last number estimates the probability that the true effect in a new
+study of this kind exceeds 0.2.
+
+## The effect in each study
+
+`coef()` returns the posterior mean of each study's effect, and `confint()`
+returns a 90% interval for it.
+
+```{r sites}
+sites <- cbind(
+  raudenbush1985[, c("author", "weeks", "yi", "sei")],
+  posterior_mean = coef(fit),
+  confint(fit)[, c("lower", "upper")]
+)
+sites$sei <- round(sites$sei, 3)
+sites[c("posterior_mean", "lower", "upper")] <-
+  round(sites[c("posterior_mean", "lower", "upper")], 2)
+sites
+```
+
+```{r site-numbers, include = FALSE}
+positive <- which(sites$lower > 0)
+largest <- which.max(sites$yi)
+naive <- sites$yi[largest] + c(-1, 1) * qnorm(0.95) * raudenbush1985$sei[largest]
+theta_largest <- as.numeric(
+  posterior::as_draws_matrix(fit)[, sprintf("theta_rep[%d]", largest)]
+)
+grid_comparison <- readRDS(system.file(
+  "examples", "grid_comparison_example.rds", package = "bayesEfron"
+))
+sensitivity <- grid_comparison$raudenbush_sensitivity
+study4_range <- range(sensitivity$study4_mean)
+# The sentences below are about these data; stop if they no longer hold.
+stopifnot(
+  all(abs(coef(fit) - peak) <= abs(raudenbush1985$yi - peak) + 0.005),
+  all(raudenbush1985$weeks[positive] <= 1),
+  largest == 4,
+  diff(unlist(sites[largest, c("lower", "upper")])) > diff(naive),
+  # nine specifications, none as much as two standard errors behind the best
+  nrow(sensitivity) == 9,
+  all(abs(sensitivity$elpd_diff) < 2 * sensitivity$se_diff |
+        sensitivity$se_diff == 0)
+)
+```
+
+Each posterior mean is drawn from the study's own estimate toward the
+values where $g$ puts most of its probability, here the peak just above
+zero. How far depends on the standard error. Studies 5 and 17 have similar
+estimates, `r num(sites$yi[5])` and `r num(sites$yi[17])`, but standard
+errors of `r num(sites$sei[5], 3)` and `r num(sites$sei[17], 3)`, and their
+posterior means are `r num(sites$posterior_mean[5])` and
+`r num(sites$posterior_mean[17])`.
+
+Because $g$ has a long right tail, a large positive estimate is not drawn
+all the way back, and the interval excludes zero for `r length(positive)`
+studies (`r paste(sites$author[positive], collapse = "; ")`). All of them
+had at most a week of prior contact.
+
+For study `r largest`, which has the largest estimate, the interval runs
+from `r num(sites$lower[largest])` to `r num(sites$upper[largest])` and is
+wider than the one that its estimate and standard error give by themselves,
+`r num(naive[1])` to `r num(naive[2])`. With a normal $g$ of known mean and
+variance that cannot happen. Here the model is undecided between a large
+true effect and a small one that was overestimated: it gives probability
+`r num(mean(theta_largest < 0.3))` to an effect below 0.3 and
+`r num(mean(theta_largest > 0.8))` to one above 0.8. The result for this
+study is also the one that depends most on the choice of the grid: over
+the nine specifications compared in `vignette("choosing-a-grid")` its
+posterior mean ranges from `r num(study4_range[1])` to
+`r num(study4_range[2])`, and cross-validation does not tell those
+specifications apart. A conclusion about a study as extreme as this one
+should be checked against that comparison before it is reported.
+
+The limits of the intervals are quantiles of posterior draws of the effect.
+The draws take values on the grid, whose spacing here is
+`r num(diff(grid)[1])`, so the limits should be read to no finer a
+resolution than that. A limit that lies between two grid points is an
+interpolation between two draws.
+
+```{r caterpillar, fig.height = 5, fig.alt = "Posterior means and intervals of the 19 study effects."}
+plot(fit, type = "caterpillar")
+```
+
+The points are the posterior means, the thin lines are the 90% intervals
+and the thick lines are the central 50% intervals. The studies are numbered
+as in the data, and the dashed line marks the mean of $g$.
+
+## What the fitted object holds
+
+`fit` is a list with three elements. `fit$draws` holds the posterior draws
+of every quantity in the model, in the format of the posterior package.
+`fit$posterior` holds the draws of the mean, variance and standard
+deviation of $g$ and of two summaries of the fit, and `fit$metadata` holds
+the data, the settings and summaries of the draws. `?bef_fit` describes
+them and lists the methods. `summary()` prints the summaries that are used
+most.
+
+```{r summary}
+summary(fit)
+```
+
+`Prior g` is the distribution of true effects, which is the prior
+distribution of each study's effect. `Effective params` and
+`Log marginal lik.` are explained in `vignette("model")`. In the table of
+study effects, `sd` is the posterior standard deviation, `lower` and
+`upper` are the limits of the 90% interval and `map` is the posterior mode,
+the point of the grid with the largest posterior probability. Where the
+posterior distribution is skewed the mode and the mean are far apart. For
+study `r largest` the mode is `r num(coef(fit, type = "map")[largest])` and
+the mean `r num(coef(fit)[largest])`, which is one more sign that the model
+is undecided about that study.
+
+Any quantity in the model can be summarized from the draws with the
+functions of the posterior package.
+
+```{r draws}
+posterior::summarize_draws(
+  posterior::subset_draws(posterior::as_draws(fit),
+                          variable = c("mean_g", "sd_g", "lambda"))
+)
+```
+
+## References

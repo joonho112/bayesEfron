@@ -9,11 +9,14 @@
                                    bound_expansion = NULL,
                                    model_family = "RE",
                                    chains = 4L,
+                                   parallel_chains = chains,
                                    iter_warmup = 1000L,
                                    iter_sampling = 3000L,
                                    adapt_delta = 0.9,
+                                   max_treedepth = 10L,
                                    seed = NULL,
-                                   keep_cmdstan_fit = FALSE) {
+                                   keep_cmdstan_fit = FALSE,
+                                   store_grid_quantities = FALSE) {
   .bef_check_no_dots(list(...))
 
   theta_hat <- .bef_validate_theta_hat(theta_hat)
@@ -52,6 +55,13 @@
     upper = 16L,
     predicate = "integer scalar in [1, 16]"
   )
+  parallel_chains <- .bef_validate_fit_int(
+    parallel_chains,
+    arg = "parallel_chains",
+    lower = 1L,
+    upper = chains,
+    predicate = "integer scalar between 1 and `chains`"
+  )
   iter_warmup <- .bef_validate_fit_int(
     iter_warmup,
     arg = "iter_warmup",
@@ -61,12 +71,22 @@
   iter_sampling <- .bef_validate_fit_int(
     iter_sampling,
     arg = "iter_sampling",
-    lower = 0L,
-    predicate = "non-negative integer scalar"
+    lower = 1L,
+    predicate = "positive integer scalar"
   )
   adapt_delta <- .bef_validate_adapt_delta(adapt_delta)
+  max_treedepth <- .bef_validate_fit_int(
+    max_treedepth,
+    arg = "max_treedepth",
+    lower = 1L,
+    upper = 20L,
+    predicate = "integer scalar in [1, 20]"
+  )
   seed <- .bef_validate_seed(seed)
   keep_cmdstan_fit <- .bef_validate_keep_cmdstan_fit(keep_cmdstan_fit)
+  store_grid_quantities <- .bef_validate_store_grid_quantities(
+    store_grid_quantities
+  )
 
   list(
     theta_hat = theta_hat,
@@ -79,11 +99,14 @@
     bound_expansion = bound_expansion,
     model_family = model_family,
     chains = chains,
+    parallel_chains = parallel_chains,
     iter_warmup = iter_warmup,
     iter_sampling = iter_sampling,
     adapt_delta = adapt_delta,
+    max_treedepth = max_treedepth,
     seed = seed,
-    keep_cmdstan_fit = keep_cmdstan_fit
+    keep_cmdstan_fit = keep_cmdstan_fit,
+    store_grid_quantities = store_grid_quantities
   )
 }
 
@@ -101,11 +124,8 @@
   }
 
   .bef_abort_invalid_args(
-    sprintf("`...` is closed in bayesEfron v0.1; unsupported arguments: %s.", unsupported),
-    arg = "...",
-    predicate = "empty dots",
-    module = "input-validate",
-    stage = 2L
+    sprintf("Unused arguments: %s.", unsupported),
+    arg = "..."
   )
 }
 
@@ -115,10 +135,10 @@
       theta_hat,
       finite = TRUE,
       any.missing = FALSE,
-      min.len = 2L
+      min.len = 5L
     ),
     arg = "theta_hat",
-    predicate = "finite numeric vector length >= 2"
+    predicate = "finite numeric vector of length 5 or more"
   )
 
   .bef_drop_storage_mode(theta_hat)
@@ -224,10 +244,7 @@
   if (bound_expansion <= 0) {
     .bef_abort_invalid_args(
       "`bound_expansion` must be greater than 0.",
-      arg = "bound_expansion",
-      predicate = "finite number in (0, 5]",
-      module = "input-validate",
-      stage = 2L
+      arg = "bound_expansion"
     )
   }
 
@@ -246,10 +263,7 @@
   if (adapt_delta <= 0 || adapt_delta >= 1) {
     .bef_abort_invalid_args(
       "`adapt_delta` must be greater than 0 and less than 1.",
-      arg = "adapt_delta",
-      predicate = "finite number in (0, 1)",
-      module = "input-validate",
-      stage = 2L
+      arg = "adapt_delta"
     )
   }
 
@@ -268,6 +282,15 @@
     upper = .Machine$integer.max,
     predicate = "NULL or non-negative integer scalar"
   )
+}
+
+.bef_validate_store_grid_quantities <- function(store_grid_quantities) {
+  .bef_check_fit_arg(
+    checkmate::assert_flag(store_grid_quantities),
+    arg = "store_grid_quantities",
+    predicate = "single TRUE/FALSE value"
+  )
+  store_grid_quantities
 }
 
 .bef_validate_keep_cmdstan_fit <- function(keep_cmdstan_fit) {
@@ -294,9 +317,6 @@
           conditionMessage(err)
         ),
         arg = arg,
-        predicate = predicate,
-        module = "input-validate",
-        stage = 2L,
         parent = err
       )
     }

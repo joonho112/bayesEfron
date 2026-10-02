@@ -1,143 +1,21 @@
-#' S3 methods for bayesEfron objects
-#'
-#' @description
-#' The package exports a coordinated set of S3 methods for the
-#' `bef_fit`, `bef_fit_re`, `bef_data`, and `bef_diagnostic` classes.
-#' Together they cover printing, summarising, extracting credible
-#' intervals, pulling point estimates, converting to a data frame,
-#' counting observations, computing the marginal log-likelihood, and
-#' coercing to the `posterior::draws_array` format.
-#'
-#' This help page documents the family-agnostic surface, which works
-#' on any fitted `bef_fit` object regardless of the model family. The
-#' RE-specific child class adds `coef()`, `vcov()`, `confint()`,
-#' `as.data.frame()`, and a refined `summary()`. Plotting is
-#' documented separately at [plot.bef_fit_re()]; the diagnostic
-#' producer is at [diagnose()].
-#'
-#' @details
-#' # Method index
-#'
-#' | Method | Class dispatched on | Returns |
-#' |:-------|:-------------------|:--------|
-#' | `print()` | `bef_fit`, `bef_data`, `bef_diagnostic`, `summary.bef_fit` | invisibly the input |
-#' | `summary()` | `bef_fit`, `bef_fit_re`, `bef_data`, `bef_diagnostic` | a list (class `summary.bef_fit*` for fits) |
-#' | `format()` | `bef_fit`, `summary.bef_fit`, `bef_data`, `bef_diagnostic` | character vector |
-#' | `coef()` | `bef_fit_re` | named numeric vector of site point estimates |
-#' | `vcov()` | `bef_fit_re` | diagonal matrix of site posterior variances |
-#' | `confint()` | `bef_fit_re` | data frame of credible intervals |
-#' | `as.data.frame()` | `bef_fit_re` | the per-site `theta_summary` table |
-#' | `nobs()` | `bef_fit` | integer site count `K` |
-#' | `logLik()` | `bef_fit` | `logLik` object with `df` = effective parameters |
-#' | `posterior::as_draws()` | `bef_fit` | `draws_array` |
-#'
-#' # Metadata access
-#'
-#' `fit$metadata` is a closed list of 13 named fields; four
-#' additional payloads are stored as attributes
-#' (`diagnostics`, `diagnostic_skipped`,
-#' `sampler_diagnostics_failed`, `sd_g_summary`). The methods on this
-#' page are the recommended access path: `summary()` surfaces the
-#' user-relevant fields; [diagnose()] returns a structured
-#' `bef_diagnostic` object covering the diagnostic attributes; direct
-#' `attr()` access is supported but unnecessary.
-#'
-#' # Sites and labels
-#'
-#' Site labels propagated from the input (named list or `escalc` row
-#' names) appear in `coef()` names, `vcov()` dimnames, the `site`
-#' column of `confint()` and `as.data.frame()`, and `summary()` print
-#' output. When labels are absent the numeric site index is used.
-#'
-#' # Print and format backends
-#'
-#' `print()` and `format()` for `bef_fit`, `summary.bef_fit`,
-#' `bef_data`, and `bef_diagnostic` prefer `cli`-styled output when
-#' the `cli` package is installed and stdout supports it, and fall
-#' back to a plain base-R representation otherwise. The `use_cli`
-#' argument lets callers force one branch:
-#'
-#' * `use_cli = NULL` (default) — auto-detect.
-#' * `use_cli = TRUE` — force `cli` styling (errors if `cli` is not
-#'   installed).
-#' * `use_cli = FALSE` — force plain base output.
-#'
-#' Setting the environment variable `BAYESEFRON_NO_CLI=1` is
-#' equivalent to `use_cli = FALSE` for every call in the session and
-#' is the recommended way to suppress styling in CI logs and
-#' redirected stdout.
-#'
-#' # Site count requirement
-#'
-#' The `bef_data` validator (used by `as_bef_data()` and
-#' `bayes_efron_fit()`) requires at least five sites. The constraint
-#' reflects the methodological requirement of the log-spline
-#' deconvolution prior, not a software limitation.
-#'
-#' @param x,object A bayesEfron S3 object (`bef_fit`, `bef_fit_re`,
-#'   `bef_data`, or `bef_diagnostic`, depending on the method).
-#' @param ... Additional arguments passed to methods. Most methods
-#'   ignore `...`; `format()`-based printers accept it for
-#'   compatibility with the generic.
-#' @param level Numeric credible level in \eqn{(0, 1)}. Defaults to
-#'   `0.9` (90 percent credible interval).
-#' @param type Character option for methods with multiple estimands:
-#'   `coef()` accepts `"mean"` (posterior mean, default) or `"map"`
-#'   (posterior mode); `confint()` accepts `"theta"` (per-site
-#'   latent-effect intervals, default) or `"g"` (mixing-distribution
-#'   functionals).
-#' @param parm Optional parameter or site subset. `NULL` (default)
-#'   returns all sites or all `g`-functionals. Numeric values are
-#'   1-based site indices; character values are matched against the
-#'   site labels.
-#' @param row.names Optional character vector of row names for
-#'   `as.data.frame()`, with one value per site.
-#' @param optional Included for `as.data.frame()` method
-#'   compatibility; not used.
-#' @param use_cli `NULL`, `TRUE`, or `FALSE`; controls optional
-#'   `cli`-styled output for `format()` and `print()` methods. See
-#'   the "Print and format backends" subsection in \strong{Details}.
-#'
-#' @return The return type depends on the method; see the index table
-#'   in \strong{Details}.
-#'
-#' @seealso
-#'   * [bayes_efron_fit()] for producing the fitted object.
-#'   * [diagnose()] for the structured diagnostic producer.
-#'   * [plot.bef_fit_re()] for visualization.
-#'
-#' @examples
-#' # Load the cached five-site smoke fit shipped with the package.
-#' fit <- readRDS(system.file(
-#'   "examples", "cached_fit_re_smoke.rds",
-#'   package = "bayesEfron"
-#' ))
-#'
-#' summary(fit)
-#' print(fit)
-#' coef(fit)                       # posterior mean per site
-#' coef(fit, type = "map")         # posterior MAP per site
-#' confint(fit)                    # 90 percent credible intervals on theta
-#' confint(fit, level = 0.95, type = "g")
-#' nobs(fit)                       # site count K
-#' logLik(fit)
-#' as.data.frame(fit)              # per-site summary as a data frame
-#' posterior::as_draws(fit)        # draws_array for downstream tools
-#'
-#' @name bayesEfron-methods
-NULL
-
-#' @rdname bayesEfron-methods
+#' @order 1
+#' @describeIn bef_fit Prints the number of sites, the grid method, the running time and
+#'   the worst value of each convergence diagnostic.
 #' @export
 print.bef_fit <- function(x, ...) {
+  x <- .bef_prepare_fit(x)
   cat(format(x, ...), sep = "\n")
   invisible(x)
 }
 
-#' @rdname bayesEfron-methods
+#' @order 2
+#' @describeIn bef_fit Returns a list of class `summary.bef_fit` with `prior_summary`,
+#'   the posterior means of the mean, variance and standard deviation of
+#'   \eqn{g}, and `diagnostics`, the convergence diagnostics.
 #' @export
 summary.bef_fit <- function(object, level = 0.9, ...) {
   level <- .bef_validate_summary_level(level)
+  object <- .bef_prepare_fit(object)
   metadata <- object$metadata
 
   out <- list(
@@ -161,45 +39,65 @@ summary.bef_fit <- function(object, level = 0.9, ...) {
       sampler_diagnostics_failed = .bef_metadata_attr(
         metadata,
         "sampler_diagnostics_failed"
-      )
+      ),
+      sampler_diagnostics_warned = {
+        warned <- .bef_metadata_attr(metadata, "sampler_diagnostics_warned")
+        if (is.null(warned)) character() else warned
+      }
     )
   )
   attr(out, "level") <- level
+  attr(out, "summary_definition_version") <- 1L
   class(out) <- "summary.bef_fit"
   out
 }
 
-#' @rdname bayesEfron-methods
+#' @order 4
+#' @describeIn bef_fit Prints the summary.
 #' @export
 print.summary.bef_fit <- function(x, ...) {
   cat(format(x, ...), sep = "\n")
   invisible(x)
 }
 
-#' @rdname bayesEfron-methods
+#' @order 3
+#' @describeIn bef_fit Adds `theta_summary` to the summary, with the columns
+#'   `hpdi_lower` and `hpdi_upper` computed for `level`.
 #' @export
 summary.bef_fit_re <- function(object, level = 0.9, ...) {
+  object <- .bef_prepare_fit(object)
   out <- NextMethod()
   out$theta_summary <- .bef_theta_summary_for_level(object, level = attr(out, "level"))
   class(out) <- c("summary.bef_fit_re", "summary.bef_fit")
   out
 }
 
-#' @rdname bayesEfron-methods
+#' @order 5
+#' @describeIn bef_fit Returns the posterior means or the posterior modes of the
+#'   site effects, the column `mean` or `map` of `theta_summary`, as a
+#'   numeric vector named by site number.
 #' @export
 coef.bef_fit_re <- function(object, type = c("mean", "map"), ...) {
   type <- .bef_validate_method_choice(
-    type, c("mean", "map"), arg = "type", module = "coef.bef_fit_re"
+    type, c("mean", "map"), arg = "type"
   )
+  object <- .bef_prepare_fit(object)
   theta_summary <- object$metadata$theta_summary
   out <- theta_summary[[type]]
   names(out) <- as.character(theta_summary$site)
   out
 }
 
-#' @rdname bayesEfron-methods
+#' @order 7
+#' @describeIn bef_fit Returns a diagonal matrix with the posterior variances of the
+#'   site effects, the squares of the column `sd` of `theta_summary`. The
+#'   site effects are not independent in the posterior distribution,
+#'   because all of them depend on \eqn{g}, and their covariances are not
+#'   computed. The matrix therefore serves for one site at a time and not
+#'   for the variance of a sum or a difference of site effects.
 #' @export
 vcov.bef_fit_re <- function(object, ...) {
+  object <- .bef_prepare_fit(object)
   theta_summary <- object$metadata$theta_summary
   out <- diag(theta_summary$sd^2, nrow = nrow(theta_summary))
   dimnames(out) <- list(
@@ -209,7 +107,12 @@ vcov.bef_fit_re <- function(object, ...) {
   out
 }
 
-#' @rdname bayesEfron-methods
+#' @order 6
+#' @describeIn bef_fit Returns a data frame with the columns `site`, `lower`, `upper`
+#'   and `point`. For `type = "theta"` the limits are equal-tailed quantiles
+#'   of the `theta_rep` draws and `point` is the posterior mean. For
+#'   `type = "g"` the rows are the mean, variance and standard deviation of
+#'   \eqn{g}.
 #' @export
 confint.bef_fit_re <- function(object,
                                parm = NULL,
@@ -218,27 +121,29 @@ confint.bef_fit_re <- function(object,
                                ...) {
   level <- .bef_validate_summary_level(level)
   type <- .bef_validate_method_choice(
-    type, c("theta", "g"), arg = "type", module = "confint.bef_fit_re"
+    type, c("theta", "g"), arg = "type"
   )
+  object <- .bef_prepare_fit(object)
   if (identical(type, "theta")) {
     return(.bef_confint_theta(object, parm = parm, level = level))
   }
   .bef_confint_g(object, parm = parm, level = level)
 }
 
-#' @rdname bayesEfron-methods
+#' @order 9
+#' @describeIn bef_fit Returns `theta_summary`.
 #' @export
 as.data.frame.bef_fit_re <- function(x,
                                      row.names = NULL,
                                      optional = FALSE,
                                      ...) {
+  x <- .bef_prepare_fit(x)
   out <- x$metadata$theta_summary
   if (!is.null(row.names)) {
     if (!is.character(row.names) || length(row.names) != nrow(out) || anyNA(row.names)) {
       .bef_abort_invalid_args(
         "`row.names` must be NULL or a non-missing character vector with one value per site.",
-        arg = "row.names",
-        module = "as.data.frame.bef_fit_re"
+        arg = "row.names"
       )
     }
     row.names(out) <- row.names
@@ -246,14 +151,18 @@ as.data.frame.bef_fit_re <- function(x,
   out
 }
 
-#' @rdname bayesEfron-methods
+#' @order 6
+#' @describeIn as_bef_data Prints the number of sites and the range of the estimates and
+#'   of the standard errors.
 #' @export
 print.bef_data <- function(x, ...) {
   cat(format(x, ...), sep = "\n")
   invisible(x)
 }
 
-#' @rdname bayesEfron-methods
+#' @order 7
+#' @describeIn as_bef_data Returns a list with the number of sites `K` and summaries of
+#'   `theta_hat` and `sigma`.
 #' @export
 summary.bef_data <- function(object, ...) {
   validate_bef_data(object)
@@ -266,14 +175,18 @@ summary.bef_data <- function(object, ...) {
   )
 }
 
-#' @rdname bayesEfron-methods
+#' @order 4
+#' @describeIn diagnose Prints the worst value of each diagnostic.
 #' @export
 print.bef_diagnostic <- function(x, ...) {
   cat(format(x, ...), sep = "\n")
   invisible(x)
 }
 
-#' @rdname bayesEfron-methods
+#' @order 5
+#' @describeIn diagnose Returns a list in which `rhat`, `ess_bulk` and `ess_tail` are
+#'   reduced to their worst value, with the name of the quantity that has
+#'   it.
 #' @export
 summary.bef_diagnostic <- function(object, ...) {
   validate_bef_diagnostic(object)
@@ -283,24 +196,34 @@ summary.bef_diagnostic <- function(object, ...) {
     ess_tail = .bef_diagnostic_extreme(object$ess_tail, "min"),
     divergences = .bef_diagnostic_sum(object$divergences),
     max_treedepth = .bef_diagnostic_sum(object$max_treedepth),
+    ebfmi = object$ebfmi,
     effective_params = object$effective_params_summary,
     model_family = object$model_family,
     stan_file_sha256 = object$stan_file_sha256,
     runtime_seconds = object$runtime_seconds,
     diagnostic_skipped = object$diagnostic_skipped,
-    sampler_diagnostics_failed = object$sampler_diagnostics_failed
+    sampler_diagnostics_failed = object$sampler_diagnostics_failed,
+    sampler_diagnostics_warned = object$sampler_diagnostics_warned
   )
 }
 
-#' @rdname bayesEfron-methods
+#' @order 10
+#' @describeIn bef_fit Returns the number of sites.
 #' @export
 nobs.bef_fit <- function(object, ...) {
   as.integer(object$metadata$data_list$K)
 }
 
-#' @rdname bayesEfron-methods
+#' @order 11
+#' @describeIn bef_fit Returns the posterior mean of `log_marginal_likelihood`,
+#'   the log likelihood with the site effects summed out, as a `logLik`
+#'   object whose degrees of freedom are the posterior mean of
+#'   `effective_params`. It is not a maximized log likelihood, so `AIC()`
+#'   and `BIC()` computed from it do not have their usual meaning; to
+#'   compare fits, use [loo.bef_fit()].
 #' @export
 logLik.bef_fit <- function(object, ...) {
+  object <- .bef_prepare_fit(object)
   value <- object$metadata$log_marginal_likelihood_summary$mean
   structure(
     value,
@@ -310,9 +233,11 @@ logLik.bef_fit <- function(object, ...) {
   )
 }
 
-#' @rdname bayesEfron-methods
+#' @order 12
+#' @describeIn bef_fit Returns the draws as a `posterior::draws_array`.
 #' @exportS3Method posterior::as_draws
 as_draws.bef_fit <- function(x, ...) {
+  x <- .bef_prepare_fit(x)
   posterior::as_draws_array(x$draws)
 }
 
@@ -321,8 +246,7 @@ as_draws.bef_fit <- function(x, ...) {
       !is.finite(level) || level <= 0 || level >= 1) {
     .bef_abort_invalid_args(
       "`level` must be a finite numeric scalar between 0 and 1.",
-      arg = "level",
-      module = "summary.bef_fit"
+      arg = "level"
     )
   }
   level
@@ -345,7 +269,7 @@ as_draws.bef_fit <- function(x, ...) {
 .bef_diagnostic_extreme <- function(x, direction) {
   present <- which(!is.na(x))
   if (length(present) == 0L) {
-    return(list(value = NA_real_, index = NA_integer_))
+    return(list(value = NA_real_, index = NA_integer_, variable = NA_character_))
   }
   local_index <- switch(
     direction,
@@ -353,12 +277,13 @@ as_draws.bef_fit <- function(x, ...) {
     min = which.min(x[present]),
     .bef_abort_invalid_args(
       "`direction` must be \"max\" or \"min\".",
-      arg = "direction",
-      module = ".bef_diagnostic_extreme"
+      arg = "direction"
     )
   )
   index <- present[[local_index]]
-  list(value = x[[index]], index = index)
+  # The name of the variable says which parameter the extreme value belongs to.
+  variable <- if (!is.null(names(x))) names(x)[[index]] else NA_character_
+  list(value = x[[index]], index = index, variable = variable)
 }
 
 .bef_diagnostic_sum <- function(x) {
@@ -368,7 +293,7 @@ as_draws.bef_fit <- function(x, ...) {
   sum(x, na.rm = TRUE)
 }
 
-.bef_validate_method_choice <- function(x, choices, arg, module) {
+.bef_validate_method_choice <- function(x, choices, arg) {
   if (identical(x, choices)) {
     return(choices[[1L]])
   }
@@ -379,9 +304,7 @@ as_draws.bef_fit <- function(x, ...) {
         arg,
         paste(sprintf("\"%s\"", choices), collapse = ", ")
       ),
-      arg = arg,
-      predicate = paste(choices, collapse = "|"),
-      module = module
+      arg = arg
     )
   }
   x
@@ -399,6 +322,7 @@ as_draws.bef_fit <- function(x, ...) {
 }
 
 .bef_confint_theta <- function(object, parm, level) {
+  theta_rep <- .bef_site_draws(object, "theta_rep")
   theta_summary <- object$metadata$theta_summary
   selected <- .bef_resolve_site_parm(parm, theta_summary$site)
   probs <- .bef_interval_probs(level)
@@ -406,7 +330,7 @@ as_draws.bef_fit <- function(x, ...) {
     selected,
     function(site) {
       posterior::quantile2(
-        object$metadata$theta_rep_draws[, site],
+        theta_rep[, site],
         probs = probs,
         names = FALSE
       )
@@ -476,8 +400,7 @@ as_draws.bef_fit <- function(x, ...) {
     if (!.bef_is_whole_number_vector(parm) || any(parm < 1L) || any(parm > K)) {
       .bef_abort_invalid_args(
         "`parm` must contain valid site indices.",
-        arg = "parm",
-        module = "confint.bef_fit_re"
+        arg = "parm"
       )
     }
     return(as.integer(parm))
@@ -487,16 +410,14 @@ as_draws.bef_fit <- function(x, ...) {
     if (anyNA(matched)) {
       .bef_abort_invalid_args(
         "`parm` must contain site labels present in the fit.",
-        arg = "parm",
-        module = "confint.bef_fit_re"
+        arg = "parm"
       )
     }
     return(matched)
   }
   .bef_abort_invalid_args(
     "`parm` must be NULL, numeric site indices, or character site labels.",
-    arg = "parm",
-    module = "confint.bef_fit_re"
+    arg = "parm"
   )
 }
 
@@ -510,8 +431,7 @@ as_draws.bef_fit <- function(x, ...) {
         any(parm > length(parameters))) {
       .bef_abort_invalid_args(
         "`parm` must contain valid prior-summary indices.",
-        arg = "parm",
-        module = "confint.bef_fit_re"
+        arg = "parm"
       )
     }
     return(as.integer(parm))
@@ -521,16 +441,14 @@ as_draws.bef_fit <- function(x, ...) {
     if (anyNA(matched)) {
       .bef_abort_invalid_args(
         "`parm` must contain one or more of mean_g, var_g, sd_g.",
-        arg = "parm",
-        module = "confint.bef_fit_re"
+        arg = "parm"
       )
     }
     return(matched)
   }
   .bef_abort_invalid_args(
     "`parm` must be NULL, numeric prior-summary indices, or character prior-summary labels.",
-    arg = "parm",
-    module = "confint.bef_fit_re"
+    arg = "parm"
   )
 }
 

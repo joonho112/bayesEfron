@@ -2,7 +2,7 @@
 % Please edit documentation in R/grid.R
 \name{make_efron_grid}
 \alias{make_efron_grid}
-\title{Construct an Efron log-spline grid}
+\title{Build the grid and spline basis for the effect distribution}
 \usage{
 make_efron_grid(
   theta_hat,
@@ -17,143 +17,130 @@ make_efron_grid(
 )
 }
 \arguments{
-\item{theta_hat}{Numeric vector of observed effect estimates,
-length \eqn{\ge 2}.}
+\item{theta_hat}{Numeric vector of effect estimates, one for each site.}
 
-\item{sigma}{Numeric vector of strictly positive within-study
-standard errors. Same length as \code{theta_hat}.}
+\item{sigma}{Numeric vector of the standard errors of the estimates. All
+must be positive.}
 
-\item{L}{Integer grid length, or \code{NULL}. \code{NULL} uses \code{101L} for the
-three paper recipes; \code{"kl_target_experimental"} derives \code{L} from
-\code{kappa}. Bounded to \eqn{[51, 300]} when supplied.}
+\item{L}{Whole number between 51 and 300, the number of grid points, or
+\code{NULL} (the default) for 101.}
 
-\item{expansion}{Numeric, range-relative expansion factor used by
-\code{"paper_realdata"} and \code{"kl_target_experimental"}. Defaults to
-\code{0.5} (50 percent expansion). Range \eqn{[0, 5]}.}
+\item{expansion}{Number between 0 and 5. With \code{"paper_realdata"} and
+\code{"kl_target_experimental"}, the range of \code{theta_hat} is widened on each
+side by \code{expansion} times its width. Defaults to \code{0.5}.}
 
-\item{kappa}{Numeric, KL target used by
-\code{"kl_target_experimental"}. \code{NULL} defaults to
-\code{1 / length(theta_hat)}. Range \eqn{(0, 1)}.}
+\item{kappa}{Number greater than 0 and less than 1, used by
+\code{"kl_target_experimental"} only: it sets the spacing that the method
+aims at, as described in Details. \code{NULL} (the default) means
+\code{1 / length(theta_hat)}.}
 
-\item{M}{Integer natural-cubic-spline degrees of freedom. Defaults
-to \code{6L}. Range \eqn{[3, 10]}.}
+\item{M}{Whole number between 3 and 10, the number of spline functions.
+Defaults to \code{6L}.}
 
-\item{grid_method}{Character grid recipe. One of
-\code{"paper_realdata"} (default), \code{"paper_simulation"},
-\code{"paper_sensitivity"}, or \code{"kl_target_experimental"}.}
+\item{grid_method}{Character string, the rule for the end points of the
+grid: \code{"paper_realdata"} (the default), \code{"paper_simulation"},
+\code{"paper_sensitivity"} or \code{"kl_target_experimental"}. The Details of
+\code{\link[=make_efron_grid]{make_efron_grid()}} describe them.}
 
-\item{theta_true}{Numeric oracle vector required by
-\code{"paper_simulation"} and \code{"paper_sensitivity"}; ignored by the
-other recipes. Same length as \code{theta_hat} when supplied.}
+\item{theta_true}{Numeric vector of the true effects, of the same length
+as \code{theta_hat}. Needed by \code{"paper_simulation"} and
+\code{"paper_sensitivity"}, which are for simulations.}
 
-\item{bound_expansion}{Numeric, oracle-bound expansion factor used
-only by \code{"paper_sensitivity"}. \code{NULL} falls back to the recipe
-default of \code{0.5}. Range \eqn{(0, 5]}.}
+\item{bound_expansion}{Number greater than 0 and at most 5. With
+\code{"paper_sensitivity"}, the range of \code{theta_true} is widened on each
+side by \code{bound_expansion} times its width. \code{NULL} (the default) means
+0.5.}
 }
 \value{
-A named list with the following fields:
-\itemize{
-\item \code{grid} — numeric vector of length \code{L}, the discrete support of
-the mixing distribution.
-\item \code{B} — natural-cubic-spline basis matrix from
-\code{splines::ns(grid, df = M, intercept = FALSE)}.
-\item \code{M} — integer, the spline degrees of freedom actually used.
-\item \code{L} — integer, the grid length actually used.
-\item \code{expansion} — the range-relative expansion factor applied
-(recipe-dependent).
-\item \code{kappa} — the KL target (only meaningful for
-\code{"kl_target_experimental"}; \code{NULL} otherwise).
-\item \code{grid_method} — the recipe name.
-\item \code{attribution} — a list recording the formula and source lineage
-of the recipe.
-}
+A list. \code{grid} holds the grid points and \code{B} the spline basis, a
+matrix with one row for each grid point and \code{M} columns. \code{L} and \code{M}
+are the numbers of grid points and spline functions, and \code{grid_method}
+is the method. \code{expansion} is the factor by which the range was widened
+(\code{NA} for \code{"paper_simulation"}), and \code{kappa} is \code{NULL} unless the method
+is \code{"kl_target_experimental"}. \code{attribution} is a list with the rule,
+\code{formula}, and where it comes from, \code{source}.
 }
 \description{
-Build the discrete support and natural-cubic-spline basis that the
-v0.1 random-effects Stan model uses to represent the mixing
-distribution \eqn{g}. The function exposes the four grid recipes
-committed by the package blueprint and the associated MDPI
-\emph{Mathematics} paper, together with one experimental KL-target
-recipe.
-
-Most users do not need to call \code{make_efron_grid()} directly:
-\code{\link[=bayes_efron_fit]{bayes_efron_fit()}} constructs a grid internally with the same
-arguments. Calling this function on its own is useful when you want
-to inspect or visualize a candidate grid before committing to a
-fit, or to share the same grid across several fits for comparison.
+The model represents the distribution of true effects, \eqn{g}, by its
+probabilities on a grid of equally spaced points, and takes the logarithm
+of those probabilities to be a combination of natural cubic spline
+functions. \code{make_efron_grid()} builds the grid and the spline basis from
+the estimates. \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} calls it with its arguments
+\code{grid_method}, \code{L}, \code{expansion}, \code{M}, \code{theta_true} and \code{bound_expansion},
+so the function is needed on its own only to look at a grid before
+fitting.
 }
-\section{Grid recipes}{
-\tabular{lcl}{
-   Recipe \tab Needs \code{theta_true}? \tab Use when \cr
-   \code{"paper_realdata"} (default) \tab No \tab Real-data analysis with no oracle. Endpoints come from the observed range of \code{theta_hat}, expanded by \code{expansion}. \cr
-   \code{"paper_simulation"} \tab Yes \tab Simulation with known truth, matched to the paper's grid rule. Endpoints come from the oracle range of \code{theta_true}, padded by an absolute 0.5 on each side. \cr
-   \code{"paper_sensitivity"} \tab Yes \tab Sensitivity sweep that widens the oracle bounds by \code{bound_expansion}. \cr
-   \code{"kl_target_experimental"} \tab No \tab KL-target tuning. Computes \code{L} from \code{kappa}; emits a once-per-session disclaimer because the calibration is experimental for heteroscedastic inputs. \cr
+\details{
+\code{grid_method} chooses where the grid begins and ends. Three of the
+methods are the rules of Lee and Sui (2025) and of the code that
+accompanies the paper, and one is experimental.\tabular{lll}{
+   \code{grid_method} \tab End points of the grid \tab Needs \code{theta_true} \cr
+   \code{"paper_realdata"} \tab The range of \code{theta_hat}, widened on each side by \code{expansion} times its width. \tab No \cr
+   \code{"paper_simulation"} \tab The range of \code{theta_true}, widened by 0.5 on each side. \tab Yes \cr
+   \code{"paper_sensitivity"} \tab The range of \code{theta_true}, widened on each side by \code{bound_expansion} times its width. \tab Yes \cr
+   \code{"kl_target_experimental"} \tab As for \code{"paper_realdata"}; the number of points is set by \code{kappa}. \tab No \cr
 }
 
 
-Across recipes the returned grid is always strictly increasing,
-covers the observed range, and supports a length-\code{M}
-natural-cubic-spline basis (\code{splines::ns(grid, df = M, intercept = FALSE)}).
-}
+\code{"paper_realdata"} is the method for the analysis of data. The two
+methods that need \code{theta_true}, the true effects, can be used only in a
+simulation, where the true effects are known; they are provided so that
+the simulations of the paper can be repeated.
 
-\section{Defaults and bounds}{
-\code{L} defaults to \code{101L} for the three paper-faithful recipes.
-\code{"kl_target_experimental"} always derives the effective \code{L} from
-\code{kappa} after validating user inputs; a supplied \code{L} is range-checked
-but does not participate in the recipe's effective grid length. Both
-\code{L} (51–300) and \code{M} (3–10) are bounded; out-of-range values are
-rejected at the input boundary. \code{expansion} and \code{bound_expansion}
-accept values in \eqn{[0, 5]}; \code{kappa} accepts values in \eqn{(0, 1)}.
-}
+\code{"kl_target_experimental"} chooses the number of grid points from the
+smallest standard error; \code{L} is not used. It takes the smallest number
+for which the spacing is no more than
+\eqn{2 \min_i(\sigma_i) \sqrt{\exp(2\kappa) - 1}}, but never fewer than
+51 or more than 300, so that with small standard errors and a wide range
+of estimates the spacing is larger than the formula asks for. The
+formula is the one that \code{ebnm::ebnm_scale_npmle()} uses with
+\code{pointmass = FALSE}. There the distribution is a mixture of normal
+components, each with a standard deviation of half the spacing, and
+\eqn{\kappa}, the argument \code{kappa}, bounds the Kullback-Leibler
+divergence that this approximation costs when the standard errors are
+equal. The model of this package differs in three ways: the distribution
+is a set of probabilities on the grid points, for which ebnm has another
+formula; it is restricted to the family that the spline functions
+define; and the standard errors are in general unequal. The bound has
+not been shown to hold under these conditions, so here \code{kappa} only sets
+how fine the grid is: a smaller value gives a finer grid. A message says
+so the first time the method is used in a session. \code{kappa} can be set
+only in \code{make_efron_grid()}; \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} uses its default.
 
-\section{Attribution}{
-Every returned grid carries an \code{attribution} slot recording the
-formula and source lineage of the recipe so downstream consumers
-can audit which paper rule produced the grid.
+The basis is \code{splines::ns(grid, df = M, intercept = FALSE)}. If the
+basis and a constant column together do not have full column rank, the
+function stops with an error; a smaller \code{M} avoids this.
 }
-
 \examples{
-theta_hat <- c(-0.45, -0.10, 0.20, 0.55, 0.90)
-sigma     <- c( 0.20,  0.18, 0.22, 0.16, 0.24)
+grid <- make_efron_grid(raudenbush1985$yi, raudenbush1985$sei)
+range(raudenbush1985$yi)
+range(grid$grid)
+dim(grid$B)
 
-# Default real-data grid: endpoints from observed range + 50 percent expansion.
-g_real <- make_efron_grid(theta_hat, sigma)
-length(g_real$grid)            # 101 by default
-dim(g_real$B)                  # L x M
-g_real$grid_method
+# The six spline functions on the grid.
+matplot(grid$grid, grid$B, type = "l", lty = 1,
+        xlab = "Effect", ylab = "Spline function")
 
-# Simulation grid (oracle required): pretend the truth is known.
-theta_true <- c(-0.40, 0.00, 0.10, 0.70, 1.00)
-g_sim <- make_efron_grid(
-  theta_hat   = theta_hat,
-  sigma       = sigma,
-  theta_true  = theta_true,
-  grid_method = "paper_simulation"
-)
+# A wider grid with more spline functions.
+wide <- make_efron_grid(raudenbush1985$yi, raudenbush1985$sei,
+                        expansion = 1, M = 8)
+range(wide$grid)
 
-# Sensitivity grid: widen oracle bounds by `bound_expansion`.
-g_sens <- make_efron_grid(
-  theta_hat       = theta_hat,
-  sigma           = sigma,
-  theta_true      = theta_true,
-  grid_method     = "paper_sensitivity",
-  bound_expansion = 0.5
-)
+# In a simulation the true effects can set the range.
+set.seed(1)
+theta <- rnorm(50)
+theta_hat <- rnorm(50, mean = theta, sd = 0.5)
+sim <- make_efron_grid(theta_hat, rep(0.5, 50),
+                       grid_method = "paper_simulation", theta_true = theta)
+range(sim$grid)
 
-# Experimental KL-target recipe: emits a once-per-session disclaimer.
-g_kl <- make_efron_grid(
-  theta_hat   = theta_hat,
-  sigma       = sigma,
-  grid_method = "kl_target_experimental"
-)
-
+}
+\references{
+Lee, J. and Sui, D. (2025). Fully Bayesian inference for meta-analytic
+deconvolution using Efron's log-spline prior. \emph{Mathematics}, 13(16),
+2639. \doi{10.3390/math13162639}
 }
 \seealso{
-\itemize{
-\item \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}, which constructs a grid internally and is
-the usual entry point.
-\item The methodological vignette M4 (grid construction and spline
-basis) for the mathematical specification of each recipe.
-}
+\code{\link[=bayes_efron_fit]{bayes_efron_fit()}}, \code{\link[=compare_efron_grids]{compare_efron_grids()}},
+\code{vignette("choosing-a-grid")}
 }

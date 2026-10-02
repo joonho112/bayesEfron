@@ -51,6 +51,26 @@ test_that("plot payload uses grid-level g density draws when available", {
   expect_true(all(payload$data$point <= payload$data$upper))
 })
 
+test_that("type = \"g\" draws the density band for a fit made with the default settings", {
+  # The example fit was run with store_grid_quantities = FALSE, so it carries
+  # log_g but not g.
+  fit <- readRDS(test_path("_fixtures", "short_fit.rds"))
+  expect_false(any(grepl("^g\\[", posterior::variables(fit$draws))))
+
+  payload <- plot_test_ns(".bef_plot_payload_bef_fit_re")(
+    fit,
+    type = "g",
+    level = 0.9,
+    sort_by = "mean"
+  )
+  L <- fit$metadata$data_list$L
+  expect_equal(payload$data$kind, rep("density", L))
+  expect_equal(payload$data$grid, fit$metadata$data_list$grid)
+  expect_true(all(payload$data$lower <= payload$data$point))
+  expect_true(all(payload$data$point <= payload$data$upper))
+  expect_equal(sum(payload$data$point), 1, tolerance = 1e-8)
+})
+
 test_that("plot payload falls back to prior-moment g summaries without g draws", {
   fit <- plot_test_fit()
   fit$draws <- fit$draws[, , c("mean_g", "var_g"), drop = FALSE]
@@ -70,7 +90,6 @@ test_that("plot payload falls back to prior-moment g summaries without g draws",
 test_that("plot.bef_fit_re returns ggplot objects when ggplot2 backend is active", {
   skip_if_not_installed("ggplot2")
   fit <- plot_test_fit()
-  withr::local_envvar(c(BAYESEFRON_NO_GGPLOT2 = NA))
 
   gg <- plot(fit, type = "caterpillar", level = 0.8)
   expect_s3_class(gg, "ggplot")

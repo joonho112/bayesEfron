@@ -11,7 +11,7 @@ test_that("prepare_stan_data returns the exact locked Stan data shape", {
 
   expect_named(
     stan_data,
-    c("K", "theta_hat", "sigma", "L", "grid", "M", "B")
+    c("K", "theta_hat", "sigma", "L", "grid", "M", "B", "store_grid_quantities")
   )
   expect_type(stan_data$K, "integer")
   expect_type(stan_data$L, "integer")
@@ -52,20 +52,6 @@ test_that("prepare_stan_data rejects invalid inputs with typed conditions", {
       prepare_stan_data(
         list(theta_hat = theta_hat, sigma = sigma), grid,
         model_family = "HE"
-      ),
-      error = identity
-    ),
-    tryCatch(
-      prepare_stan_data(
-        list(theta_hat = theta_hat, sigma = sigma), grid,
-        group = seq_along(theta_hat)
-      ),
-      error = identity
-    ),
-    tryCatch(
-      prepare_stan_data(
-        list(theta_hat = theta_hat, sigma = sigma), grid,
-        rho = 0.1
       ),
       error = identity
     )

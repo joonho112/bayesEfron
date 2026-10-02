@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit.R
 \name{bayes_efron_fit}
 \alias{bayes_efron_fit}
-\title{Fit the Bayesian Efron random-effects model}
+\title{Fit the Efron log-spline model to estimates and standard errors}
 \usage{
 bayes_efron_fit(
   theta_hat,
@@ -17,210 +17,189 @@ bayes_efron_fit(
   bound_expansion = NULL,
   model_family = "RE",
   chains = 4L,
+  parallel_chains = chains,
   iter_warmup = 1000L,
   iter_sampling = 3000L,
   adapt_delta = 0.9,
+  max_treedepth = 10L,
   seed = NULL,
-  keep_cmdstan_fit = FALSE
+  keep_cmdstan_fit = FALSE,
+  store_grid_quantities = FALSE
 )
 }
 \arguments{
-\item{theta_hat}{Numeric vector of per-site effect estimates on a
-common scale (e.g. mean differences, log odds ratios).}
+\item{theta_hat}{Numeric vector of effect estimates, one for each site,
+all on the same scale (standardized mean differences or log odds
+ratios, for example). At least five are needed.}
 
-\item{sigma}{Numeric vector of strictly positive per-site standard
-errors, on the same scale as \code{theta_hat} and the same length.}
+\item{sigma}{Numeric vector of the standard errors of the estimates,
+positive and of the same length as \code{theta_hat}.}
 
-\item{...}{Reserved for future expansion; must be empty in v0.1.}
+\item{...}{These dots are for future extensions and must be empty.}
 
-\item{grid_method}{Character grid recipe. One of
-\code{"paper_realdata"} (default), \code{"paper_simulation"},
-\code{"paper_sensitivity"}, or \code{"kl_target_experimental"}. See
-\strong{Details}.}
+\item{grid_method}{Character string, the rule for the end points of the
+grid: \code{"paper_realdata"} (the default), \code{"paper_simulation"},
+\code{"paper_sensitivity"} or \code{"kl_target_experimental"}. The Details of
+\code{\link[=make_efron_grid]{make_efron_grid()}} describe them.}
 
-\item{L}{Integer grid length (number of discrete support points).
-Defaults to \code{101L}. The package's verification ledger is
-calibrated at this default.}
+\item{L}{Whole number between 51 and 300, the number of grid points.
+Defaults to \code{101L}.}
 
-\item{expansion}{Numeric, non-negative. Range-relative expansion
-factor that widens the grid endpoints beyond the observed range
-of \code{theta_hat}. Defaults to \code{0.5} (50 percent expansion).}
+\item{expansion}{Number between 0 and 5. With \code{"paper_realdata"} and
+\code{"kl_target_experimental"}, the range of \code{theta_hat} is widened on each
+side by \code{expansion} times its width. Defaults to \code{0.5}.}
 
-\item{M}{Integer natural-cubic-spline degrees of freedom. Defaults
-to \code{6L}. The verification ledger is calibrated at this default.}
+\item{M}{Whole number between 3 and 10, the number of spline functions.
+Defaults to \code{6L}.}
 
-\item{theta_true}{Numeric oracle vector of latent site effects,
-required by \code{"paper_simulation"} and \code{"paper_sensitivity"} and
-ignored by the other recipes. Same length as \code{theta_hat}.}
+\item{theta_true}{Numeric vector of the true effects, of the same length
+as \code{theta_hat}. Needed by \code{"paper_simulation"} and
+\code{"paper_sensitivity"}, which are for simulations.}
 
-\item{bound_expansion}{Numeric, oracle-bound expansion factor used
-only by \code{"paper_sensitivity"}. \code{NULL} falls back to the recipe
-default of \code{0.5}.}
+\item{bound_expansion}{Number greater than 0 and at most 5. With
+\code{"paper_sensitivity"}, the range of \code{theta_true} is widened on each
+side by \code{bound_expansion} times its width. \code{NULL} (the default) means
+0.5.}
 
-\item{model_family}{Character scalar. v0.1 supports \code{"RE"} only.
-Other model families are deferred to v0.2+ per the package
-blueprint.}
+\item{model_family}{Character string. \code{"RE"}, the model described in
+Details, is the only choice.}
 
-\item{chains}{Integer number of MCMC chains. Defaults to \code{4L}.}
+\item{chains}{Whole number between 1 and 16, the number of Markov
+chains. Defaults to \code{4L}.}
 
-\item{iter_warmup}{Integer warmup iterations per chain. Defaults
-to \code{1000L}.}
+\item{parallel_chains}{Whole number between 1 and \code{chains}, the number
+of chains to run at the same time. Defaults to \code{chains}.}
 
-\item{iter_sampling}{Integer post-warmup iterations per chain.
-Defaults to \code{3000L}.}
+\item{iter_warmup}{Whole number, the number of warmup iterations in each
+chain. Defaults to \code{1000L}.}
 
-\item{adapt_delta}{NUTS target acceptance statistic in \verb{(0, 1)}.
-Defaults to \code{0.9}.}
+\item{iter_sampling}{Whole number of at least 1, the number of iterations
+in each chain that are kept. Defaults to \code{3000L}.}
 
-\item{seed}{Integer seed or \code{NULL}. If \code{NULL}, an integer seed is
-auto-generated and recorded on \code{fit$metadata$seed}.}
+\item{adapt_delta}{Number between 0 and 1, the target acceptance rate of
+the sampler. Defaults to \code{0.9}. A value nearer 1 gives smaller steps,
+which can remove divergent transitions at the cost of a longer run.}
 
-\item{keep_cmdstan_fit}{Logical. If \code{TRUE}, the raw
-\code{cmdstanr::CmdStanMCMC} handle is retained at \code{fit$cmdstan_fit}
-for advanced use. Defaults to \code{FALSE} so the returned object is
-small enough to save and share.}
+\item{max_treedepth}{Whole number between 1 and 20, the maximum tree
+depth of the sampler. Defaults to \code{10L}. Raise it if \code{\link[=diagnose]{diagnose()}}
+reports many iterations that reached the maximum.}
+
+\item{seed}{Whole number, the seed of the sampler, or \code{NULL} (the
+default), in which case a seed is taken from the clock. The seed that
+was used is stored in the result.}
+
+\item{keep_cmdstan_fit}{Logical. If \code{TRUE}, the \code{cmdstanr::CmdStanMCMC}
+object is kept as the element \code{cmdstan_fit} of the result. It refers to
+temporary files, so it is of use only in the session that made it.
+Defaults to \code{FALSE}.}
+
+\item{store_grid_quantities}{Logical. If \code{TRUE}, the draws also hold the
+grid probabilities \code{g} and their unnormalized logarithms \code{log_w},
+which adds \code{2 * L} variables. Defaults to \code{FALSE}; the methods compute
+both from the other draws when they need them.}
 }
 \value{
-An S3 object of class \code{c("bef_fit_re", "bef_fit")} with
-three top-level fields:
-\itemize{
-\item \code{draws} — a \code{posterior::draws_array} of MCMC draws for the
-model parameters and generated quantities.
-\item \code{metadata} — a named list with exactly 13 fields:
-\itemize{
-\item \code{model_family} — \code{"RE"} for v0.1.
-\item \code{grid_method} — the recipe used.
-\item \code{seed} — effective integer seed (auto-generated if not
-supplied).
-\item \code{cmdstan_version} — CmdStan version string.
-\item \code{stan_file_sha256} — SHA-256 of the locked Stan source.
-\item \code{data_list} — the seven-field Stan data block sent to
-CmdStan.
-\item \code{runtime_seconds} — sampler wall-clock.
-\item \code{mean_g_summary}, \code{var_g_summary} — posterior summaries of
-functionals of the mixing distribution \eqn{g}.
-\item \code{theta_summary} — posterior summaries of latent site
-effects \eqn{\theta_i}.
-\item \code{theta_rep_draws} — replicated effects for posterior
-predictive checks.
-\item \code{effective_params_summary}, \code{log_marginal_likelihood_summary}
-— model-quality summaries.
-}
-\item \code{posterior} — a tidy posterior representation used by the S3
-methods.
-}
-
-Four additional durable payloads are stored as attributes of
-\code{fit$metadata}:  \code{sd_g_summary}, \code{diagnostics},
-\code{diagnostic_skipped}, and \code{sampler_diagnostics_failed}. Access
-them through \code{\link[=summary.bef_fit]{summary.bef_fit()}} and \code{\link[=diagnose]{diagnose()}} rather than directly.
-
-When \code{keep_cmdstan_fit = TRUE}, \code{fit$cmdstan_fit} carries the
-raw \code{cmdstanr::CmdStanMCMC} handle.
+An object of class \code{bef_fit_re}, which inherits from \code{bef_fit}.
+Its elements are \code{draws}, the posterior draws as a
+\code{posterior::draws_array}; \code{posterior}, the draws of the mean, variance
+and standard deviation of \eqn{g} and of two summaries of the fit; and
+\code{metadata}, the data, the settings and summaries of the draws.
+\link{bef_fit} describes the elements and the methods.
 }
 \description{
-Fit the fully Bayesian Efron log-spline prior to a univariate
-random-effects meta-analytic deconvolution problem. Given per-site
-effect estimates and their within-study standard errors,
-\code{bayes_efron_fit()} returns posterior site-effect summaries together
-with a continuous estimate of the underlying mixing distribution.
+A meta-analysis or a multisite trial gives an estimate
+\eqn{\hat\theta_i} and a standard error \eqn{\sigma_i} for each of
+\eqn{K} sites. \code{bayes_efron_fit()} treats the true effects
+\eqn{\theta_i} as draws from an unknown distribution \eqn{g} and
+estimates \eqn{g} and each \eqn{\theta_i} together. Unlike the usual
+random-effects model, it does not take \eqn{g} to be normal: \eqn{g}
+can be skewed or have more than one mode, and how far each estimate is
+shrunk depends on that shape.
 
-The function targets applied meta-analysts who already have point
-estimates and standard errors on a comparable scale (for example,
-the \code{yi} and \code{sqrt(vi)} columns of an \code{\link[metafor:escalc]{metafor::escalc()}} object).
-One call performs the full eight-stage pipeline: input validation,
-grid construction, Stan-data preparation, cache-backed model
-retrieval, NUTS sampling, draw extraction, generated-quantity
-postprocessing, and assembly into a validated \code{bef_fit_re} object.
-
-Computation is delegated to CmdStan through \code{cmdstanr}; the first
-call in a session typically spends most of its time compiling the
-Stan program. Subsequent calls reuse the on-disk and in-session
-caches as long as the model source, package version, CmdStan
-version, and platform match.
+The function returns posterior draws of \eqn{g}. For each site and each
+draw of \eqn{g} it also returns the mean, standard deviation and mode of
+\eqn{\theta_i} given that \eqn{g}, and one draw of \eqn{\theta_i}. The
+model is fitted by Markov chain Monte Carlo with CmdStan, so the cmdstanr
+package and CmdStan must be installed. The first call compiles the Stan
+model, which can take up to a minute; later calls reuse the compiled
+model (see \code{\link[=bayes_efron_compile]{bayes_efron_compile()}}).
 }
-\section{The fitted four-level hierarchy}{
+\details{
 For sites \eqn{i = 1, \ldots, K},
-\deqn{\hat\theta_i \mid \theta_i \sim \mathcal{N}(\theta_i, \sigma_i^2),}
-\deqn{\theta_i \mid g \overset{\text{iid}}{\sim} g,}
-where \eqn{g} is the mixing distribution of latent site effects.
-The package places a log-spline prior on the discretized \eqn{g}
-with a half-Cauchy hyperprior on the smoothness precision
-\eqn{\lambda}; full derivations are in the methodological vignettes.
+\deqn{\hat\theta_i \mid \theta_i \sim N(\theta_i, \sigma_i^2),
+  \qquad \theta_i \sim g.}
+The standard errors \eqn{\sigma_i} are taken as known and may differ
+between sites. The distribution \eqn{g} has probabilities
+\eqn{g_1, \ldots, g_L} on a grid of points
+\eqn{\tau_1 < \cdots < \tau_L}, with
+\deqn{\log g_j = B_j^\top \alpha - \log \sum_{l=1}^{L} \exp(B_l^\top \alpha),}
+where \eqn{B_j} holds the values of the \eqn{M} natural cubic spline
+functions at \eqn{\tau_j}. This is the log-spline family of Efron
+(2016). The coefficients have independent priors
+\eqn{\alpha_m \mid \lambda \sim N(0, 1/\lambda)}, which draw \eqn{g}
+toward the uniform distribution on the grid, and the precision has the
+prior \eqn{\lambda \sim \mbox{half-Cauchy}(0, 5)}, so that the strength
+of that pull is estimated along with the coefficients. Lee and Sui
+(2025) describe the model and compare it with the empirical Bayes
+estimator, in which \eqn{\alpha} is fixed at an estimate.
+
+The grid and the spline basis are those of \code{\link[=make_efron_grid]{make_efron_grid()}}, and
+\code{grid_method}, \code{L}, \code{expansion} and \code{M} control them. The defaults, 101
+grid points and six spline functions on a grid that extends beyond the
+estimates by half their range on each side, follow the application in
+Lee and Sui (2025, Section 7.2) and its replication code.
+\code{vignette("choosing-a-grid")} discusses when to change them.
+
+Only \eqn{\alpha} and \eqn{\lambda} are sampled. Given \eqn{\alpha}, the
+posterior distribution of each \eqn{\theta_i} on the grid has a closed
+form, and its mean, standard deviation and mode and one draw from it are
+computed for every posterior draw of \eqn{\alpha}.
+
+Each chain starts from spline coefficients drawn uniformly between -0.5
+and 0.5 and from a precision whose logarithm is drawn in the same way,
+a narrower interval than CmdStan's default of -2 to 2. Pass a \code{seed} to
+make a fit reproducible: with the same data, settings, versions of the
+packages and of CmdStan, and machine, the draws are the same. The seed
+and the settings of the sampler are stored with the result; \link{bef_fit}
+says where.
+
+The function gives a warning if there are divergent transitions and, for
+a fit with at least 400 draws in all, if an R-hat value exceeds 1.05;
+\code{\link[=diagnose]{diagnose()}} returns all the diagnostics.
+
+CmdStan writes the draws with a limited number of significant digits,
+eight in recent versions. That is ample for effect sizes. Estimates that
+are very large compared with their standard errors, by a factor of
+100,000 or more, should be centered before they are passed, because the
+saved draws would otherwise lose the digits in which the sites differ.
 }
-
-\section{Grid recipes}{
-The four \code{grid_method} choices control how the discrete support of
-\eqn{g} is constructed:\tabular{lcl}{
-   Recipe \tab Needs \code{theta_true}? \tab Use when \cr
-   \code{"paper_realdata"} \tab No \tab Real-data analysis with no oracle. \cr
-   \code{"paper_simulation"} \tab Yes \tab Simulation with known truth, matched paper. \cr
-   \code{"paper_sensitivity"} \tab Yes \tab Bound-expansion sensitivity, paper rule. \cr
-   \code{"kl_target_experimental"} \tab No \tab KL-target tuning (experimental, heteroscedastic). \cr
-}
-
-
-The two oracle-requiring recipes refuse to run without a numeric
-\code{theta_true}. The experimental recipe emits a once-per-session
-disclaimer about its KL calibration.
-}
-
-\section{Sampler defaults}{
-v0.1 fixes the CmdStan initialization at \code{init = 0.5} to keep
-release fits reproducible; this is \strong{not} a user-facing tuning
-argument. \code{parallel_chains} defaults to \code{chains} but can be
-overridden by setting the environment variable
-\code{BAYESEFRON_PARALLEL_CHAINS} (or the unprefixed \code{PARALLEL_CHAINS})
-to a positive integer that does not exceed \code{chains}.
-}
-
-\section{Reproducibility}{
-If \code{seed} is \code{NULL}, the function auto-generates an integer seed
-from the current time and stores it on \code{fit$metadata$seed} so the
-fit can be re-played later. Pass an explicit \code{seed} for fully
-reproducible runs.
-}
-
-\section{The 13-field metadata contract}{
-\code{fit$metadata} always has exactly the 13 named fields listed in
-\strong{Value} below. Four additional payloads are stored as
-attributes of \code{fit$metadata} and surfaced through \code{\link[=summary.bef_fit]{summary.bef_fit()}} and
-\code{\link[=diagnose]{diagnose()}}: \code{sd_g_summary}, \code{diagnostics}, \code{diagnostic_skipped},
-and \code{sampler_diagnostics_failed}.
-}
-
 \examples{
+# The call that produced `raudenbush_fit`. It needs CmdStan.
 \dontrun{
-# Five-site smoke fit. Requires a working CmdStan installation.
-theta_hat <- c(-0.21, 0.04, 0.19, 0.38, 0.61)
-sigma     <- c( 0.18, 0.15, 0.22, 0.19, 0.24)
-
 fit <- bayes_efron_fit(
-  theta_hat     = theta_hat,
-  sigma         = sigma,
-  L             = 51L,
-  M             = 3L,
-  chains        = 1L,
-  iter_warmup   = 150L,
-  iter_sampling = 4L,
-  seed          = 1234L
+  theta_hat = raudenbush1985$yi,
+  sigma = raudenbush1985$sei,
+  seed = 1985
 )
-
-summary(fit)
-confint(fit, type = "theta")
-diagnose(fit)
-plot(fit, type = "caterpillar")
 }
 
+# The stored result of that call.
+fit <- raudenbush_fit
+fit
+summary(fit)
+confint(fit, parm = c(4, 10))
+plot(fit, type = "g")
+
+}
+\references{
+Efron, B. (2016). Empirical Bayes deconvolution estimates. \emph{Biometrika},
+103(1), 1-20. \doi{10.1093/biomet/asv068}
+
+Lee, J. and Sui, D. (2025). Fully Bayesian inference for meta-analytic
+deconvolution using Efron's log-spline prior. \emph{Mathematics}, 13(16),
+2639. \doi{10.3390/math13162639}
 }
 \seealso{
-\itemize{
-\item \code{\link[=as_bef_data]{as_bef_data()}} for converting \code{\link[metafor:escalc]{metafor::escalc()}} objects and
-plain lists into the package input class.
-\item \code{\link[=make_efron_grid]{make_efron_grid()}} for building grids outside the fitting
-pipeline (for example, to inspect a recipe before fitting).
-\item \code{\link[=bayes_efron_compile]{bayes_efron_compile()}} for pre-warming the Stan model cache.
-\item \code{\link[=summary.bef_fit]{summary.bef_fit()}}, \code{\link[=confint.bef_fit_re]{confint.bef_fit_re()}}, \code{\link[=diagnose]{diagnose()}}, \code{\link[=plot.bef_fit_re]{plot.bef_fit_re()}}
-for inspecting the returned object.
-}
+\code{\link[=as_bef_data]{as_bef_data()}}, \code{\link[=make_efron_grid]{make_efron_grid()}}, \link{bef_fit}, \code{\link[=diagnose]{diagnose()}},
+\code{\link[=plot.bef_fit_re]{plot.bef_fit_re()}}, \code{vignette("bayesEfron")}
 }

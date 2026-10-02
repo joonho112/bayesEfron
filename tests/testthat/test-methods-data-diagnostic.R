@@ -26,7 +26,8 @@ diag_methods_metadata <- function(K = 5L, S = 4L) {
       L = 51L,
       grid = seq(-1, 1, length.out = 51L),
       M = 3L,
-      B = matrix(seq_len(51L * 3L) / 100, nrow = 51L, ncol = 3L)
+      B = matrix(seq_len(51L * 3L) / 100, nrow = 51L, ncol = 3L),
+      store_grid_quantities = 0L
     ),
     runtime_seconds = 2.5,
     mean_g_summary = diag_methods_summary(0),
@@ -39,7 +40,6 @@ diag_methods_metadata <- function(K = 5L, S = 4L) {
       hpdi_upper = rep(0.2, K),
       map = rep(0, K)
     ),
-    theta_rep_draws = matrix(0, nrow = S, ncol = K),
     effective_params_summary = diag_methods_summary(3),
     log_marginal_likelihood_summary = diag_methods_summary(-10)
   )
@@ -49,18 +49,22 @@ diag_methods_metadata <- function(K = 5L, S = 4L) {
     ess_bulk = 500,
     ess_tail = 450,
     divergences = 0,
-    max_treedepth = 0
+    max_treedepth = 0,
+    ebfmi = 0.9
   )
   attr(metadata, "diagnostic_skipped") <- character()
   attr(metadata, "sampler_diagnostics_failed") <- character()
+  attr(metadata, "sampler_diagnostics_warned") <- character()
   metadata
 }
 
 diag_methods_fit <- function(K = 5L, S = 4L) {
-  draws <- array(
-    seq_len(S * 1L * 2L),
-    dim = c(S, 1L, 2L),
-    dimnames = list(NULL, NULL, c("mean_g", "var_g"))
+  draws <- bef_fixture_draws(
+    theta_map = matrix(0, nrow = S, ncol = K),
+    theta_mean = matrix(0, nrow = S, ncol = K),
+    theta_sd = matrix(0.1, nrow = S, ncol = K),
+    theta_rep = matrix(0, nrow = S, ncol = K),
+    scalars = list(mean_g = rep(0, S), var_g = rep(1, S))
   )
   diag_methods_ns("validate_bef_fit_re")(
     diag_methods_ns("new_bef_fit_re")(
@@ -70,10 +74,6 @@ diag_methods_fit <- function(K = 5L, S = 4L) {
         mean_g = rep(0, S),
         var_g = rep(1, S),
         sd_g = rep(1, S),
-        theta_map = matrix(0, nrow = S, ncol = K),
-        theta_mean = matrix(0, nrow = S, ncol = K),
-        theta_sd = matrix(0.1, nrow = S, ncol = K),
-        theta_rep = matrix(0, nrow = S, ncol = K),
         effective_params = rep(3, S),
         log_marginal_likelihood = rep(-10, S)
       )
@@ -143,11 +143,10 @@ test_that("diagnose preserves skipped and failed diagnostic flags", {
 
   lines <- format(diagnostic)
   expect_true(any(grepl("Skipped diagnostics: rhat", lines, fixed = TRUE)))
-  expect_true(any(grepl(
-    "Diagnostics over warning thresholds: divergences",
-    lines,
-    fixed = TRUE
-  )))
+  # The failed checks are printed once, under one label.
+  expect_true("Failed checks: divergences" %in% lines)
+  expect_identical(sum(grepl("divergences$", lines)), 1L)
+  expect_false(any(grepl("SHA", lines, fixed = TRUE)))
 })
 
 test_that("bef_diagnostic summary, format, and print expose sampler health", {
@@ -157,9 +156,9 @@ test_that("bef_diagnostic summary, format, and print expose sampler health", {
   expect_named(
     diagnostic_summary,
     c(
-      "rhat", "ess_bulk", "ess_tail", "divergences", "max_treedepth",
+      "rhat", "ess_bulk", "ess_tail", "divergences", "max_treedepth", "ebfmi",
       "effective_params", "model_family", "stan_file_sha256",
-      "runtime_seconds", "diagnostic_skipped", "sampler_diagnostics_failed"
+      "runtime_seconds", "diagnostic_skipped", "sampler_diagnostics_failed", "sampler_diagnostics_warned"
     )
   )
   expect_equal(diagnostic_summary$rhat$value, 1.01)
@@ -209,10 +208,7 @@ test_that("bef_data and bef_diagnostic format expose optional cli path with esca
     )
   }
 
-  withr::local_envvar(c(BAYESEFRON_NO_CLI = "1"))
-  expect_identical(format(data, use_cli = TRUE), format(data, use_cli = FALSE))
-  expect_identical(
-    format(diagnostic, use_cli = TRUE),
-    format(diagnostic, use_cli = FALSE)
-  )
+  withr::local_options(bayesEfron.use_cli = FALSE)
+  expect_identical(format(data), format(data, use_cli = FALSE))
+  expect_identical(format(diagnostic), format(diagnostic, use_cli = FALSE))
 })

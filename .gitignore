@@ -1,16 +1,25 @@
-.DS_Store
-**/.DS_Store
 .Rproj.user/
 .Rhistory
 .RData
 .Ruserdata
+.DS_Store
+*.Rproj
+.quarto/
+
+# R CMD build and check output
 bayesEfron.Rcheck/
 bayesEfron_*.tar.gz
 
-# Internal development logs and design artifacts
-# (excluded from public push; remain on PI's local disk for institutional record)
-/log/
-/log_documentation/
-/blueprint-bayesEfron-book/
-/Makefile
-/tools/
+# The site is built and deployed by a workflow
+docs/
+
+# Written next to the Stan file when the model is compiled in the source tree
+inst/stan/efron_re
+inst/stan/*.hpp
+inst/stan/*.o
+
+# Written by knitr when a vignette is knitted from the package root
+/figure/
+
+# Written by the scripts in data-raw/benchmark/
+/data-raw/benchmark/results/

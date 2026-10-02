@@ -1,80 +1,84 @@
-#' Convert input data to a bayesEfron data object
+#' Extract estimates and standard errors for a fit
 #'
 #' @description
-#' Adapt the user's effect-size data into the standalone `bef_data`
-#' class that [bayes_efron_fit()] consumes. Three input shapes are
-#' supported, all returning a validated `bef_data` object that
-#' carries `theta_hat`, `sigma`, optional site labels, and a `source`
-#' attribute recording the input shape that produced it.
+#' [bayes_efron_fit()] takes a vector of estimates and a vector of their
+#' standard errors. `as_bef_data()` takes the two vectors out of the object
+#' that usually holds them, a list, a data frame or the result of
+#' `metafor::escalc()`, and checks them. The result is a `bef_data` object,
+#' whose elements `theta_hat` and `sigma` are the arguments of
+#' [bayes_efron_fit()].
 #'
 #' @details
-#' Supported input shapes:
+#' The methods differ in where they look for the two vectors.
 #'
-#' | Input class | Required fields | Source label |
-#' |:------------|:----------------|:-------------|
-#' | `bef_data` | (already converted; revalidated and returned) | unchanged |
-#' | named `list` | `theta_hat`, `sigma`; optional `names` | `"list"` |
-#' | `escalc` from [metafor::escalc()] | `yi`, `vi` (variance); optional row labels | `"metafor::escalc"` |
+#' For a list, the elements `theta_hat` and `sigma` are used. Site labels
+#' are taken from an element `names` or, if there is none, from the names
+#' of `theta_hat`.
 #'
-#' For the `escalc` path, `theta_hat` is taken from `yi` and `sigma`
-#' from `sqrt(vi)` after a strict-positivity check on `vi`. Row names
-#' on the `escalc` object are propagated as site labels when present
-#' and non-default.
+#' For a data frame, the estimates are the column named `theta_hat`, `yi`,
+#' `estimate`, `effect` or `y`, and the standard errors are the column
+#' named `sigma`, `se`, `std_error`, `stderr` or `sei`; in each case the
+#' first of these names that the data frame has. The arguments `theta_hat`
+#' and `sigma` name other columns. If the column holds variances, as the
+#' column `vi` of a metafor data set does, name it in `sigma` and set
+#' `variance = TRUE`. Site labels are taken from the column named in `site`
+#' or, without it, from the row names if they have been set.
 #'
-#' For the `list` path, an explicit `names` element overrides any
-#' names attribute on `theta_hat`. Site labels are dropped when they
-#' are missing, empty, or contain `NA`.
+#' For an object of class `escalc`, the estimates are the column `yi` and
+#' the standard errors are the square roots of the column `vi`. Row names
+#' that have been set are used as site labels.
 #'
-#' Unsupported input classes raise a typed `bef_error` via
-#' [as_bef_data.default()] with the offending class name in the
-#' message.
+#' A `bef_data` object is checked again and returned.
 #'
-#' @param x Object to convert. v0.1 supports `bef_data`, `list` with
-#'   `theta_hat` and `sigma`, and [metafor::escalc()] objects.
-#' @param ... Reserved for future expansion; must be empty in v0.1.
+#' At least five sites are needed, and the function stops if a value is
+#' missing or a standard error is not positive. The site labels are shown
+#' when the object is printed; a fitted model numbers the sites in the
+#' order in which they were given.
 #'
-#' @return A validated `bef_data` object with a `source` attribute set
-#'   to one of `"list"`, `"metafor::escalc"`, or unchanged for already
-#'   converted inputs.
+#' @param x A list, a data frame, an `escalc` object from the metafor
+#'   package or a `bef_data` object.
+#' @param ... For `as_bef_data()`, these dots are for future extensions and
+#'   must be empty. The `print()` method passes them on to `format()`;
+#'   `format()` and `summary()` do not use them.
+#' @param theta_hat,sigma For a data frame, character strings naming the
+#'   columns of the estimates and of the standard errors. `NULL` (the
+#'   default) means that the columns are found by name, as described in
+#'   Details.
+#' @param variance Logical. For a data frame, `TRUE` if the column named in
+#'   `sigma` holds variances; their square roots are then taken. Defaults
+#'   to `FALSE`.
+#' @param site For a data frame, a character string naming a column of
+#'   site labels. Defaults to `NULL`.
+#' @param object A `bef_data` object.
+#' @inheritParams bef_fit
 #'
-#' @seealso
-#'   * [bayes_efron_fit()], which calls `as_bef_data()` internally on
-#'     its `theta_hat` / `sigma` arguments.
-#'   * [metafor::escalc()] for computing effect sizes and sampling
-#'     variances from study-level summary data.
+#' @return A list of class `bef_data` with the elements `theta_hat`, the
+#'   estimates; `sigma`, the standard errors; `names`, the site labels or
+#'   `NULL`; and `source`, which is `"list"`, `"data.frame"` or
+#'   `"metafor::escalc"` according to the class of `x`.
+#'
+#' @seealso [bayes_efron_fit()], [raudenbush1985]
 #'
 #' @examples
-#' # Plain list input.
-#' dat_list <- as_bef_data(list(
-#'   theta_hat = c(-0.21, 0.04, 0.19, 0.38, 0.61),
-#'   sigma     = c( 0.18, 0.15, 0.22, 0.19, 0.24)
-#' ))
-#' dat_list
+#' # A data frame: the columns `yi` and `sei` are found by name.
+#' dat <- as_bef_data(raudenbush1985)
+#' dat
 #'
-#' # Optional site labels (must satisfy the minimum-length-5 constraint).
-#' dat_named <- as_bef_data(list(
-#'   theta_hat = c(
-#'     site_1 = -0.21, site_2 = 0.04, site_3 = 0.19,
-#'     site_4 =  0.38, site_5 = 0.61
-#'   ),
-#'   sigma = c(0.18, 0.15, 0.22, 0.19, 0.24)
-#' ))
+#' # The same from the variances, with the authors as site labels.
+#' as_bef_data(raudenbush1985, sigma = "vi", variance = TRUE, site = "author")
 #'
-#' # metafor::escalc() bridge.
-#' if (requireNamespace("metafor", quietly = TRUE)) {
-#'   esc <- metafor::escalc(
-#'     measure = "MD",
-#'     m1i  = c(0.10, 0.40, 0.55, 0.30, 0.20),
-#'     sd1i = c(0.30, 0.30, 0.35, 0.28, 0.32),
-#'     n1i  = c( 60,   55,   62,   58,   65),
-#'     m2i  = c(0.05, 0.10, 0.15, 0.08, 0.12),
-#'     sd2i = c(0.32, 0.34, 0.36, 0.30, 0.33),
-#'     n2i  = c( 60,   55,   62,   58,   65)
-#'   )
-#'   dat_esc <- as_bef_data(esc)
-#'   dat_esc
-#' }
+#' # A list.
+#' as_bef_data(list(theta_hat = raudenbush1985$yi, sigma = raudenbush1985$sei))
 #'
+#' # The two vectors that bayes_efron_fit() takes.
+#' str(dat[c("theta_hat", "sigma")])
+#'
+#' @examplesIf requireNamespace("metafor", quietly = TRUE)
+#' # An escalc object from the metafor package.
+#' es <- metafor::escalc(measure = "GEN", yi = yi, vi = vi, data = raudenbush1985)
+#' as_bef_data(es)
+#'
+#' @order 1
 #' @export
 as_bef_data <- function(x, ...) {
   if (inherits(x, "bef_data")) {
@@ -85,6 +89,7 @@ as_bef_data <- function(x, ...) {
   UseMethod("as_bef_data")
 }
 
+#' @order 2
 #' @rdname as_bef_data
 #' @export
 as_bef_data.default <- function(x, ...) {
@@ -97,14 +102,14 @@ as_bef_data.default <- function(x, ...) {
 
   .bef_abort_as_bef_data(
     sprintf(
-      "`as_bef_data()` does not support objects of class <%s> in bayesEfron v0.1.",
+      "`as_bef_data()` has no method for an object of class <%s>.",
       class_label
     ),
-    arg = "x",
-    predicate = "list, escalc, or bef_data"
+    arg = "x"
   )
 }
 
+#' @order 3
 #' @rdname as_bef_data
 #' @export
 as_bef_data.list <- function(x, ...) {
@@ -125,6 +130,7 @@ as_bef_data.list <- function(x, ...) {
   )
 }
 
+#' @order 4
 #' @rdname as_bef_data
 #' @export
 as_bef_data.escalc <- function(x, ...) {
@@ -159,9 +165,8 @@ as_bef_data.escalc <- function(x, ...) {
   }
 
   .bef_abort_as_bef_data(
-    sprintf("`...` is closed in bayesEfron v0.1; unsupported arguments: %s.", unsupported),
-    arg = "...",
-    predicate = "empty dots"
+    sprintf("Unused arguments: %s.", unsupported),
+    arg = "..."
   )
 }
 
@@ -178,7 +183,6 @@ as_bef_data.escalc <- function(x, ...) {
       paste(sprintf("`%s`", fields), collapse = ", ")
     ),
     arg = arg,
-    predicate = paste(sprintf("field %s", fields), collapse = "; "),
     missing_fields = missing
   )
 }
@@ -215,8 +219,7 @@ as_bef_data.escalc <- function(x, ...) {
       any(vi <= 0)) {
     .bef_abort_as_bef_data(
       "`x$vi` must be a strictly positive finite numeric vector.",
-      arg = "x$vi",
-      predicate = "strictly positive finite numeric vector"
+      arg = "x$vi"
     )
   }
 
@@ -234,8 +237,107 @@ as_bef_data.escalc <- function(x, ...) {
   .bef_abort_invalid_args(
     message,
     ...,
-    module = "as-bef-data",
-    stage = 4L,
     parent = parent
   )
+}
+
+#' @order 5
+#' @rdname as_bef_data
+#' @export
+as_bef_data.data.frame <- function(x,
+                                   ...,
+                                   theta_hat = NULL,
+                                   sigma = NULL,
+                                   variance = FALSE,
+                                   site = NULL) {
+  .bef_check_as_bef_data_dots(list(...))
+
+  theta_hat <- .bef_match_df_column(
+    x, theta_hat, c("theta_hat", "yi", "estimate", "effect", "y"), "theta_hat"
+  )
+  sigma <- .bef_match_df_column(
+    x, sigma, c("sigma", "se", "std_error", "stderr", "sei"), "sigma"
+  )
+  if (!is.logical(variance) || length(variance) != 1L || is.na(variance)) {
+    .bef_abort_as_bef_data(
+      "`variance` must be a single non-missing logical.",
+      arg = "variance"
+    )
+  }
+
+  values <- x[[theta_hat]]
+  errors <- x[[sigma]]
+  if (!is.numeric(values) || !is.numeric(errors)) {
+    .bef_abort_as_bef_data(
+      sprintf("Columns `%s` and `%s` must both be numeric.", theta_hat, sigma),
+      arg = "x"
+    )
+  }
+  # Missing values are an error. Dropping them would change the number of
+  # sites without the caller noticing.
+  if (anyNA(values) || anyNA(errors)) {
+    .bef_abort_as_bef_data(
+      sprintf(
+        "Columns `%s` and `%s` must not contain missing values (found %d and %d).",
+        theta_hat, sigma, sum(is.na(values)), sum(is.na(errors))
+      ),
+      arg = "x"
+    )
+  }
+  if (isTRUE(variance)) {
+    if (any(errors < 0)) {
+      .bef_abort_as_bef_data(
+        sprintf("Variance column `%s` must be non-negative.", sigma),
+        arg = "x"
+      )
+    }
+    errors <- sqrt(errors)
+  }
+
+  labels <- NULL
+  if (!is.null(site)) {
+    site <- .bef_match_df_column(x, site, character(), "site")
+    labels <- as.character(x[[site]])
+    if (!.bef_is_complete_label_vector(labels, nrow(x))) {
+      .bef_abort_as_bef_data(
+        sprintf("Site column `%s` must have one non-missing label per row.", site),
+        arg = "x"
+      )
+    }
+  } else if (!is.null(rownames(x)) && !identical(rownames(x), as.character(seq_len(nrow(x))))) {
+    labels <- rownames(x)
+  }
+
+  validate_bef_data(new_bef_data(
+    theta_hat = as.numeric(values),
+    sigma = as.numeric(errors),
+    names = labels,
+    source = "data.frame"
+  ))
+}
+
+# The column to use: the one named by the caller, or the first conventional
+# name that the data frame has.
+.bef_match_df_column <- function(x, given, conventional, arg) {
+  if (!is.null(given)) {
+    if (!.bef_is_string(given) || !given %in% names(x)) {
+      .bef_abort_as_bef_data(
+        sprintf("`%s` must name a column of `x`; got \"%s\".", arg,
+                paste(given, collapse = ", ")),
+        arg = arg
+      )
+    }
+    return(given)
+  }
+  found <- intersect(conventional, names(x))
+  if (length(found) == 0L) {
+    .bef_abort_as_bef_data(
+      sprintf(
+        "Cannot infer the `%s` column. Name it explicitly, or use one of: %s.",
+        arg, paste(conventional, collapse = ", ")
+      ),
+      arg = arg
+    )
+  }
+  found[[1L]]
 }

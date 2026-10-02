@@ -1,182 +1,143 @@
-#' Fit the Bayesian Efron random-effects model
+#' Fit the Efron log-spline model to estimates and standard errors
 #'
 #' @description
-#' Fit the fully Bayesian Efron log-spline prior to a univariate
-#' random-effects meta-analytic deconvolution problem. Given per-site
-#' effect estimates and their within-study standard errors,
-#' `bayes_efron_fit()` returns posterior site-effect summaries together
-#' with a continuous estimate of the underlying mixing distribution.
+#' A meta-analysis or a multisite trial gives an estimate
+#' \eqn{\hat\theta_i} and a standard error \eqn{\sigma_i} for each of
+#' \eqn{K} sites. `bayes_efron_fit()` treats the true effects
+#' \eqn{\theta_i} as draws from an unknown distribution \eqn{g} and
+#' estimates \eqn{g} and each \eqn{\theta_i} together. Unlike the usual
+#' random-effects model, it does not take \eqn{g} to be normal: \eqn{g}
+#' can be skewed or have more than one mode, and how far each estimate is
+#' shrunk depends on that shape.
 #'
-#' The function targets applied meta-analysts who already have point
-#' estimates and standard errors on a comparable scale (for example,
-#' the `yi` and `sqrt(vi)` columns of an [metafor::escalc()] object).
-#' One call performs the full eight-stage pipeline: input validation,
-#' grid construction, Stan-data preparation, cache-backed model
-#' retrieval, NUTS sampling, draw extraction, generated-quantity
-#' postprocessing, and assembly into a validated `bef_fit_re` object.
-#'
-#' Computation is delegated to CmdStan through `cmdstanr`; the first
-#' call in a session typically spends most of its time compiling the
-#' Stan program. Subsequent calls reuse the on-disk and in-session
-#' caches as long as the model source, package version, CmdStan
-#' version, and platform match.
+#' The function returns posterior draws of \eqn{g}. For each site and each
+#' draw of \eqn{g} it also returns the mean, standard deviation and mode of
+#' \eqn{\theta_i} given that \eqn{g}, and one draw of \eqn{\theta_i}. The
+#' model is fitted by Markov chain Monte Carlo with CmdStan, so the cmdstanr
+#' package and CmdStan must be installed. The first call compiles the Stan
+#' model, which can take up to a minute; later calls reuse the compiled
+#' model (see [bayes_efron_compile()]).
 #'
 #' @details
-#' # The fitted four-level hierarchy
-#'
 #' For sites \eqn{i = 1, \ldots, K},
-#' \deqn{\hat\theta_i \mid \theta_i \sim \mathcal{N}(\theta_i, \sigma_i^2),}
-#' \deqn{\theta_i \mid g \overset{\text{iid}}{\sim} g,}
-#' where \eqn{g} is the mixing distribution of latent site effects.
-#' The package places a log-spline prior on the discretized \eqn{g}
-#' with a half-Cauchy hyperprior on the smoothness precision
-#' \eqn{\lambda}; full derivations are in the methodological vignettes.
+#' \deqn{\hat\theta_i \mid \theta_i \sim N(\theta_i, \sigma_i^2),
+#'   \qquad \theta_i \sim g.}
+#' The standard errors \eqn{\sigma_i} are taken as known and may differ
+#' between sites. The distribution \eqn{g} has probabilities
+#' \eqn{g_1, \ldots, g_L} on a grid of points
+#' \eqn{\tau_1 < \cdots < \tau_L}, with
+#' \deqn{\log g_j = B_j^\top \alpha - \log \sum_{l=1}^{L} \exp(B_l^\top \alpha),}
+#' where \eqn{B_j} holds the values of the \eqn{M} natural cubic spline
+#' functions at \eqn{\tau_j}. This is the log-spline family of Efron
+#' (2016). The coefficients have independent priors
+#' \eqn{\alpha_m \mid \lambda \sim N(0, 1/\lambda)}, which draw \eqn{g}
+#' toward the uniform distribution on the grid, and the precision has the
+#' prior \eqn{\lambda \sim \mbox{half-Cauchy}(0, 5)}, so that the strength
+#' of that pull is estimated along with the coefficients. Lee and Sui
+#' (2025) describe the model and compare it with the empirical Bayes
+#' estimator, in which \eqn{\alpha} is fixed at an estimate.
 #'
-#' # Grid recipes
+#' The grid and the spline basis are those of [make_efron_grid()], and
+#' `grid_method`, `L`, `expansion` and `M` control them. The defaults, 101
+#' grid points and six spline functions on a grid that extends beyond the
+#' estimates by half their range on each side, follow the application in
+#' Lee and Sui (2025, Section 7.2) and its replication code.
+#' `vignette("choosing-a-grid")` discusses when to change them.
 #'
-#' The four `grid_method` choices control how the discrete support of
-#' \eqn{g} is constructed:
+#' Only \eqn{\alpha} and \eqn{\lambda} are sampled. Given \eqn{\alpha}, the
+#' posterior distribution of each \eqn{\theta_i} on the grid has a closed
+#' form, and its mean, standard deviation and mode and one draw from it are
+#' computed for every posterior draw of \eqn{\alpha}.
 #'
-#' | Recipe | Needs `theta_true`? | Use when |
-#' |:-------|:-------------------:|:---------|
-#' | `"paper_realdata"` | No | Real-data analysis with no oracle. |
-#' | `"paper_simulation"` | Yes | Simulation with known truth, matched paper. |
-#' | `"paper_sensitivity"` | Yes | Bound-expansion sensitivity, paper rule. |
-#' | `"kl_target_experimental"` | No | KL-target tuning (experimental, heteroscedastic). |
+#' Each chain starts from spline coefficients drawn uniformly between -0.5
+#' and 0.5 and from a precision whose logarithm is drawn in the same way,
+#' a narrower interval than CmdStan's default of -2 to 2. Pass a `seed` to
+#' make a fit reproducible: with the same data, settings, versions of the
+#' packages and of CmdStan, and machine, the draws are the same. The seed
+#' and the settings of the sampler are stored with the result; [bef_fit]
+#' says where.
 #'
-#' The two oracle-requiring recipes refuse to run without a numeric
-#' `theta_true`. The experimental recipe emits a once-per-session
-#' disclaimer about its KL calibration.
+#' The function gives a warning if there are divergent transitions and, for
+#' a fit with at least 400 draws in all, if an R-hat value exceeds 1.05;
+#' [diagnose()] returns all the diagnostics.
 #'
-#' # Sampler defaults
+#' CmdStan writes the draws with a limited number of significant digits,
+#' eight in recent versions. That is ample for effect sizes. Estimates that
+#' are very large compared with their standard errors, by a factor of
+#' 100,000 or more, should be centered before they are passed, because the
+#' saved draws would otherwise lose the digits in which the sites differ.
 #'
-#' v0.1 fixes the CmdStan initialization at `init = 0.5` to keep
-#' release fits reproducible; this is **not** a user-facing tuning
-#' argument. `parallel_chains` defaults to `chains` but can be
-#' overridden by setting the environment variable
-#' `BAYESEFRON_PARALLEL_CHAINS` (or the unprefixed `PARALLEL_CHAINS`)
-#' to a positive integer that does not exceed `chains`.
+#' @inheritParams make_efron_grid
+#' @param theta_hat Numeric vector of effect estimates, one for each site,
+#'   all on the same scale (standardized mean differences or log odds
+#'   ratios, for example). At least five are needed.
+#' @param sigma Numeric vector of the standard errors of the estimates,
+#'   positive and of the same length as `theta_hat`.
+#' @param ... These dots are for future extensions and must be empty.
+#' @param L Whole number between 51 and 300, the number of grid points.
+#'   Defaults to `101L`.
+#' @param model_family Character string. `"RE"`, the model described in
+#'   Details, is the only choice.
+#' @param chains Whole number between 1 and 16, the number of Markov
+#'   chains. Defaults to `4L`.
+#' @param parallel_chains Whole number between 1 and `chains`, the number
+#'   of chains to run at the same time. Defaults to `chains`.
+#' @param iter_warmup Whole number, the number of warmup iterations in each
+#'   chain. Defaults to `1000L`.
+#' @param iter_sampling Whole number of at least 1, the number of iterations
+#'   in each chain that are kept. Defaults to `3000L`.
+#' @param adapt_delta Number between 0 and 1, the target acceptance rate of
+#'   the sampler. Defaults to `0.9`. A value nearer 1 gives smaller steps,
+#'   which can remove divergent transitions at the cost of a longer run.
+#' @param max_treedepth Whole number between 1 and 20, the maximum tree
+#'   depth of the sampler. Defaults to `10L`. Raise it if [diagnose()]
+#'   reports many iterations that reached the maximum.
+#' @param seed Whole number, the seed of the sampler, or `NULL` (the
+#'   default), in which case a seed is taken from the clock. The seed that
+#'   was used is stored in the result.
+#' @param keep_cmdstan_fit Logical. If `TRUE`, the `cmdstanr::CmdStanMCMC`
+#'   object is kept as the element `cmdstan_fit` of the result. It refers to
+#'   temporary files, so it is of use only in the session that made it.
+#'   Defaults to `FALSE`.
+#' @param store_grid_quantities Logical. If `TRUE`, the draws also hold the
+#'   grid probabilities `g` and their unnormalized logarithms `log_w`,
+#'   which adds `2 * L` variables. Defaults to `FALSE`; the methods compute
+#'   both from the other draws when they need them.
 #'
-#' # Reproducibility
+#' @return An object of class `bef_fit_re`, which inherits from `bef_fit`.
+#'   Its elements are `draws`, the posterior draws as a
+#'   `posterior::draws_array`; `posterior`, the draws of the mean, variance
+#'   and standard deviation of \eqn{g} and of two summaries of the fit; and
+#'   `metadata`, the data, the settings and summaries of the draws.
+#'   [bef_fit] describes the elements and the methods.
 #'
-#' If `seed` is `NULL`, the function auto-generates an integer seed
-#' from the current time and stores it on `fit$metadata$seed` so the
-#' fit can be re-played later. Pass an explicit `seed` for fully
-#' reproducible runs.
+#' @references
+#' Efron, B. (2016). Empirical Bayes deconvolution estimates. *Biometrika*,
+#' 103(1), 1-20. \doi{10.1093/biomet/asv068}
 #'
-#' # The 13-field metadata contract
+#' Lee, J. and Sui, D. (2025). Fully Bayesian inference for meta-analytic
+#' deconvolution using Efron's log-spline prior. *Mathematics*, 13(16),
+#' 2639. \doi{10.3390/math13162639}
 #'
-#' `fit$metadata` always has exactly the 13 named fields listed in
-#' \strong{Value} below. Four additional payloads are stored as
-#' attributes of `fit$metadata` and surfaced through [summary.bef_fit()] and
-#' [diagnose()]: `sd_g_summary`, `diagnostics`, `diagnostic_skipped`,
-#' and `sampler_diagnostics_failed`.
-#'
-#' @param theta_hat Numeric vector of per-site effect estimates on a
-#'   common scale (e.g. mean differences, log odds ratios).
-#' @param sigma Numeric vector of strictly positive per-site standard
-#'   errors, on the same scale as `theta_hat` and the same length.
-#' @param ... Reserved for future expansion; must be empty in v0.1.
-#' @param grid_method Character grid recipe. One of
-#'   `"paper_realdata"` (default), `"paper_simulation"`,
-#'   `"paper_sensitivity"`, or `"kl_target_experimental"`. See
-#'   \strong{Details}.
-#' @param L Integer grid length (number of discrete support points).
-#'   Defaults to `101L`. The package's verification ledger is
-#'   calibrated at this default.
-#' @param expansion Numeric, non-negative. Range-relative expansion
-#'   factor that widens the grid endpoints beyond the observed range
-#'   of `theta_hat`. Defaults to `0.5` (50 percent expansion).
-#' @param M Integer natural-cubic-spline degrees of freedom. Defaults
-#'   to `6L`. The verification ledger is calibrated at this default.
-#' @param theta_true Numeric oracle vector of latent site effects,
-#'   required by `"paper_simulation"` and `"paper_sensitivity"` and
-#'   ignored by the other recipes. Same length as `theta_hat`.
-#' @param bound_expansion Numeric, oracle-bound expansion factor used
-#'   only by `"paper_sensitivity"`. `NULL` falls back to the recipe
-#'   default of `0.5`.
-#' @param model_family Character scalar. v0.1 supports `"RE"` only.
-#'   Other model families are deferred to v0.2+ per the package
-#'   blueprint.
-#' @param chains Integer number of MCMC chains. Defaults to `4L`.
-#' @param iter_warmup Integer warmup iterations per chain. Defaults
-#'   to `1000L`.
-#' @param iter_sampling Integer post-warmup iterations per chain.
-#'   Defaults to `3000L`.
-#' @param adapt_delta NUTS target acceptance statistic in `(0, 1)`.
-#'   Defaults to `0.9`.
-#' @param seed Integer seed or `NULL`. If `NULL`, an integer seed is
-#'   auto-generated and recorded on `fit$metadata$seed`.
-#' @param keep_cmdstan_fit Logical. If `TRUE`, the raw
-#'   `cmdstanr::CmdStanMCMC` handle is retained at `fit$cmdstan_fit`
-#'   for advanced use. Defaults to `FALSE` so the returned object is
-#'   small enough to save and share.
-#'
-#' @return An S3 object of class `c("bef_fit_re", "bef_fit")` with
-#'   three top-level fields:
-#'
-#'   * `draws` — a `posterior::draws_array` of MCMC draws for the
-#'     model parameters and generated quantities.
-#'   * `metadata` — a named list with exactly 13 fields:
-#'     - `model_family` — `"RE"` for v0.1.
-#'     - `grid_method` — the recipe used.
-#'     - `seed` — effective integer seed (auto-generated if not
-#'        supplied).
-#'     - `cmdstan_version` — CmdStan version string.
-#'     - `stan_file_sha256` — SHA-256 of the locked Stan source.
-#'     - `data_list` — the seven-field Stan data block sent to
-#'        CmdStan.
-#'     - `runtime_seconds` — sampler wall-clock.
-#'     - `mean_g_summary`, `var_g_summary` — posterior summaries of
-#'        functionals of the mixing distribution \eqn{g}.
-#'     - `theta_summary` — posterior summaries of latent site
-#'        effects \eqn{\theta_i}.
-#'     - `theta_rep_draws` — replicated effects for posterior
-#'        predictive checks.
-#'     - `effective_params_summary`, `log_marginal_likelihood_summary`
-#'        — model-quality summaries.
-#'   * `posterior` — a tidy posterior representation used by the S3
-#'     methods.
-#'
-#'   Four additional durable payloads are stored as attributes of
-#'   `fit$metadata`:  `sd_g_summary`, `diagnostics`,
-#'   `diagnostic_skipped`, and `sampler_diagnostics_failed`. Access
-#'   them through [summary.bef_fit()] and [diagnose()] rather than directly.
-#'
-#'   When `keep_cmdstan_fit = TRUE`, `fit$cmdstan_fit` carries the
-#'   raw `cmdstanr::CmdStanMCMC` handle.
-#'
-#' @seealso
-#'   * [as_bef_data()] for converting [metafor::escalc()] objects and
-#'     plain lists into the package input class.
-#'   * [make_efron_grid()] for building grids outside the fitting
-#'     pipeline (for example, to inspect a recipe before fitting).
-#'   * [bayes_efron_compile()] for pre-warming the Stan model cache.
-#'   * [summary.bef_fit()], [confint.bef_fit_re()], [diagnose()], [plot.bef_fit_re()]
-#'     for inspecting the returned object.
+#' @seealso [as_bef_data()], [make_efron_grid()], [bef_fit], [diagnose()],
+#'   [plot.bef_fit_re()], `vignette("bayesEfron")`
 #'
 #' @examples
+#' # The call that produced `raudenbush_fit`. It needs CmdStan.
 #' \dontrun{
-#' # Five-site smoke fit. Requires a working CmdStan installation.
-#' theta_hat <- c(-0.21, 0.04, 0.19, 0.38, 0.61)
-#' sigma     <- c( 0.18, 0.15, 0.22, 0.19, 0.24)
-#'
 #' fit <- bayes_efron_fit(
-#'   theta_hat     = theta_hat,
-#'   sigma         = sigma,
-#'   L             = 51L,
-#'   M             = 3L,
-#'   chains        = 1L,
-#'   iter_warmup   = 150L,
-#'   iter_sampling = 4L,
-#'   seed          = 1234L
+#'   theta_hat = raudenbush1985$yi,
+#'   sigma = raudenbush1985$sei,
+#'   seed = 1985
 #' )
-#'
-#' summary(fit)
-#' confint(fit, type = "theta")
-#' diagnose(fit)
-#' plot(fit, type = "caterpillar")
 #' }
+#'
+#' # The stored result of that call.
+#' fit <- raudenbush_fit
+#' fit
+#' summary(fit)
+#' confint(fit, parm = c(4, 10))
+#' plot(fit, type = "g")
 #'
 #' @export
 bayes_efron_fit <- function(theta_hat,
@@ -195,11 +156,14 @@ bayes_efron_fit <- function(theta_hat,
                             bound_expansion = NULL,
                             model_family = "RE",
                             chains = 4L,
+                            parallel_chains = chains,
                             iter_warmup = 1000L,
                             iter_sampling = 3000L,
                             adapt_delta = 0.9,
+                            max_treedepth = 10L,
                             seed = NULL,
-                            keep_cmdstan_fit = FALSE) {
+                            keep_cmdstan_fit = FALSE,
+                            store_grid_quantities = FALSE) {
   call <- match.call()
   context <- .bef_fit_prepare_context(
     call = call,
@@ -214,14 +178,17 @@ bayes_efron_fit <- function(theta_hat,
     bound_expansion = bound_expansion,
     model_family = model_family,
     chains = chains,
+    parallel_chains = parallel_chains,
     iter_warmup = iter_warmup,
     iter_sampling = iter_sampling,
     adapt_delta = adapt_delta,
+    max_treedepth = max_treedepth,
     seed = seed,
-    keep_cmdstan_fit = keep_cmdstan_fit
+    keep_cmdstan_fit = keep_cmdstan_fit,
+    store_grid_quantities = store_grid_quantities
   )
 
-  context <- .bef_fit_run_stages_6_7(context)
+  context <- .bef_fit_run_sampler(context)
   .bef_fit_assemble(context)
 }
 
@@ -237,11 +204,14 @@ bayes_efron_fit <- function(theta_hat,
                                      bound_expansion = NULL,
                                      model_family = "RE",
                                      chains = 4L,
+                                     parallel_chains = chains,
                                      iter_warmup = 1000L,
                                      iter_sampling = 3000L,
                                      adapt_delta = 0.9,
+                                     max_treedepth = 10L,
                                      seed = NULL,
                                      keep_cmdstan_fit = FALSE,
+                                     store_grid_quantities = FALSE,
                                      check_installed = TRUE,
                                      check_installed_fun = .bef_check_cmdstanr_installed,
                                      now = Sys.time) {
@@ -257,11 +227,14 @@ bayes_efron_fit <- function(theta_hat,
     bound_expansion = bound_expansion,
     model_family = model_family,
     chains = chains,
+    parallel_chains = parallel_chains,
     iter_warmup = iter_warmup,
     iter_sampling = iter_sampling,
     adapt_delta = adapt_delta,
+    max_treedepth = max_treedepth,
     seed = seed,
-    keep_cmdstan_fit = keep_cmdstan_fit
+    keep_cmdstan_fit = keep_cmdstan_fit,
+    store_grid_quantities = store_grid_quantities
   )
 
   if (isTRUE(check_installed)) {
@@ -282,7 +255,8 @@ bayes_efron_fit <- function(theta_hat,
   stan_data <- prepare_stan_data(
     bef_data = bef_data,
     grid = grid,
-    model_family = args$model_family
+    model_family = args$model_family,
+    store_grid_quantities = isTRUE(args$store_grid_quantities)
   )
 
   structure(
@@ -306,12 +280,13 @@ bayes_efron_fit <- function(theta_hat,
   as.integer(as.numeric(now())) %% .Machine$integer.max
 }
 
-.bef_fit_run_stages_6_7 <- function(context,
+.bef_fit_run_sampler <- function(context,
                                     model_fun = .bef_model,
                                     sample_fun = NULL,
                                     now = Sys.time,
                                     interactive_fun = interactive) {
   model <- .bef_fit_get_model(context, model_fun = model_fun)
+  context$sampler_settings <- .bef_fit_sampler_settings(context, interactive_fun)
 
   started <- now()
   cmdstan_fit <- .bef_fit_sample(
@@ -330,17 +305,13 @@ bayes_efron_fit <- function(theta_hat,
 
 .bef_fit_get_model <- function(context, model_fun = .bef_model) {
   tryCatch(
-    model_fun(
-      model_name = context$args$model_family,
-      check_installed = FALSE
-    ),
+    model_fun(model_family = context$args$model_family),
     error = function(err) {
       if (inherits(err, "bef_error")) {
         stop(err)
       }
       .bef_abort_compile_failed(
-        "Failed to retrieve the cached bayesEfron Stan model.",
-        stage = 6L,
+        "Failed to compile or load the bayesEfron Stan model.",
         model_family = context$args$model_family,
         parent = err,
         call = context$call
@@ -359,32 +330,23 @@ bayes_efron_fit <- function(theta_hat,
   if (!is.function(sample_fun)) {
     .bef_abort_sampling_failed(
       "Compiled bayesEfron model does not expose a callable `sample()` method.",
-      stage = 7L,
       model_family = context$args$model_family,
       call = context$call
     )
   }
 
-  set.seed(context$effective_seed)
+  settings <- context$sampler_settings
+  if (is.null(settings)) {
+    settings <- .bef_fit_sampler_settings(context, interactive_fun)
+  }
   cmdstan_fit <- tryCatch(
-    sample_fun(
-      data = context$stan_data,
-      chains = context$args$chains,
-      parallel_chains = .bef_fit_parallel_chains(context),
-      iter_warmup = context$args$iter_warmup,
-      iter_sampling = context$args$iter_sampling,
-      adapt_delta = context$args$adapt_delta,
-      seed = context$effective_seed,
-      refresh = .bef_fit_refresh(interactive_fun),
-      init = 0.5
-    ),
+    do.call(sample_fun, c(list(data = context$stan_data), settings)),
     interrupt = function(err) {
       stop(err)
     },
     error = function(err) {
       .bef_abort_sampling_failed(
         "CmdStan failed while sampling the bayesEfron model.",
-        stage = 7L,
         model_family = context$args$model_family,
         parent = err,
         call = context$call
@@ -396,44 +358,25 @@ bayes_efron_fit <- function(theta_hat,
   cmdstan_fit
 }
 
-.bef_fit_parallel_chains <- function(context, getenv = Sys.getenv) {
-  raw <- getenv("BAYESEFRON_PARALLEL_CHAINS", unset = "")
-  env_name <- "BAYESEFRON_PARALLEL_CHAINS"
-  if (!nzchar(raw)) {
-    raw <- getenv("PARALLEL_CHAINS", unset = "")
-    env_name <- "PARALLEL_CHAINS"
-  }
-  if (!nzchar(raw)) {
-    return(context$args$chains)
-  }
-
-  parallel_chains <- suppressWarnings(as.integer(raw))
-  if (
-    length(parallel_chains) != 1L ||
-      is.na(parallel_chains) ||
-      !identical(as.character(parallel_chains), raw) ||
-      parallel_chains < 1L ||
-      parallel_chains > context$args$chains
-  ) {
-    .bef_abort_sampling_failed(
-      sprintf(
-        "`%s` must be a single integer between 1 and the requested chain count.",
-        env_name
-      ),
-      stage = 7L,
-      model_family = context$args$model_family,
-      call = context$call
-    )
-  }
-
-  parallel_chains
-}
-
 .bef_fit_refresh <- function(interactive_fun = interactive) {
   if (isTRUE(interactive_fun())) {
     return(200L)
   }
   0L
+}
+
+.bef_fit_sampler_settings <- function(context, interactive_fun = interactive) {
+  list(
+    chains = context$args$chains,
+    parallel_chains = context$args$parallel_chains,
+    iter_warmup = context$args$iter_warmup,
+    iter_sampling = context$args$iter_sampling,
+    adapt_delta = context$args$adapt_delta,
+    max_treedepth = context$args$max_treedepth,
+    seed = context$effective_seed,
+    refresh = .bef_fit_refresh(interactive_fun),
+    init = 0.5
+  )
 }
 
 .bef_validate_sampling_completion <- function(cmdstan_fit, context) {
@@ -450,7 +393,6 @@ bayes_efron_fit <- function(theta_hat,
     error = function(err) {
       .bef_abort_sampling_failed(
         "Failed to inspect completed CmdStan chains after sampling.",
-        stage = 7L,
         model_family = context$args$model_family,
         parent = err,
         call = context$call
@@ -461,7 +403,6 @@ bayes_efron_fit <- function(theta_hat,
   if (length(completed) != 1L || is.na(completed)) {
     .bef_abort_sampling_failed(
       "CmdStan returned an invalid completed-chain count after sampling.",
-      stage = 7L,
       model_family = context$args$model_family,
       chains_completed = completed,
       call = context$call
@@ -472,7 +413,6 @@ bayes_efron_fit <- function(theta_hat,
   if (completed <= 0L) {
     .bef_abort_sampling_failed(
       "CmdStan sampling completed zero chains.",
-      stage = 7L,
       model_family = context$args$model_family,
       chains_requested = requested,
       chains_completed = completed,
@@ -482,7 +422,6 @@ bayes_efron_fit <- function(theta_hat,
   if (completed < requested) {
     .bef_abort_sampling_partial(
       "CmdStan sampling completed fewer chains than requested.",
-      stage = 7L,
       model_family = context$args$model_family,
       chains_requested = requested,
       chains_completed = completed,
@@ -496,7 +435,8 @@ bayes_efron_fit <- function(theta_hat,
 .bef_fit_assemble <- function(context,
                               postprocess_fun = postprocess_stan_draws,
                               cmdstan_version_fun = .bef_cmdstan_version,
-                              stan_sha_fun = .bef_fit_stan_sha256) {
+                              stan_sha_fun = .bef_fit_stan_sha256,
+                              package_version_fun = .bef_runtime_package_version) {
   processed <- tryCatch(
     postprocess_fun(
       cmdstan_fit = context$cmdstan_fit,
@@ -509,7 +449,6 @@ bayes_efron_fit <- function(theta_hat,
       }
       .bef_abort_extraction_failed(
         "Failed to postprocess bayesEfron CmdStan draws.",
-        stage = 8L,
         model_family = context$args$model_family,
         parent = err,
         call = context$call
@@ -521,7 +460,8 @@ bayes_efron_fit <- function(theta_hat,
     context = context,
     processed = processed,
     cmdstan_version_fun = cmdstan_version_fun,
-    stan_sha_fun = stan_sha_fun
+    stan_sha_fun = stan_sha_fun,
+    package_version_fun = package_version_fun
   )
   cmdstan_fit <- if (isTRUE(context$args$keep_cmdstan_fit)) {
     context$cmdstan_fit
@@ -541,7 +481,8 @@ bayes_efron_fit <- function(theta_hat,
 .bef_fit_metadata <- function(context,
                               processed,
                               cmdstan_version_fun,
-                              stan_sha_fun) {
+                              stan_sha_fun,
+                              package_version_fun = .bef_runtime_package_version) {
   metadata <- list(
     model_family = context$args$model_family,
     grid_method = context$args$grid_method,
@@ -553,7 +494,6 @@ bayes_efron_fit <- function(theta_hat,
     mean_g_summary = processed$mean_g_summary,
     var_g_summary = processed$var_g_summary,
     theta_summary = processed$theta_summary,
-    theta_rep_draws = processed$theta_rep_draws,
     effective_params_summary = processed$effective_params_summary,
     log_marginal_likelihood_summary = processed$log_marginal_likelihood_summary
   )
@@ -563,6 +503,11 @@ bayes_efron_fit <- function(theta_hat,
   attr(metadata, "diagnostic_skipped") <- processed$diagnostic_skipped
   attr(metadata, "sampler_diagnostics_failed") <-
     processed$sampler_diagnostics_failed
+  attr(metadata, "sampler_diagnostics_warned") <-
+    processed$sampler_diagnostics_warned
+  attr(metadata, "sampler_settings") <- context$sampler_settings
+  attr(metadata, "package_version") <- package_version_fun("bayesEfron")
+  attr(metadata, "cmdstanr_version") <- package_version_fun("cmdstanr")
   metadata
 }
 
@@ -570,284 +515,6 @@ bayes_efron_fit <- function(theta_hat,
   .bef_stan_file_sha256(.bef_stan_file(model_family))
 }
 
-#' Pre-compile the bayesEfron Stan model
-#'
-#' @description
-#' Pre-warm the CmdStan compilation cache used by
-#' [bayes_efron_fit()]. The function compiles (or reattaches a cached
-#' build of) the locked v0.1 random-effects Stan model, stores the
-#' resulting `cmdstanr::CmdStanModel` in the in-session cache, and
-#' runs a tiny post-compile smoke check to confirm the binary is
-#' callable.
-#'
-#' Calling `bayes_efron_compile()` before the first
-#' `bayes_efron_fit()` shifts the (potentially long) compilation cost
-#' out of the fit pipeline, which is useful when fitting
-#' interactively or under a wall-clock budget. It is otherwise
-#' optional: `bayes_efron_fit()` triggers the same cache mechanism on
-#' first use.
-#'
-#' @details
-#' The cache lives at the location given by the environment variable
-#' `BAYESEFRON_CACHE_ROOT` (with a sensible per-user default if not
-#' set). The lookup key combines the Stan source SHA-256, the package
-#' version, the CmdStan version, and the platform, so a cached binary
-#' is only reused when all of those match. The post-compile smoke
-#' check uses the same fixed internal sampler initialization as
-#' [bayes_efron_fit()] (`init = 0.5`).
-#'
-#' This function requires the `cmdstanr` package and a working
-#' CmdStan toolchain. Both are listed in `Suggests:` rather than
-#' `Imports:` so the package can be installed and documented without
-#' them.
-#'
-#' @param model_family Character scalar. v0.1 supports `"RE"` only.
-#' @param quiet Logical. If `TRUE` (default), compile and smoke-check
-#'   output is suppressed during cache warming.
-#' @param force_recompile Logical. If `TRUE`, bypasses cached
-#'   artifacts and recompiles from Stan source. Defaults to `FALSE`.
-#' @param seed_for_check Non-negative integer scalar used for the
-#'   synthetic post-compile smoke check. Defaults to `42L`.
-#'
-#' @return Invisibly, a `cmdstanr::CmdStanModel` reference attached to
-#'   the cache entry. The return value is rarely used directly; it is
-#'   returned to support advanced workflows that want to drive the
-#'   model object outside the package's pipeline.
-#'
-#' @seealso
-#'   * [bayes_efron_fit()] for the user-facing fit pipeline.
-#'   * [bayes_efron_clear_cache()] for cache maintenance and stale
-#'     lock recovery.
-#'
-#' @examples
-#' \dontrun{
-#' # Pre-warm the cache so the next fit skips the compile cost.
-#' bayes_efron_compile()
-#' }
-#'
-#' @export
-bayes_efron_compile <- function(model_family = "RE",
-                                quiet = TRUE,
-                                force_recompile = FALSE,
-                                seed_for_check = 42L) {
-  .bef_check_cmdstanr_installed()
-  .bef_compile_entry(
-    model_family = model_family,
-    quiet = quiet,
-    force_recompile = force_recompile,
-    seed_for_check = seed_for_check,
-    check_installed = FALSE
-  )
-}
-
-.bef_compile_entry <- function(model_family = "RE",
-                               quiet = TRUE,
-                               force_recompile = FALSE,
-                               seed_for_check = 42L,
-                               model_fun = .bef_model,
-                               smoke_check_fun = .bef_compile_smoke_check,
-                               check_installed = TRUE) {
-  if (isTRUE(check_installed)) {
-    .bef_check_cmdstanr_installed()
-  }
-
-  model_family <- .bef_validate_compile_model_family(model_family)
-  quiet <- .bef_validate_compile_flag(quiet, "quiet")
-  force_recompile <- .bef_validate_compile_flag(
-    force_recompile, "force_recompile"
-  )
-  seed_for_check <- .bef_validate_compile_seed(seed_for_check)
-
-  cmdstan_model_fun <- .bef_compile_cmdstan_model_fun(quiet)
-  model <- .bef_compile_quietly(
-    model_fun(
-      model_name = model_family,
-      force_recompile = force_recompile,
-      cmdstan_model_fun = cmdstan_model_fun,
-      check_installed = FALSE
-    ),
-    quiet = quiet
-  )
-
-  .bef_compile_quietly(
-    smoke_check_fun(
-      model = model,
-      model_family = model_family,
-      seed_for_check = seed_for_check,
-      quiet = quiet
-    ),
-    quiet = quiet
-  )
-
-  invisible(model)
-}
-
-.bef_compile_cmdstan_model_fun <- function(quiet) {
-  force(quiet)
-  function(...) {
-    .bef_cmdstan_model(..., quiet = quiet)
-  }
-}
-
-.bef_compile_quietly <- function(expr, quiet) {
-  if (!isTRUE(quiet)) {
-    return(force(expr))
-  }
-
-  value <- NULL
-  utils::capture.output(
-    value <- withCallingHandlers(
-      force(expr),
-      message = function(msg) {
-        invokeRestart("muffleMessage")
-      }
-    ),
-    type = "output"
-  )
-  value
-}
-
-.bef_compile_smoke_check <- function(model,
-                                     model_family,
-                                     seed_for_check,
-                                     quiet) {
-  sample_fun <- tryCatch(model$sample, error = function(err) NULL)
-  if (!is.function(sample_fun)) {
-    .bef_abort_compile_failed(
-      "Compiled bayesEfron model does not expose a callable `sample()` method.",
-      model_family = model_family,
-      seed_for_check = seed_for_check
-    )
-  }
-
-  stan_data <- .bef_compile_smoke_stan_data(model_family)
-  output_dir <- tempfile("bayesefron-compile-check-")
-  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(output_dir, recursive = TRUE, force = TRUE), add = TRUE)
-
-  check_fit <- NULL
-  tryCatch(
-    check_fit <- sample_fun(
-      data = stan_data,
-      chains = 1L,
-      parallel_chains = 1L,
-      iter_warmup = 2L,
-      iter_sampling = 2L,
-      seed = seed_for_check,
-      refresh = if (isTRUE(quiet)) 0L else 1L,
-      init = 0.5,
-      output_dir = output_dir,
-      show_messages = !isTRUE(quiet),
-      diagnostics = c("divergences", "treedepth")
-    ),
-    error = function(err) {
-      .bef_abort_compile_failed(
-        "Post-compile smoke check failed for the bayesEfron Stan model.",
-        model_family = model_family,
-        seed_for_check = seed_for_check,
-        parent = err
-      )
-    }
-  )
-  .bef_validate_compile_smoke_fit(
-    check_fit,
-    model_family = model_family,
-    seed_for_check = seed_for_check
-  )
-
-  invisible(model)
-}
-
-.bef_validate_compile_smoke_fit <- function(check_fit,
-                                            model_family,
-                                            seed_for_check) {
-  completed_fun <- tryCatch(
-    check_fit$num_chains_completed,
-    error = function(err) NULL
-  )
-  if (!is.function(completed_fun)) {
-    return(invisible(TRUE))
-  }
-
-  completed <- tryCatch(completed_fun(), error = function(err) NA_integer_)
-  if (!identical(as.integer(completed), 1L)) {
-    .bef_abort_compile_failed(
-      "Post-compile smoke check did not complete its single chain.",
-      model_family = model_family,
-      seed_for_check = seed_for_check,
-      chains_completed = completed
-    )
-  }
-
-  invisible(TRUE)
-}
-
-.bef_compile_smoke_stan_data <- function(model_family = "RE") {
-  theta_hat <- c(-0.45, -0.1, 0, 0.25, 0.55)
-  sigma <- c(0.12, 0.18, 0.15, 0.22, 0.2)
-  bef_data <- as_bef_data(list(theta_hat = theta_hat, sigma = sigma))
-  grid <- make_efron_grid(
-    theta_hat = theta_hat,
-    sigma = sigma,
-    L = 51L,
-    expansion = 0.5,
-    M = 3L,
-    grid_method = "paper_realdata"
-  )
-  prepare_stan_data(bef_data, grid, model_family = model_family)
-}
-
-.bef_validate_compile_model_family <- function(model_family) {
-  .bef_check_compile_arg(
-    checkmate::assert_choice(model_family, choices = "RE"),
-    arg = "model_family",
-    predicate = '"RE"'
-  )
-  model_family
-}
-
-.bef_validate_compile_flag <- function(x, arg) {
-  .bef_check_compile_arg(
-    checkmate::assert_flag(x),
-    arg = arg,
-    predicate = "single TRUE/FALSE value"
-  )
-  isTRUE(x)
-}
-
-.bef_validate_compile_seed <- function(seed_for_check) {
-  .bef_check_compile_arg(
-    checkmate::assert_int(
-      seed_for_check,
-      lower = 0L,
-      upper = .Machine$integer.max
-    ),
-    arg = "seed_for_check",
-    predicate = "non-negative integer scalar"
-  )
-  as.integer(seed_for_check)
-}
-
-.bef_check_compile_arg <- function(expr, arg, predicate) {
-  tryCatch(
-    {
-      force(expr)
-      invisible(TRUE)
-    },
-    error = function(err) {
-      .bef_abort_invalid_args(
-        sprintf(
-          "`%s` failed validation (%s): %s",
-          arg,
-          predicate,
-          conditionMessage(err)
-        ),
-        arg = arg,
-        predicate = predicate,
-        module = "compile-entry",
-        stage = 6L,
-        parent = err
-      )
-    }
-  )
+.bef_runtime_package_version <- function(package) {
+  as.character(getNamespaceVersion(package))
 }

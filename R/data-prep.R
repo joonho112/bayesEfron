@@ -1,33 +1,13 @@
-#' Prepare Stan Data for the Efron Random-Effects Model
-#'
-#' `prepare_stan_data()` maps validated package-side data and a grid object to
-#' the exact seven-field data block consumed by `inst/stan/efron_re.stan`.
-#'
-#' @param bef_data A list-like object with numeric `theta_hat` and `sigma`
-#'   fields.
-#' @param grid A grid list returned by [make_efron_grid()].
-#' @param model_family Character scalar. v0.1 supports `"RE"` only.
-#' @param group Reserved for future families; must be `NULL` in v0.1.
-#' @param rho Reserved for future families; must be `NULL` in v0.1.
-#'
-#' @return A plain named list with fields `K`, `theta_hat`, `sigma`, `L`,
-#'   `grid`, `M`, and `B`.
-#' @keywords internal
-#' @noRd
+# The data that inst/stan/efron_re.stan reads, from the estimates and standard
+# errors in `bef_data` and a grid from make_efron_grid(): a list with K,
+# theta_hat, sigma, L, grid, M, B and store_grid_quantities.
 prepare_stan_data <- function(bef_data,
                               grid,
                               model_family = "RE",
-                              group = NULL,
-                              rho = NULL) {
+                              store_grid_quantities = FALSE) {
   model_family <- .bef_validate_model_family(model_family)
   if (!identical(model_family, "RE")) {
-    .bef_abort_data_prep("`model_family` must be \"RE\" for bayesEfron v0.1.")
-  }
-  if (!is.null(group)) {
-    .bef_abort_data_prep("`group` is reserved for future model families and must be NULL in v0.1.")
-  }
-  if (!is.null(rho)) {
-    .bef_abort_data_prep("`rho` is reserved for future model families and must be NULL in v0.1.")
+    .bef_abort_data_prep("`model_family` must be \"RE\"; other families are not implemented.")
   }
 
   theta_hat <- .bef_extract_numeric_field(bef_data, "theta_hat", min_len = 2L)
@@ -41,6 +21,12 @@ prepare_stan_data <- function(bef_data,
 
   grid_obj <- .bef_validate_grid_for_stan(grid)
 
+  if (!is.logical(store_grid_quantities) ||
+      length(store_grid_quantities) != 1L ||
+      is.na(store_grid_quantities)) {
+    .bef_abort_data_prep("`store_grid_quantities` must be a single non-missing logical.")
+  }
+
   list(
     K = as.integer(length(theta_hat)),
     theta_hat = as.numeric(theta_hat),
@@ -48,7 +34,8 @@ prepare_stan_data <- function(bef_data,
     L = as.integer(grid_obj$L),
     grid = as.numeric(grid_obj$grid),
     M = as.integer(grid_obj$M),
-    B = matrix(as.numeric(grid_obj$B), nrow = grid_obj$L, ncol = grid_obj$M)
+    B = matrix(as.numeric(grid_obj$B), nrow = grid_obj$L, ncol = grid_obj$M),
+    store_grid_quantities = as.integer(store_grid_quantities)
   )
 }
 

@@ -1,0 +1,337 @@
+---
+title: "Choosing the grid and comparing models"
+description: "What the grid and the spline basis do, and how to check whether the results depend on them."
+output:
+  rmarkdown::html_vignette:
+    fig_width: 7
+    fig_height: 4.5
+bibliography: references.bib
+link-citations: true
+vignette: >
+  %\VignetteIndexEntry{Choosing the grid and comparing models}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(bayesEfron)
+options(bayesEfron.use_cli = FALSE, width = 80)
+has_loo <- requireNamespace("loo", quietly = TRUE)
+num <- function(x, digits = 2) formatC(x, format = "f", digits = digits)
+stored <- readRDS(system.file("examples", "grid_comparison_example.rds",
+                              package = "bayesEfron"))
+```
+
+The model represents $g$, the distribution of true effects, by the
+probabilities that it gives to the points of a grid, and it describes the
+logarithms of those probabilities by a small number of spline functions.
+Three things are therefore chosen before the model is fitted: where the
+grid begins and ends, how many points it has, and how many spline
+functions describe the shape of $g$. The defaults follow the application
+in @lee2025 [Section 7.2] and its replication code: a grid of 101 points
+that extends beyond the estimates by half their range on each side, and
+six spline functions. For the teacher expectancy studies the comparisons
+below do not separate the choices, although the result for the study with
+the largest estimate depends on them. For data whose true effects fall
+into two groups, the number of spline functions matters.
+
+## Where the grid begins and ends
+
+A true effect is taken to lie on the grid. If the grid is too narrow, an
+effect outside it cannot be represented, and the posterior distribution of
+that site is pressed against the end of the grid. If it is much too wide,
+part of it covers values that no site can plausibly have. The knots of the
+spline functions are spread evenly over the grid, so a wider grid also
+leaves fewer of them where the effects are. The default rule widens the
+range of the estimates on each side by `expansion` times its width.
+
+```{r grid}
+grid <- make_efron_grid(raudenbush1985$yi, raudenbush1985$sei)
+range(raudenbush1985$yi)
+range(grid$grid)
+```
+
+With the default `expansion = 0.5` the grid is twice as wide as the range
+of the estimates.
+
+```{r expansion}
+ends <- sapply(c(0.25, 0.5, 1), function(expansion) {
+  grid <- make_efron_grid(raudenbush1985$yi, raudenbush1985$sei,
+                          expansion = expansion)
+  range(grid$grid)
+})
+colnames(ends) <- paste("expansion", c(0.25, 0.5, 1))
+ends
+```
+
+An estimate with a large standard error can lie far from its true effect,
+so the estimates usually spread more widely than the true effects do. Room
+beyond the estimates is needed all the same: the true effect of the site
+with the largest estimate may be larger still, and a grid that ended at
+that estimate would not let its posterior distribution say so.
+
+@lee2025 [Appendix C] varied the width of the grid in a simulation with
+1,500 sites, widening the range of the true effects by a quarter of its
+width, by half and by its full width, and found that the accuracy of the
+estimates and the coverage of the intervals changed little. The model was
+fitted there with a variational approximation and not by Markov chain
+Monte Carlo. The last section of this vignette looks at the same question
+for 19 studies, where the answer is less comfortable.
+
+`grid_method` selects other rules. `"paper_simulation"` and
+`"paper_sensitivity"` place the grid around the true effects, which are
+known only in a simulation; they are there so that the simulations of the
+paper can be repeated, and they are of no use in the analysis of real data.
+`"kl_target_experimental"` keeps the default end points and chooses the
+number of points from the smallest standard error, by a rule taken from
+the ebnm package [@willwerscheid2025]. In ebnm the rule bounds what is
+lost when the distribution is approximated by a mixture of normal
+components on a grid, provided that the standard errors are equal. The
+bound has not been shown to hold for the model of this package, in which
+the distribution consists of probabilities on the grid points and is
+restricted to a spline family. Because the method uses at most 300 points,
+the spacing can also be wider than the rule asks for. The method prints a
+message that says so, and `?make_efron_grid` gives the formulas.
+
+## How many points and how many spline functions
+
+The number of grid points, `L`, sets the resolution. The posterior
+distribution of an effect is a distribution on the grid, whose spacing is
+`r num(diff(grid$grid)[1])` for the teacher expectancy studies with the
+default of 101 points, and the limits of the intervals should be read to
+no finer a resolution than that. @lee2025 [Appendix C]
+compared 51, 101 and 201 points in the same simulation and found the
+results nearly the same, although the computing time grew roughly in
+proportion to the number of points.
+
+The number of spline functions, `M`, sets how much shape $g$ can have. The
+logarithm of the grid probabilities is a combination of `M` natural cubic
+spline functions [@efron2016], which `make_efron_grid()` returns as the
+columns of `B`.
+
+```{r basis, fig.alt = "The six natural cubic spline functions on the default grid."}
+matplot(grid$grid, grid$B, type = "l", lty = 1,
+        xlab = "Effect", ylab = "Spline function")
+```
+
+With few functions $g$ has only broad features, although even four
+functions allow two peaks. With more it can follow narrower ones, such as
+a thin tail or two groups of effects that lie close together. The prior
+distribution of the coefficients draws them toward zero by an amount that
+is estimated with them (`vignette("model")` describes it), which guards
+against more flexibility than the data support. It does not make `M` a
+matter of indifference, however, as the second example below shows.
+
+## How well one fit predicts
+
+To compare choices you need a number that says how well a fitted model
+describes the data. For each site and each posterior draw the model
+computes the density of the estimate $\hat\theta_i$ given $g$,
+
+$$
+p(\hat\theta_i \mid \alpha) = \sum_{j=1}^{L} g_j(\alpha)\,
+  \phi(\hat\theta_i;\, \tau_j, \sigma_i),
+$$
+
+where $\tau_j$ are the grid points, $g_j(\alpha)$ their probabilities and
+$\phi(\cdot\,; \tau, \sigma)$ the normal density with mean $\tau$ and
+standard deviation $\sigma$. The true effect of the site is summed out.
+From these values `loo()` estimates how well the model would predict the
+estimate of each site if that site had been left out of the fit
+[@vehtari2017].
+
+```{r loo, eval = has_loo}
+fit_loo <- loo::loo(raudenbush_fit)
+fit_loo
+```
+
+`elpd_loo` is the sum over sites of the log predictive densities. A larger
+value is better, but the value means little by itself; it serves to compare
+fits of the same data. `p_loo` is what the loo package calls the effective
+number of parameters, and it is not the `effective_params` that
+`summary()` prints for a fit. The method is an approximation, and the
+Pareto k values say for each site whether it can be relied on. A large
+value means that leaving the site out would change the posterior
+distribution a good deal, so that the approximation is poor for that site.
+@vehtari2017 take 0.7 as the limit, and recent versions of the loo package
+lower it for a fit with few draws (to 0.66 for the 800 draws that
+`raudenbush_fit` keeps). `plot()` shows the values by site.
+
+```{r loo-plot, eval = has_loo, fig.height = 3.5, fig.alt = "Pareto k values of the 19 studies."}
+plot(raudenbush_fit, type = "loo")
+```
+
+## Comparing specifications
+
+Call a combination of `L`, `M` and `expansion` a specification. Each
+specification is a different model for the same data.
+`compare_efron_grids()` fits the model for every combination of the values
+given for the three arguments and puts the results of `loo()` in one
+table. With its defaults it compares 51, 101 and 201 grid points and four,
+six and eight spline functions, nine fits in all.
+
+```{r compare-call, eval = FALSE}
+compare_efron_grids(raudenbush1985$yi, raudenbush1985$sei, seed = 1985)
+```
+
+The result of this call is stored in the package, together with the other
+comparisons that are discussed below.
+
+```{r compare-raudenbush}
+stored <- readRDS(system.file("examples", "grid_comparison_example.rds",
+                              package = "bayesEfron"))
+stored$raudenbush
+```
+
+```{r compare-numbers, include = FALSE}
+cmp <- as.data.frame(stored$raudenbush)
+by_m <- function(table, m, column) range(abs(table[[column]][table$M == m]))
+```
+
+The rows are in the order of `elpd_loo`, the best first. `elpd_diff` is
+the difference from the first row and `se_diff` is the standard error of
+that difference. A difference of less than about two standard errors does
+not separate two specifications. With as few as 19 sites the standard
+error is itself uncertain, so the rule is a rough guide.
+
+For the teacher expectancy studies nothing stands out. The number of grid
+points hardly matters, because for a given `M` the three values of `L`
+give nearly the same `elpd_loo`. The fits with eight spline functions come
+first, and those with six follow at a distance of about
+`r num(mean(by_m(cmp, 6, "elpd_diff")), 1)` with a standard error of about
+`r num(mean(by_m(cmp, 6, "se_diff")), 1)`. Those with four are
+`r num(by_m(cmp, 4, "elpd_diff")[1], 1)` to
+`r num(by_m(cmp, 4, "elpd_diff")[2], 1)` behind, still less than two
+standard errors. They are also the rows that the note under the table
+names: their fits had divergent transitions, and a fit with such a problem
+should not be chosen whatever its `elpd_loo`. For these data the
+comparison gives no reason to depart from the default.
+
+The choice matters more when the true effects form separate groups. The
+second stored comparison is for simulated data of that kind, with
+`r nrow(stored$two_groups_data)` sites, true effects in two groups and
+unequal standard errors, following the design of the simulations in
+@lee2025 [Section 5].
+
+```{r two-groups-data, fig.height = 3.5, fig.alt = "Histograms of the simulated true effects and of their estimates."}
+sim <- stored$two_groups_data
+op <- par(mfrow = c(1, 2))
+hist(sim$theta, breaks = 30, main = "True effects", xlab = "")
+hist(sim$theta_hat, breaks = 30, main = "Estimates", xlab = "")
+par(op)
+```
+
+The two groups are plain in the true effects and blurred in the estimates,
+because many of the standard errors are large compared with the distance
+between the groups.
+
+```{r compare-two-groups}
+stored$two_groups
+```
+
+```{r compare-numbers-2, include = FALSE}
+cmp2 <- as.data.frame(stored$two_groups)
+four <- cmp2[cmp2$M == 4, ]
+# Spacing of the default grid with 51 points, in units of the smallest
+# standard error.
+spacing_51 <- 2 * diff(range(sim$theta_hat)) / 50 / min(sim$sigma)
+# The paragraph below is about these fits; stop if it no longer holds.
+stopifnot(
+  all(four$max_rhat > 1.05),
+  all(cmp2$max_rhat[cmp2$M != 4] < 1.01)
+)
+```
+
+The fits with four spline functions are
+`r num(min(abs(four$elpd_diff)), 1)` to `r num(max(abs(four$elpd_diff)), 1)`
+behind the best one, which is `r num(min(abs(four$elpd_diff) / four$se_diff), 1)`
+to `r num(max(abs(four$elpd_diff) / four$se_diff), 1)` standard errors, but
+they did not converge (`vignette("diagnostics")` looks at them more
+closely), and the scores of fits that have not converged cannot be relied
+on. What the table shows is that four functions are not a specification to
+use for these data, and not how much worse they predict. The fits with six
+and eight functions converged and are close to each other, with
+differences of about `r num(mean(by_m(cmp2, 6, "elpd_diff")), 1)` and
+standard errors of about `r num(mean(by_m(cmp2, 6, "se_diff")), 1)`. The
+number of grid points again makes no difference that can be seen, although
+with 51 points the spacing of this grid is `r num(spacing_51, 1)` times the
+smallest standard error.
+
+Every row of such a table is a full fit, so a comparison takes as long as
+that many fits, and the column `sampler_seconds` shows how the time grows
+with `L`. Since the number of grid points made no difference in either
+example or in the simulation of the paper, we suggest varying `M` first.
+
+## What the choices change in the results
+
+`elpd_loo` measures how well the fitted $g$ predicts the estimates
+$\hat\theta_i$. That is not the same as how accurately each true effect is
+estimated, and two specifications that predict equally well can give
+different results for a site. The results themselves can be compared
+directly. The stored file holds nine more fits of the teacher expectancy
+studies, for three widths of the grid and six, eight and ten spline
+functions.
+
+```{r sensitivity}
+sens <- stored$raudenbush_sensitivity
+shown <- sens[, c("expansion", "M", "mean_g", "sd_g", "study18_mean",
+                  "study4_mean", "study4_lower", "study4_upper",
+                  "elpd_diff", "se_diff")]
+names(shown)[5:8] <- c("study18", "study4", "lower", "upper")
+round(shown, 2)
+```
+
+`study18` and `study4` are the posterior means of the effects of two
+studies, and `lower` and `upper` are the limits of the 90% interval of
+study 4.
+
+```{r sensitivity-numbers, include = FALSE}
+span <- function(x) paste(num(min(x)), "to", num(max(x)))
+between <- function(x) paste(num(min(x)), "and", num(max(x)))
+worst <- which.min(sens$elpd_diff)
+# The sentence on study 4 below is about these fits; stop if it no longer
+# holds: smaller with a wider grid for each M, larger with more spline
+# functions for each width.
+falls_with_width <- tapply(sens$study4_mean, sens$M, function(x) all(diff(x) < 0))
+rises_with_m <- tapply(sens$study4_mean, sens$expansion, function(x) all(diff(x) > 0))
+stopifnot(all(falls_with_width), all(rises_with_m))
+```
+
+The mean of $g$ lies between `r between(sens$mean_g)` in the nine fits and
+its standard deviation between `r between(sens$sd_g)`. The posterior mean
+of study 18, whose estimate is the most precise, lies between
+`r between(sens$study18_mean)`. These results hardly depend on the
+specification. The posterior mean of study 4 does. That study has the
+largest estimate, `r num(raudenbush1985$yi[4])`, and a large standard
+error, and its posterior mean ranges from `r span(sens$study4_mean)`; it is
+smaller the wider the grid and the fewer the spline functions. The last
+two columns do not say which of these fits to prefer: the largest
+difference in `elpd_loo` from the best of the nine is
+`r num(abs(sens$elpd_diff[worst]), 1)`, with a standard error of
+`r num(sens$se_diff[worst], 1)`.
+
+How far an extreme and imprecise estimate is drawn in depends on the tail
+of $g$, and 19 studies leave the tail uncertain. The intervals for study 4
+are wide in every fit and say as much. When a conclusion rests on such a
+site, we suggest reporting its effect under two or three specifications
+and not under one.
+
+For the `r nrow(sim)` simulated sites the specification matters much less.
+Three widths of the grid and six or eight spline functions give the same
+results to within a few hundredths.
+
+```{r sensitivity-two-groups}
+sens2 <- stored$two_groups_sensitivity
+round(sens2[, c("expansion", "M", "mean_g", "sd_g", "coverage", "rmse",
+                "treedepth_hits")], 2)
+```
+
+`coverage` is the share of the true effects that lie inside the 90%
+intervals and `rmse` is the root mean squared error of the posterior
+means. The true effects have mean `r num(mean(sim$theta))` and standard
+deviation `r num(sd(sim$theta))`. The last column shows a cost of a wide
+grid: the wider the grid, the more of the 12,000 iterations reach the
+maximum tree depth.
+
+## References

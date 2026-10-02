@@ -1,66 +1,32 @@
-#' bayesEfron: Fully Bayesian Inference for the Empirical-Bayes Deconvolution Problem
-#'
-#' @description
-#' `bayesEfron` fits the fully Bayesian Efron log-spline prior for
-#' univariate random-effects meta-analytic deconvolution with
-#' heteroscedastic within-study standard errors. The package is for
-#' the applied meta-analyst who has a vector of study-level effect
-#' estimates and their standard errors and wants two related
-#' quantities: posterior summaries of the latent site effects, and a
-#' continuous, smoothly regularised estimate of the underlying mixing
-#' distribution that generated those effects. Both objects are
-#' returned from a single fit, with calibrated credible intervals
-#' derived from the same posterior draws.
-#'
 #' @details
-#' For sites \eqn{i = 1, \ldots, K},
-#' \deqn{\hat\theta_i \mid \theta_i \sim \mathcal{N}(\theta_i, \sigma_i^2),
-#'   \qquad \theta_i \mid g \sim g,}
-#' where \eqn{g} is the unknown mixing distribution. The package
-#' represents \eqn{g} as a discrete distribution on a fixed grid of
-#' length \eqn{L} (default \eqn{L = 101}) whose log-density is a
-#' linear combination of \eqn{M} natural-cubic-spline basis functions
-#' (default \eqn{M = 6}). The spline coefficients receive a weakly
-#' informative Gaussian prior whose precision \eqn{\lambda} is in turn
-#' assigned a half-Cauchy hyperprior, so the smoothness of the
-#' deconvolved density is itself part of what the sampler learns.
+#' For sites \eqn{i = 1, \ldots, K} the model is
+#' \deqn{\hat\theta_i \mid \theta_i \sim N(\theta_i, \sigma_i^2),
+#'   \qquad \theta_i \sim g,}
+#' where the standard errors \eqn{\sigma_i} are taken as known and may
+#' differ between sites. The distribution \eqn{g} is represented on a
+#' grid, with log probabilities that are a combination of natural cubic
+#' spline functions; the spline coefficients have a normal prior whose
+#' precision has a half-Cauchy prior. [bayes_efron_fit()] gives the
+#' details.
 #'
-#' Posterior computation is delegated to CmdStan via the `cmdstanr`
-#' package, with two-tier compile caching so that repeated fits with
-#' the same model code reuse the compiled binary. The within-study
-#' standard errors enter exactly: each site's likelihood contribution
-#' uses its own \eqn{\sigma_i}, with no homoscedasticity assumption.
+#' @section Main functions:
+#' * [as_bef_data()] takes the estimates and standard errors out of a list,
+#'   a data frame or a `metafor::escalc()` object and checks them.
+#' * [bayes_efron_fit()] fits the model and returns a [bef_fit] object,
+#'   which has `summary()`, `coef()`, `confint()` and other methods.
+#' * [diagnose()] returns the convergence diagnostics of a fit.
+#' * [plot()][plot.bef_fit_re] draws the site effects, the estimated
+#'   distribution of effects, the diagnostics or the Pareto k values.
+#' * [predict()][predict.bef_fit_re] draws the effect or the estimate of a
+#'   new site.
+#' * [make_efron_grid()] builds the grid and the spline basis, and
+#'   [compare_efron_grids()] compares several of them by leave-one-out
+#'   cross-validation.
+#' * [bayes_efron_compile()] compiles the Stan model before the first fit,
+#'   and [bayes_efron_clear_cache()] removes the compiled model.
 #'
-#' @section User-facing entry points:
-#' \describe{
-#'   \item{[bayes_efron_fit()]}{Primary fitting entry. Takes per-site
-#'     effect estimates and standard errors, runs the eight-stage
-#'     pipeline (validation, grid construction, Stan-data preparation,
-#'     cache-backed model retrieval, sampling, draw extraction,
-#'     postprocessing, assembly), and returns a fitted `bef_fit_re`
-#'     object carrying posterior draws, the deconvolved density, and
-#'     posterior summaries of the site effects.}
-#'   \item{[make_efron_grid()]}{Constructs the discrete support of
-#'     \eqn{g} and the natural-cubic-spline basis evaluated on it.
-#'     Four recipes: paper real-data, paper simulation, paper
-#'     sensitivity, and an experimental KL-target recipe.}
-#'   \item{[as_bef_data()]}{Input adapter. Converts a plain list of
-#'     `theta_hat`/`sigma`, an [metafor::escalc()] object, or an
-#'     existing `bef_data` object into the canonical input class.}
-#'   \item{[diagnose()]}{Diagnostic producer. Returns a
-#'     `bef_diagnostic` object summarising R-hat, effective sample
-#'     sizes, divergent transitions, max-treedepth saturations, and
-#'     other sampler-health quantities.}
-#' }
-#'
-#' @section Where to start:
-#' New users should begin with the applied vignette \emph{A1 \enc{·}{.}
-#' Getting started}, which walks through a minimal end-to-end fit on
-#' a five-site toy dataset. The companion methodological vignette
-#' \emph{M1 \enc{·}{.} The empirical-Bayes deconvolution problem}
-#' develops the statistical background, motivates the log-spline
-#' prior, and explains how the deconvolved density \eqn{\hat g}
-#' relates to the posterior site effects \eqn{\theta_i}.
+#' The examples use the data set [raudenbush1985] and the fit
+#' [raudenbush_fit]. `vignette("bayesEfron")` is the place to start.
 #'
 #' @section Funding:
 #' This research was supported by the Institute of Education Sciences,

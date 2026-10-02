@@ -1,202 +1,189 @@
-// ==============================================================================
-// Fully Bayesian Meta-Analytic Deconvolution with Efron's Log-Spline Prior
+// Fully Bayesian deconvolution with Efron's log-spline prior
 //
-// Reference: Lee & Sui (2025). "Fully Bayesian Inference for Meta-Analytic 
-//            Deconvolution Using Efron's Log-Spline Prior"
+// Lee and Sui (2025), "Fully Bayesian Inference for Meta-Analytic
+// Deconvolution Using Efron's Log-Spline Prior", Mathematics 13(16), 2639.
 //
-// Model Description:
-// This Stan program implements a fully Bayesian approach to meta-analytic
-// deconvolution using Efron's log-spline prior. The model estimates a smooth
-// prior distribution g(θ) from noisy observations while properly accounting
-// for both sampling uncertainty and prior uncertainty.
+// For sites i = 1, ..., K (the studies of a meta-analysis, the sites of a
+// multisite trial),
 //
-// Key Features:
-// - Flexible nonparametric prior via log-spline representation
-// - Automatic regularization through hierarchical Bayesian framework
-// - Proper uncertainty quantification for site-specific effects
-// - Numerical stability through log-space computations
+//   theta_hat[i] | theta[i] ~ normal(theta[i], sigma[i]),   theta[i] ~ g,
 //
-// File: efron_re.stan
-// Package release: bayesEfron 0.1.0
-// Model family: RE
-// ==============================================================================
+// where g is a distribution on a grid of L points with
+//
+//   log g = log_softmax(B * alpha),
+//
+// B is a natural cubic spline basis with M columns, and
+//
+//   alpha[m] | lambda ~ normal(0, 1 / sqrt(lambda)),   lambda ~ half-Cauchy(0, 5).
+//
+// The theta[i] are summed out on the grid, so alpha and lambda are the only
+// sampled parameters.
 
 data {
   // Site-level data
-  int<lower=1> K;                  // Number of sites/studies
-  vector[K] theta_hat;              // Observed effect estimates
-  vector<lower=0>[K] sigma;         // Standard errors of estimates
+  int<lower=1> K;                  // number of sites
+  vector[K] theta_hat;              // effect estimates
+  vector<lower=0>[K] sigma;         // standard errors of the estimates
   
-  // Discretization grid for prior g
-  int<lower=1> L;                  // Number of grid points (typically 101)
-  vector[L] grid;                   // Grid points spanning support of θ
+  // Grid on which g is defined
+  int<lower=1> L;                  // number of grid points
+  vector[L] grid;                   // grid points
   
-  // Spline basis specification
-  int<lower=1> M;                  // Degrees of freedom for splines (typically 6)
-  matrix[L, M] B;                   // Natural cubic spline basis matrix
+  // Spline basis
+  int<lower=1> M;                  // number of basis functions
+  matrix[L, M] B;                   // natural cubic spline basis on the grid
+
+  // 1 also writes log_w = B * alpha and g = exp(log_g) to the output. Both
+  // follow from alpha and log_g, so the default, 0, leaves them out.
+  int<lower=0, upper=1> store_grid_quantities;
+}
+
+transformed data {
+  // normal_lpdf(theta_hat[i] | grid[j], sigma[i]) depends on the data only, so
+  // it is computed once here and not at every gradient evaluation.
+  matrix[K, L] log_lik_grid;
+  for (i in 1:K) {
+    for (j in 1:L) {
+      log_lik_grid[i, j] = normal_lpdf(theta_hat[i] | grid[j], sigma[i]);
+    }
+  }
+
+  // Shifted likelihood for the marginal in the model block:
+  //
+  //   log_sum_exp_j( LL[i,j] + log_g[j] )
+  //     = row_max[i] + log( sum_j exp(LL[i,j] - row_max[i]) * g[j] )
+  //     = row_max[i] + log( lik_shifted[i,] * g ).
+  //
+  // row_max depends on the data only, so the marginal likelihood of all the
+  // sites is one matrix-vector product. Every row of lik_shifted has maximum
+  // 1, so the product for a site is at least g at the grid point nearest its
+  // estimate. It rounds to zero only if g underflows there, which needs
+  // coefficients far outside the range that the sampler visits. The log
+  // density is then minus infinity, and Stan does not accept such a point.
+  vector[K] log_lik_row_max;
+  matrix[K, L] lik_grid_shifted;
+  for (i in 1:K) {
+    log_lik_row_max[i] = max(log_lik_grid[i]);
+    lik_grid_shifted[i] = exp(log_lik_grid[i] - log_lik_row_max[i]);
+  }
+  real log_lik_row_max_sum = sum(log_lik_row_max);
 }
 
 parameters {
-  // Spline coefficients for log-density representation
-  vector[M] alpha;                  // Coefficients for log g(θ)
+  // Spline coefficients of log g
+  vector[M] alpha;                  // coefficients of the basis functions
   
-  // Regularization parameter
-  real<lower=0> lambda;             // Controls smoothness of prior g
+  // Prior precision of alpha; larger values pull g toward the uniform
+  // distribution on the grid
+  real<lower=0> lambda;             // precision
 }
 
 transformed parameters {
-  // Log-spline representation of prior
-  vector[L] log_w = B * alpha;      // Log unnormalized density at grid points
-  
-  // Normalized prior distribution
-  vector[L] log_g = log_softmax(log_w);  // Log normalized density (sums to 1)
-  simplex[L] g = softmax(log_w);         // Normalized density on simplex
+  // g on the log scale. Only log_g is stored; g = exp(log_g) is formed where
+  // it is needed.
+  vector[L] log_g = log_softmax(B * alpha);
 }
 
 model {
-  // ============================================================================
-  // PRIORS
-  // ============================================================================
+  // Priors
   
-  // Hyperprior on regularization parameter
-  // Half-Cauchy(0, 5) is weakly informative, allowing adaptation to data
+  // Half-Cauchy(0, 5), because lambda is constrained to be positive
   lambda ~ cauchy(0, 5);
   
-  // Conditional prior on spline coefficients
-  // Ridge penalty with variance 1/lambda encourages smoothness
+  // Normal with variance 1 / lambda
   alpha ~ normal(0, inv_sqrt(lambda));
   
-  // ============================================================================
-  // LIKELIHOOD
-  // ============================================================================
+  // Likelihood
   
-  // Mixture likelihood for observed effects
-  // Each θ_hat_i comes from mixture: Σ_j g_j × Normal(grid_j, sigma_i)
-  for (i in 1:K) {
-    vector[L] log_components;
-    
-    // Compute log-likelihood for each mixture component
-    for (j in 1:L) {
-      log_components[j] = log_g[j]  // Prior weight for component j
-                        + normal_lpdf(theta_hat[i] | grid[j], sigma[i]);
-    }
-    
-    // Add log marginal likelihood using log-sum-exp for numerical stability
-    target += log_sum_exp(log_components);
-  }
+  // Marginal likelihood of theta_hat with theta summed out on the grid:
+  // theta_hat[i] has density sum_j g[j] * normal(theta_hat[i] | grid[j], sigma[i]).
+  // See the transformed data block for the identity used here.
+  target += log_lik_row_max_sum + sum(log(lik_grid_shifted * exp(log_g)));
 }
 
 generated quantities {
-  // ============================================================================
-  // PRIOR DISTRIBUTION SUMMARIES
-  // ============================================================================
-  
-  // Moments of estimated prior g(θ)
-  real mean_g = dot_product(g, grid);                     // E[θ]
-  real var_g = dot_product(g, square(grid - mean_g));     // Var[θ]
-  real sd_g = sqrt(var_g);                                // SD[θ]
-  
-  // ============================================================================
-  // POSTERIOR SUMMARIES FOR SITE-SPECIFIC EFFECTS
-  // ============================================================================
-  
-  // Three types of posterior summaries for each site
-  vector[K] theta_map;   // Maximum a posteriori (MAP) estimates
-  vector[K] theta_mean;  // Posterior means (optimal under squared error loss)
-  vector[K] theta_rep;   // Posterior draws (for credible intervals)
-  
-  // Additional posterior uncertainty measures
-  vector[K] theta_sd;    // Posterior standard deviations
-  
-  for (i in 1:K) {
-    // ------------------------------------------------------------------------
-    // Compute posterior distribution for site i
-    // ------------------------------------------------------------------------
-    
-    vector[L] log_post;  // Log posterior at each grid point
-    
-    // Bayes' rule: posterior ∝ prior × likelihood
-    for (j in 1:L) {
-      log_post[j] = log_g[j]  // Log prior
-                  + normal_lpdf(theta_hat[i] | grid[j], sigma[i]);  // Log likelihood
-    }
-    
-    // ------------------------------------------------------------------------
-    // MAP estimate (posterior mode)
-    // ------------------------------------------------------------------------
-    
-    int max_idx = 1;
-    for (j in 2:L) {
-      if (log_post[j] > log_post[max_idx]) {
-        max_idx = j;
-      }
-    }
-    theta_map[i] = grid[max_idx];
-    
-    // ------------------------------------------------------------------------
-    // Normalize posterior to get weights
-    // ------------------------------------------------------------------------
-    
-    // Use log-sum-exp trick for numerical stability
-    real log_post_max = max(log_post);
-    vector[L] w = exp(log_post - log_post_max);
-    w = w / sum(w);  // Now w contains posterior probabilities
-    
-    // ------------------------------------------------------------------------
-    // Posterior mean
-    // ------------------------------------------------------------------------
-    
-    theta_mean[i] = dot_product(w, grid);
-    
-    // ------------------------------------------------------------------------
-    // Posterior standard deviation
-    // ------------------------------------------------------------------------
-    
-    real second_moment = dot_product(w, square(grid));
-    theta_sd[i] = sqrt(second_moment - square(theta_mean[i]));
-    
-    // ------------------------------------------------------------------------
-    // Posterior draw (for uncertainty quantification)
-    // ------------------------------------------------------------------------
-    
-    // Sample from discrete posterior distribution
-    theta_rep[i] = grid[categorical_rng(w)];
-  }
-  
-  // ============================================================================
-  // MODEL DIAGNOSTICS AND CHECKS
-  // ============================================================================
-  
-  // Effective number of parameters (for model comparison)
+  // Everything below is computed in one pass over the sites. Only the
+  // quantities declared at this level are written to the output; working
+  // values are local to the block at the bottom.
+
+  // Mean, variance and standard deviation of g
+  real mean_g;
+  real var_g;
+  real sd_g;
+
+  // Posterior of theta[i] given alpha
+  vector[K] theta_map;   // posterior mode on the grid
+  vector[K] theta_mean;  // posterior mean
+  vector[K] theta_sd;    // posterior standard deviation
+  vector[K] theta_rep;   // one draw from the posterior
+  vector[K] log_lik;     // marginal log density of theta_hat[i]
+
+  // Effective number of parameters (defined below)
   real effective_params;
+
+  // Sum of log_lik
+  real log_marginal_likelihood;
+
+  // Written only when store_grid_quantities is 1
+  vector[store_grid_quantities ? L : 0] log_w;
+  vector[store_grid_quantities ? L : 0] g;
+
   {
+    vector[L] g_local = exp(log_g);
     vector[K] posterior_vars;
+
+    mean_g = dot_product(g_local, grid);
+    var_g = dot_product(g_local, square(grid - mean_g));
+    sd_g = sqrt(var_g);
+
     for (i in 1:K) {
-      // Compute posterior variance for each site
-      vector[L] log_post;
-      for (j in 1:L) {
-        log_post[j] = log_g[j] + normal_lpdf(theta_hat[i] | grid[j], sigma[i]);
-      }
+      // Bayes' rule on the grid, computed once and reused for every summary
+      vector[L] log_post = to_vector(log_lik_grid[i]) + log_g;
       real log_post_max = max(log_post);
-      vector[L] w = exp(log_post - log_post_max);
-      w = w / sum(w);
-      
-      real post_mean = dot_product(w, grid);
-      real post_second_moment = dot_product(w, square(grid));
-      posterior_vars[i] = post_second_moment - square(post_mean);
+      vector[L] w_unnorm = exp(log_post - log_post_max);
+      real w_sum = sum(w_unnorm);
+      vector[L] w = w_unnorm / w_sum;
+
+      // Marginal log density: log_sum_exp(log_post), from the pieces above
+      log_lik[i] = log_post_max + log(w_sum);
+
+      // Posterior mode
+      int max_idx = 1;
+      for (j in 2:L) {
+        if (log_post[j] > log_post[max_idx]) {
+          max_idx = j;
+        }
+      }
+      theta_map[i] = grid[max_idx];
+
+      // Posterior mean and variance. The variance is taken about the mean,
+      // and not as a difference of two moments, which loses its digits when
+      // the effects are far from zero.
+      real m1 = dot_product(w, grid);
+      theta_mean[i] = m1;
+      posterior_vars[i] = dot_product(w, square(grid - m1));
+      theta_sd[i] = sqrt(posterior_vars[i]);
+
+      // Posterior draw on the grid
+      theta_rep[i] = grid[categorical_rng(w)];
     }
-    
-    // Effective parameters = K - sum of shrinkage factors
-    effective_params = K - sum(posterior_vars ./ square(sigma));
-  }
-  
-  // Log marginal likelihood (for model comparison)
-  real log_marginal_likelihood = 0;
-  for (i in 1:K) {
-    vector[L] log_components;
-    for (j in 1:L) {
-      log_components[j] = log_g[j] + normal_lpdf(theta_hat[i] | grid[j], sigma[i]);
+
+    // Effective number of parameters. In the normal-normal model the posterior
+    // mean of theta[i] is w[i] * theta_hat[i] + (1 - w[i]) * mu with
+    // w[i] = tau^2 / (sigma[i]^2 + tau^2), and the posterior variance is
+    // V[i] = sigma[i]^2 * w[i]. So V[i] / sigma[i]^2 = w[i] is the weight the
+    // data carry for site i, and the sum over sites is the trace of the
+    // smoother, which grows as the estimates are shrunk less. The same ratio
+    // is used here with the posterior variance on the grid. In the
+    // normal-normal model it lies between 0 and K; with a general g a single
+    // term can exceed 1.
+    effective_params = sum(posterior_vars ./ square(sigma));
+
+    log_marginal_likelihood = sum(log_lik);
+
+    if (store_grid_quantities) {
+      log_w = B * alpha;
+      g = g_local;
     }
-    log_marginal_likelihood += log_sum_exp(log_components);
   }
 }

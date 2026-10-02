@@ -1,34 +1,40 @@
-#' @rdname bayesEfron-methods
+#' @order 13
+#' @describeIn bef_fit Returns the lines that `print()` shows, as a character vector.
 #' @export
 format.bef_fit <- function(x, ..., use_cli = NULL) {
-  if (.bef_format_use_cli(use_cli, module = "format.bef_fit")) {
+  x <- .bef_prepare_fit(x)
+  if (.bef_format_use_cli(use_cli)) {
     return(format_bef_fit_cli(x))
   }
   format_bef_fit_base(x)
 }
 
-#' @rdname bayesEfron-methods
+#' @order 14
+#' @describeIn bef_fit Returns the lines of the printed summary.
 #' @export
 format.summary.bef_fit <- function(x, ..., use_cli = NULL) {
-  if (.bef_format_use_cli(use_cli, module = "format.summary.bef_fit")) {
+  .bef_check_saved_summary(x)
+  if (.bef_format_use_cli(use_cli)) {
     return(format_summary_bef_fit_cli(x))
   }
   format_summary_bef_fit_base(x)
 }
 
-#' @rdname bayesEfron-methods
+#' @order 8
+#' @describeIn as_bef_data Returns the lines that `print()` shows, as a character vector.
 #' @export
 format.bef_data <- function(x, ..., use_cli = NULL) {
-  if (.bef_format_use_cli(use_cli, module = "format.bef_data")) {
+  if (.bef_format_use_cli(use_cli)) {
     return(format_bef_data_cli(x))
   }
   format_bef_data_base(x)
 }
 
-#' @rdname bayesEfron-methods
+#' @order 6
+#' @describeIn diagnose Returns the lines that `print()` shows, as a character vector.
 #' @export
 format.bef_diagnostic <- function(x, ..., use_cli = NULL) {
-  if (.bef_format_use_cli(use_cli, module = "format.bef_diagnostic")) {
+  if (.bef_format_use_cli(use_cli)) {
     return(format_bef_diagnostic_cli(x))
   }
   format_bef_diagnostic_base(x)
@@ -39,6 +45,7 @@ format_bef_fit_base <- function(x) {
   diagnostics <- .bef_metadata_attr(metadata, "diagnostics")
   skipped <- .bef_metadata_attr(metadata, "diagnostic_skipped")
   failed <- .bef_metadata_attr(metadata, "sampler_diagnostics_failed")
+  warned <- .bef_metadata_attr(metadata, "sampler_diagnostics_warned")
 
   lines <- c(
     "<bayesEfron fit>",
@@ -46,14 +53,13 @@ format_bef_fit_base <- function(x) {
     sprintf("Sites: %d", as.integer(metadata$data_list$K)),
     sprintf("Grid method: %s", metadata$grid_method),
     sprintf("Runtime: %s sec", .bef_format_number(metadata$runtime_seconds)),
-    sprintf("Stan SHA-256: %s", metadata$stan_file_sha256),
     sprintf(
-      "Diagnostics: Rhat %s; ESS bulk %s; ESS tail %s; divergences %s; max treedepth %s",
-      .bef_format_number(diagnostics$rhat),
-      .bef_format_number(diagnostics$ess_bulk),
-      .bef_format_number(diagnostics$ess_tail),
-      .bef_format_integerish(diagnostics$divergences),
-      .bef_format_integerish(diagnostics$max_treedepth)
+      "Diagnostics: Rhat %s; ESS bulk %s; ESS tail %s; divergences %s; treedepth hits %s",
+      .bef_format_number(.bef_diagnostic_worst(diagnostics$rhat, max)),
+      .bef_format_number(.bef_diagnostic_worst(diagnostics$ess_bulk, min)),
+      .bef_format_number(.bef_diagnostic_worst(diagnostics$ess_tail, min)),
+      .bef_format_integerish(.bef_diagnostic_worst(diagnostics$divergences, sum)),
+      .bef_format_integerish(.bef_diagnostic_worst(diagnostics$max_treedepth, sum))
     )
   )
 
@@ -61,7 +67,10 @@ format_bef_fit_base <- function(x) {
     lines <- c(lines, sprintf("Skipped diagnostics: %s", paste(skipped, collapse = ", ")))
   }
   if (length(failed) > 0L) {
-    lines <- c(lines, sprintf("Diagnostics over warning thresholds: %s", paste(failed, collapse = ", ")))
+    lines <- c(lines, sprintf("Failed checks: %s", paste(failed, collapse = ", ")))
+  }
+  if (length(warned) > 0L) {
+    lines <- c(lines, sprintf("Warnings: %s", paste(warned, collapse = ", ")))
   }
 
   c(lines, "Use summary() for posterior summaries.")
@@ -79,11 +88,16 @@ format_summary_bef_fit_base <- function(x) {
     sprintf("  sd:   %s", .bef_format_number(prior$sd)),
     "",
     "Diagnostics:",
-    sprintf("  Rhat:              %s", .bef_format_number(diagnostics$rhat)),
-    sprintf("  ESS bulk:          %s", .bef_format_number(diagnostics$ess_bulk)),
-    sprintf("  ESS tail:          %s", .bef_format_number(diagnostics$ess_tail)),
-    sprintf("  Divergences:       %s", .bef_format_integerish(diagnostics$divergences)),
-    sprintf("  Max treedepth:     %s", .bef_format_integerish(diagnostics$max_treedepth)),
+    sprintf("  Rhat (max):        %s",
+            .bef_format_number(.bef_diagnostic_worst(diagnostics$rhat, max))),
+    sprintf("  ESS bulk (min):    %s",
+            .bef_format_number(.bef_diagnostic_worst(diagnostics$ess_bulk, min))),
+    sprintf("  ESS tail (min):    %s",
+            .bef_format_number(.bef_diagnostic_worst(diagnostics$ess_tail, min))),
+    sprintf("  Divergences:       %s",
+            .bef_format_integerish(.bef_diagnostic_worst(diagnostics$divergences, sum))),
+    sprintf("  Treedepth hits:    %s",
+            .bef_format_integerish(.bef_diagnostic_worst(diagnostics$max_treedepth, sum))),
     sprintf(
       "  Effective params:  mean %s, sd %s",
       .bef_format_number(diagnostics$effective_params$mean),
@@ -94,8 +108,7 @@ format_summary_bef_fit_base <- function(x) {
       .bef_format_number(diagnostics$log_marginal_likelihood$mean),
       .bef_format_number(diagnostics$log_marginal_likelihood$sd)
     ),
-    sprintf("  Runtime:           %s sec", .bef_format_number(diagnostics$runtime_seconds)),
-    sprintf("  Stan SHA-256:      %s", diagnostics$stan_file_sha256)
+    sprintf("  Runtime:           %s sec", .bef_format_number(diagnostics$runtime_seconds))
   )
 
   if (length(diagnostics$diagnostic_skipped) > 0L) {
@@ -111,8 +124,17 @@ format_summary_bef_fit_base <- function(x) {
     lines <- c(
       lines,
       sprintf(
-        "  Warning flags:     %s",
+        "  Failed checks:     %s",
         paste(diagnostics$sampler_diagnostics_failed, collapse = ", ")
+      )
+    )
+  }
+  if (length(diagnostics$sampler_diagnostics_warned) > 0L) {
+    lines <- c(
+      lines,
+      sprintf(
+        "  Warnings:          %s",
+        paste(diagnostics$sampler_diagnostics_warned, collapse = ", ")
       )
     )
   }
@@ -159,9 +181,12 @@ format_bef_diagnostic_base <- function(x) {
   lines <- c(
     "<bef_diagnostic>",
     sprintf("Model family: %s", x_summary$model_family),
-    sprintf("Rhat max: %s", .bef_format_number(x_summary$rhat$value)),
-    sprintf("ESS bulk min: %s", .bef_format_number(x_summary$ess_bulk$value)),
-    sprintf("ESS tail min: %s", .bef_format_number(x_summary$ess_tail$value)),
+    sprintf("Rhat max: %s%s", .bef_format_number(x_summary$rhat$value),
+            .bef_format_at_variable(x_summary$rhat$variable)),
+    sprintf("ESS bulk min: %s%s", .bef_format_number(x_summary$ess_bulk$value),
+            .bef_format_at_variable(x_summary$ess_bulk$variable)),
+    sprintf("ESS tail min: %s%s", .bef_format_number(x_summary$ess_tail$value),
+            .bef_format_at_variable(x_summary$ess_tail$variable)),
     sprintf(
       "Divergences: %s",
       .bef_format_integerish(x_summary$divergences)
@@ -170,9 +195,23 @@ format_bef_diagnostic_base <- function(x) {
       "Max treedepth hits: %s",
       .bef_format_integerish(x_summary$max_treedepth)
     ),
-    sprintf("Runtime: %s sec", .bef_format_number(x_summary$runtime_seconds)),
-    sprintf("Stan SHA-256: %s", x_summary$stan_file_sha256)
+    sprintf("E-BFMI min: %s",
+            .bef_format_number(.bef_diagnostic_worst(x_summary$ebfmi, min))),
+    sprintf("Runtime: %s sec", .bef_format_number(x_summary$runtime_seconds))
   )
+
+  if (length(x_summary$sampler_diagnostics_failed) > 0L) {
+    lines <- c(lines, sprintf(
+      "Failed checks: %s",
+      paste(x_summary$sampler_diagnostics_failed, collapse = ", ")
+    ))
+  }
+  if (length(x_summary$sampler_diagnostics_warned) > 0L) {
+    lines <- c(lines, sprintf(
+      "Warnings: %s",
+      paste(x_summary$sampler_diagnostics_warned, collapse = ", ")
+    ))
+  }
 
   if (!is.null(x_summary$effective_params)) {
     lines <- c(
@@ -190,15 +229,6 @@ format_bef_diagnostic_base <- function(x) {
       sprintf(
         "Skipped diagnostics: %s",
         paste(x_summary$diagnostic_skipped, collapse = ", ")
-      )
-    )
-  }
-  if (length(x_summary$sampler_diagnostics_failed) > 0L) {
-    lines <- c(
-      lines,
-      sprintf(
-        "Diagnostics over warning thresholds: %s",
-        paste(x_summary$sampler_diagnostics_failed, collapse = ", ")
       )
     )
   }
@@ -226,21 +256,16 @@ format_bef_diagnostic_cli <- function(x) {
   .bef_format_cli_lines(format_bef_diagnostic_base(x), heading = 1L)
 }
 
-.bef_format_use_cli <- function(use_cli, module) {
+.bef_format_use_cli <- function(use_cli) {
   if (!is.null(use_cli) &&
       (!is.logical(use_cli) || length(use_cli) != 1L || is.na(use_cli))) {
     .bef_abort_invalid_args(
       "`use_cli` must be NULL, TRUE, or FALSE.",
-      arg = "use_cli",
-      predicate = "NULL|TRUE|FALSE",
-      module = module
+      arg = "use_cli"
     )
   }
-  if (identical(Sys.getenv("BAYESEFRON_NO_CLI"), "1")) {
-    return(FALSE)
-  }
   if (is.null(use_cli)) {
-    return(requireNamespace("cli", quietly = TRUE))
+    use_cli <- getOption("bayesEfron.use_cli", TRUE)
   }
   isTRUE(use_cli) && requireNamespace("cli", quietly = TRUE)
 }
@@ -303,4 +328,11 @@ format_bef_diagnostic_cli <- function(x) {
     return("NA")
   }
   as.character(as.integer(round(x)))
+}
+
+.bef_format_at_variable <- function(variable) {
+  if (is.null(variable) || length(variable) != 1L || is.na(variable)) {
+    return("")
+  }
+  sprintf(" (%s)", variable)
 }

@@ -21,6 +21,7 @@ re_fit <- function(K = 5L, S = 6L) {
   theta_mean <- matrix(rep(seq(-0.2, 0.2, length.out = K), each = S), nrow = S)
   theta_sd <- matrix(rep(seq(0.1, 0.2, length.out = K), each = S), nrow = S)
   theta_map <- matrix(rep(seq(-0.25, 0.15, length.out = K), each = S), nrow = S)
+  grid <- seq(-1, 1, length.out = 51L)
   theta_summary <- data.frame(
     site = seq_len(K),
     mean = colMeans(theta_mean),
@@ -35,7 +36,12 @@ re_fit <- function(K = 5L, S = 6L) {
       function(i) posterior::quantile2(theta_rep[, i], probs = 0.95, names = FALSE),
       numeric(1L)
     ),
-    map = colMeans(theta_map)
+    # the mode in the table has to be a grid point
+    map = grid[vapply(
+      colMeans(theta_map),
+      function(value) which.min(abs(value - grid)),
+      integer(1L)
+    )]
   )
   metadata <- list(
     model_family = "RE",
@@ -48,15 +54,15 @@ re_fit <- function(K = 5L, S = 6L) {
       theta_hat = seq(-0.4, 0.4, length.out = K),
       sigma = seq(0.1, 0.3, length.out = K),
       L = 51L,
-      grid = seq(-1, 1, length.out = 51L),
+      grid = grid,
       M = 3L,
-      B = matrix(seq_len(51L * 3L) / 100, nrow = 51L, ncol = 3L)
+      B = matrix(seq_len(51L * 3L) / 100, nrow = 51L, ncol = 3L),
+      store_grid_quantities = 0L
     ),
     runtime_seconds = 2.5,
     mean_g_summary = re_summary(0),
     var_g_summary = re_summary(1),
     theta_summary = theta_summary,
-    theta_rep_draws = theta_rep,
     effective_params_summary = re_summary(3),
     log_marginal_likelihood_summary = re_summary(-10)
   )
@@ -66,28 +72,29 @@ re_fit <- function(K = 5L, S = 6L) {
     ess_bulk = 500,
     ess_tail = 450,
     divergences = 0,
-    max_treedepth = 0
+    max_treedepth = 0,
+    ebfmi = 0.9
   )
   attr(metadata, "diagnostic_skipped") <- character()
   attr(metadata, "sampler_diagnostics_failed") <- character()
-  draw_variables <- c("mean_g", "var_g", paste0("g[", seq_len(metadata$data_list$L), "]"))
+attr(metadata, "sampler_diagnostics_warned") <- character()
 
   re_ns("validate_bef_fit_re")(
     re_ns("new_bef_fit_re")(
-      draws = array(
-        seq_len(S * 1L * length(draw_variables)) / 100,
-        dim = c(S, 1L, length(draw_variables)),
-        dimnames = list(NULL, NULL, draw_variables)
+      draws = bef_fixture_draws(
+        theta_map = theta_map, theta_mean = theta_mean,
+        theta_sd = theta_sd, theta_rep = theta_rep,
+        scalars = list(
+          mean_g = seq(-0.1, 0.1, length.out = S),
+          var_g = seq(0.8, 1.2, length.out = S)
+        ),
+        grid_points = metadata$data_list$L
       ),
       metadata = metadata,
       posterior = list(
         mean_g = seq(-0.1, 0.1, length.out = S),
         var_g = seq(0.8, 1.2, length.out = S),
         sd_g = seq(0.9, 1.1, length.out = S),
-        theta_map = theta_map,
-        theta_mean = theta_mean,
-        theta_sd = theta_sd,
-        theta_rep = theta_rep,
         effective_params = rep(3, S),
         log_marginal_likelihood = rep(-10, S)
       )
@@ -200,8 +207,7 @@ test_that("RE plot shell validates arguments and returns numeric payloads", {
   expect_equal(payload$data$grid, fit$metadata$data_list$grid)
 
   plot_out <- plot(fit, type = "caterpillar", level = 0.8)
-  if (requireNamespace("ggplot2", quietly = TRUE) &&
-      !identical(Sys.getenv("BAYESEFRON_NO_GGPLOT2"), "1")) {
+  if (requireNamespace("ggplot2", quietly = TRUE)) {
     expect_s3_class(plot_out, "ggplot")
     expect_equal(
       attr(plot_out, "bef_plot_payload", exact = TRUE)$data,

@@ -1,82 +1,103 @@
 # bayesEfron <img src="man/figures/logo.png" align="right" height="139" alt="bayesEfron hex sticker" />
 
 <!-- badges: start -->
+[![R-CMD-check](https://github.com/joonho112/bayesEfron/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/joonho112/bayesEfron/actions/workflows/R-CMD-check.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->
 
-**Fully Bayesian Efron log-spline deconvolution for univariate random-effects meta-analysis with heteroscedastic standard errors.**
-
-You arrive with per-site effect estimates $\hat\theta_i$ and within-study standard errors $\sigma_i$, one pair per study, with $\sigma_i$ free to vary across sites. The estimates are noisy realizations of latent site effects $\theta_i$ drawn from an unknown mixing distribution $g(\theta)$. The conventional random-effects meta-analysis collapses $g$ to a Gaussian summarized by a single heterogeneity parameter, which discards information whenever the latent effects are skewed, heavy-tailed, or multimodal.
-
-`bayesEfron` returns two posterior objects from a single fit. The first is a continuous nonparametric estimate of $g(\theta)$ itself, expressed through Efron's log-spline prior on a fixed grid of effect-size values. The second is the per-site posterior $\theta_i \mid \hat\theta_i, \sigma_i$ — empirical-Bayes shrunken estimates that borrow strength under the estimated $g$. Deconvolution is the operation that recovers $g$ from the noisy $(\hat\theta_i, \sigma_i)$ pairs; it is what makes the per-site posteriors honest about the population they are drawn from.
+A meta-analysis or a multisite trial gives an estimate and a standard error
+for each site. The usual random-effects model assumes that the true effects
+behind the estimates follow a normal distribution. bayesEfron fits the same
+model without that assumption. It estimates the distribution of true
+effects, which may be skewed or have more than one peak, together with the
+effect of each site. The distribution is represented by Efron's log-spline
+family and the model is fully Bayesian, so that the intervals for the site
+effects include the uncertainty about the distribution
+([Lee and Sui, 2025](https://doi.org/10.3390/math13162639)).
 
 ## Installation
+
+The package is installed from GitHub.
 
 ```r
 # install.packages("remotes")
 remotes::install_github("joonho112/bayesEfron")
 ```
 
-CmdStan is required to fit models but not to install the package or to load cached fixtures. See `system.file("INSTALL.md", package = "bayesEfron")` for the CmdStan setup guide.
+The vignettes are on the
+[package website](https://joonho112.github.io/bayesEfron/). To install them
+with the package, install knitr and rmarkdown, make sure that Pandoc is
+available (RStudio includes it), and add `build_vignettes = TRUE` to the
+call above.
 
-## Quick start
+Fitting a model also needs the cmdstanr package and CmdStan, neither of
+which is on CRAN.
+
+```r
+install.packages("cmdstanr",
+                 repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
+cmdstanr::install_cmdstan()
+```
+
+CmdStan is built from source and needs a C++ toolchain;
+`cmdstanr::check_cmdstan_toolchain()` says whether one is present, and the
+[cmdstanr documentation](https://mc-stan.org/cmdstanr/articles/cmdstanr.html)
+describes the setup for each operating system. The examples and vignettes of
+bayesEfron run without CmdStan.
+
+## Example
+
+`raudenbush1985` holds the results of 19 experiments on the effect of
+teachers' expectations on their pupils' IQ scores.
 
 ```r
 library(bayesEfron)
-fit <- readRDS(system.file("examples", "cached_fit_re_smoke.rds", package = "bayesEfron"))
-summary(fit)
-confint(fit, type = "theta")
-plot(fit, type = "caterpillar")
+
+fit <- bayes_efron_fit(
+  theta_hat = raudenbush1985$yi,   # the estimates
+  sigma = raudenbush1985$sei,      # their standard errors
+  seed = 1985
+)
 ```
 
-The cached fixture is a five-site smoke fit produced by `bayes_efron_fit()` with `L = 51`, `M = 3`, one chain, and 100 sampling iterations; it carries no CmdStan dependency at read time. The verbatim `summary(fit)` output:
+The first call compiles the Stan model, which can take up to a minute. The
+result of this call is stored in the package as `raudenbush_fit`, so the
+lines below run without CmdStan.
 
-```
-<summary.bef_fit>
-
-Prior g:
-  mean: 0.174
-  var:  0.2094
-  sd:   0.4549
-
-Diagnostics:
-  Rhat:              1.203
-  ESS bulk:          12.53
-  ESS tail:          105
-  Divergences:       0
-  Max treedepth:     0
-  Effective params:  mean 0.3754, sd 0.3722
-  Log marginal lik.: mean -2.433, sd 0.443
-  Runtime:           0.2906 sec
-  Stan SHA-256:      57d1f55c8ccd721800193e61eb247f315be3afd401a19f58a51f84c103ceca3e
-
-Theta summary:
-  site      mean        sd     lower     upper       map
-  1      -0.1948    0.1713    -0.456     0.036   -0.1956
-  2       0.0401    0.1471   -0.1608       0.2   0.03862
-  3       0.1808    0.2128   -0.1952    0.4968    0.1787
-  4       0.3652    0.1869   0.06716    0.6608     0.363
-  5       0.5658    0.2197    0.2984    0.9216    0.5847
+```r
+fit <- raudenbush_fit
+summary(fit)               # the distribution of effects and each study's effect
+confint(fit, type = "g")   # mean and standard deviation of the distribution
+plot(fit, type = "g")      # the estimated distribution
+plot(fit)                  # the effect of each study, with intervals
+diagnose(fit)              # convergence diagnostics
 ```
 
-The **Prior g** block holds the posterior-mean summary of the mixing distribution. **Theta summary** is the per-site posterior table. **Diagnostics** are at smoke-scale by construction; production fits use the package defaults (`L = 101`, `M = 6`, four chains, 1000 warmup, 3000 sampling).
+With as few studies as these, the result for a study whose estimate is
+extreme and imprecise can depend on the width of the grid and on the number
+of spline functions. `vignette("choosing-a-grid")` shows how far it does
+for study 4 of this example, and such a result should be compared over a
+few specifications before it is reported.
 
-## Key features
+## Documentation
 
-- **Fully Bayesian inference.** The spline coefficients for $g(\theta)$ are sampled jointly with the latent $\theta_i$, propagating uncertainty about $g$ into every per-site posterior — not a plug-in empirical-Bayes point estimate of $g$ followed by a separate conditional step.
-- **Exact heteroscedasticity.** Each site enters the likelihood with its own $\sigma_i$; the model never collapses the within-study standard errors to a single pooled value or a meta-analytic typical variance.
-- **Two-tier compile cache.** A first fit compiles the Stan model and stores the binary in both an in-session cache and an on-disk cache keyed on model source, package version, CmdStan version, and platform. Later fits with matching keys skip compilation entirely.
-
-## Where to next
-
-- **A1 · Getting started** — a runnable five-minute walkthrough of the same five-site fixture, with both inferential targets read off the fit object.
-- **A3 · From `metafor::escalc()` to bayesEfron** — the end-to-end aggregate-data path, starting from group treatment and control summaries through a working fit and its outputs.
-- **M1 · The empirical-Bayes deconvolution problem** — the formal motivation for the log-spline prior, the role of fully Bayesian inference over Efron's original empirical-Bayes formulation, and the connection to the broader literature.
+`vignette("bayesEfron")` goes through this example.
+`vignette("choosing-a-grid")` and `vignette("diagnostics")` cover the
+choices and the checks that go with a fit, and `vignette("model")` states
+the model. The reference and all vignettes are at
+<https://joonho112.github.io/bayesEfron/>.
 
 ## Citation
 
-To cite `bayesEfron`, see `citation("bayesEfron")` for the canonical reference.
+To cite the package, cite the paper, as `citation("bayesEfron")` shows:
 
-## Funding and disclaimer
+> Lee, J. and Sui, D. (2025). Fully Bayesian inference for meta-analytic
+> deconvolution using Efron's log-spline prior. *Mathematics*, 13(16), 2639.
+> <https://doi.org/10.3390/math13162639>
 
-This research was supported by the Institute of Education Sciences, U.S. Department of Education, through Grant R305D240078 to the University of Alabama. The opinions expressed are those of the authors and do not represent views of the Institute or the U.S. Department of Education.
+## Funding
+
+This research was supported by the Institute of Education Sciences, U.S.
+Department of Education, through Grant R305D240078 to the University of
+Alabama. The opinions expressed are those of the authors and do not
+represent views of the Institute or the U.S. Department of Education.

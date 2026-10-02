@@ -17,8 +17,8 @@ the issue. Include:
 
 - The input data shape (`length(theta_hat)`, range of `sigma`, etc.)
 - The exact `bayes_efron_fit()` call (or other entry point)
-- Any environment variables set
-  (`BAYESEFRON_RUN_LIVE`, `BAYESEFRON_NO_GGPLOT2`, etc.)
+- Any environment variables or options set
+  (for example `BAYESEFRON_CACHE_ROOT`)
 
 ```r
 # paste your reproducible example here

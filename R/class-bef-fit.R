@@ -1,3 +1,154 @@
+# The bef_data, bef_fit and bef_fit_re classes: constructors and validators.
+
+#' Fitted Efron log-spline model objects
+#'
+#' @description
+#' [bayes_efron_fit()] returns an object of class `bef_fit_re`, which
+#' inherits from `bef_fit`. This page describes what the object holds and
+#' the methods that summarize it. [plot.bef_fit_re()],
+#' [predict.bef_fit_re()], [diagnose()] and [loo.bef_fit()] have pages of
+#' their own.
+#'
+#' @details
+#' The object is a list with three elements.
+#'
+#' `draws` is a `posterior::draws_array` with the posterior draws of every
+#' quantity in the Stan model: the spline coefficients `alpha` and the
+#' precision `lambda`; `log_g`, the log probabilities of \eqn{g} on the
+#' grid; `mean_g`, `var_g` and `sd_g`, the mean, variance and standard
+#' deviation of \eqn{g}; for each site the mean `theta_mean`, standard
+#' deviation `theta_sd` and mode `theta_map` of the posterior distribution
+#' of \eqn{\theta_i} given \eqn{g}, a draw `theta_rep` from that
+#' distribution and the log likelihood `log_lik`; `effective_params`; and
+#' `log_marginal_likelihood`, the sum of `log_lik` over the sites.
+#'
+#' `posterior` is a list with the draws of `mean_g`, `var_g`, `sd_g`,
+#' `effective_params` and `log_marginal_likelihood` as numeric vectors.
+#'
+#' `metadata` is a list with the settings of the fit and summaries of the
+#' draws:
+#'
+#' * `model_family` and `grid_method`, as given to [bayes_efron_fit()].
+#' * `seed`, the seed that the sampler used; `cmdstan_version`; and
+#'   `stan_file_sha256`, a hash of the Stan file.
+#' * `data_list`, the data passed to Stan: the estimates `theta_hat`, the
+#'   standard errors `sigma`, the grid points `grid`, the spline basis `B`,
+#'   and the numbers of sites, grid points and spline functions, `K`, `L`
+#'   and `M`.
+#' * `runtime_seconds`, the time that sampling took.
+#' * `theta_summary`, a data frame with one row for each site, described
+#'   below.
+#' * `mean_g_summary`, `var_g_summary`, `effective_params_summary` and
+#'   `log_marginal_likelihood_summary`, each a list with the mean, the
+#'   standard deviation and the 5%, 50% and 95% quantiles of the draws.
+#'
+#' The settings of the sampler are attributes of `metadata`.
+#' `attr(fit$metadata, "sampler_settings")` is a list with the values of
+#' `chains`, `parallel_chains`, `iter_warmup`, `iter_sampling`,
+#' `adapt_delta`, `max_treedepth`, `seed`, `refresh` and `init` that were
+#' passed to CmdStan, and the attributes `package_version` and
+#' `cmdstanr_version` give the versions of bayesEfron and cmdstanr that
+#' made the fit. A fit saved by an earlier version of the package does not
+#' have these attributes.
+#'
+#' If the model was fitted with `keep_cmdstan_fit = TRUE` there is a fourth
+#' element, `cmdstan_fit`.
+#'
+#' In `theta_summary`, `site` numbers the sites in the order of the data.
+#' The other columns summarize the posterior distribution of
+#' \eqn{\theta_i}, which averages over the posterior draws of \eqn{g}
+#' (Lee and Sui, 2025, Section 4.3). `mean` is its mean and `sd` its
+#' standard deviation. The posterior variance is the variance of
+#' \eqn{\theta_i} given \eqn{g}, averaged over the draws of \eqn{g}, plus
+#' the variance over those draws of the mean of \eqn{\theta_i} given
+#' \eqn{g}, so that `sd` includes the uncertainty about \eqn{g}.
+#' `hpdi_lower` and `hpdi_upper` are the 5% and 95% quantiles of the
+#' posterior draws `theta_rep`; in spite of their names they are the limits
+#' of an equal-tailed interval and not of a highest posterior density
+#' interval. The draws take values on the grid, but a sample quantile is
+#' interpolated between two adjacent values of the ordered draws, so a
+#' limit can lie between two grid points. `map` is the posterior mode, the
+#' grid point to which the posterior distribution gives the largest
+#' probability.
+#'
+#' `effective_params` is the sum over the sites of the ratio of the
+#' posterior variance of \eqn{\theta_i} given \eqn{g} to
+#' \eqn{\sigma_i^2}. In the normal random-effects model that ratio is the
+#' weight given to the site's own estimate, so the sum is small when the
+#' estimates are shrunk strongly and near the number of sites when they
+#' are hardly shrunk. It is a different quantity from the `p_loo` of
+#' [loo.bef_fit()], which the loo package also calls an effective number
+#' of parameters.
+#'
+#' \eqn{g} is the prior distribution of each \eqn{\theta_i}, and the
+#' printed summary labels its mean, variance and standard deviation
+#' "Prior g".
+#'
+#' The definitions of `sd`, `map` and `effective_params` have changed
+#' between versions of the package, and a fit records which definitions its
+#' summaries follow, in the attribute `summary_definition_version` of
+#' `metadata`. For a fit that was saved by an earlier version, the methods
+#' on this page compute `sd` and `map` again from the stored draws, and
+#' `effective_params` too if it was stored under its first definition. They
+#' give a warning that names the quantities that changed and leave the
+#' saved object as it is. The result of `summary()` saved by an earlier
+#' version holds no draws and cannot be brought up to date; `print()` stops
+#' and asks for `summary()` to be called again on the fit. [diagnose()],
+#' [predict.bef_fit_re()] and [loo.bef_fit()] need quantities that the
+#' first released version did not store, and stop for a fit saved by it.
+#'
+#' @param x,object A `bef_fit` object from [bayes_efron_fit()], or for the
+#'   `summary.bef_fit` methods the result of `summary()`.
+#' @param ... For the `print()` methods, arguments passed on to `format()`.
+#'   The other methods do not use them.
+#' @param level Number between 0 and 1, the probability content of the
+#'   intervals. Defaults to `0.9`.
+#' @param type For `coef()`, `"mean"` (the default) for the posterior means
+#'   or `"map"` for the posterior modes. For `confint()`, `"theta"` (the
+#'   default) for intervals for the site effects or `"g"` for intervals for
+#'   the mean, variance and standard deviation of \eqn{g}.
+#' @param parm The rows to return: site numbers for `type = "theta"`, and
+#'   for `type = "g"` one or more of `"mean_g"`, `"var_g"` and `"sd_g"` or
+#'   their positions. `NULL` (the default) returns all.
+#' @param row.names Character vector of row names, one for each site, or
+#'   `NULL` (the default).
+#' @param optional Not used; it is an argument of the generic.
+#' @param use_cli Logical or `NULL`. With `TRUE` and the cli package
+#'   installed, the first line is set in bold and section titles in
+#'   color; `FALSE` gives plain text. `NULL` (the default) takes the value
+#'   of `getOption("bayesEfron.use_cli", TRUE)`.
+#'
+#' @references
+#' Lee, J. and Sui, D. (2025). Fully Bayesian inference for meta-analytic
+#' deconvolution using Efron's log-spline prior. *Mathematics*, 13(16),
+#' 2639. \doi{10.3390/math13162639}
+#'
+#' @seealso [bayes_efron_fit()], [diagnose()], [plot.bef_fit_re()],
+#'   [predict.bef_fit_re()], [loo.bef_fit()]
+#'
+#' @examples
+#' fit <- raudenbush_fit
+#' fit
+#' summary(fit)
+#'
+#' # Posterior means, next to the estimates they are shrunk from.
+#' cbind(estimate = raudenbush1985$yi, posterior_mean = coef(fit))
+#'
+#' # Intervals for three sites, and for the mean and spread of g.
+#' confint(fit, parm = c(4, 10, 18), level = 0.95)
+#' confint(fit, type = "g")
+#'
+#' # Posterior standard deviations and posterior modes, with the standard
+#' # errors of the estimates.
+#' head(cbind(se = raudenbush1985$sei, as.data.frame(fit)[c("mean", "sd", "map")]))
+#'
+#' # Posterior variances as a diagonal matrix.
+#' diag(vcov(fit))[1:3]
+#'
+#' @name bef_fit
+#' @aliases bef_fit_re
+NULL
+
 new_bef_data <- function(theta_hat, sigma, names = NULL, source = "user") {
   structure(
     list(
@@ -66,6 +217,7 @@ new_bef_fit <- function(draws, metadata, posterior = list(), cmdstan_fit = NULL)
 validate_bef_fit <- function(x) {
   class <- "bef_invalid_fit"
   .bef_require_inherits(x, "bef_fit", "x", class)
+  .bef_fit_summary_version(x)
   .bef_require_fields(x, .bef_fit_fields(), "`bef_fit`", class)
 
   .bef_validate_draws_array(x$draws, class)
@@ -110,6 +262,35 @@ new_bef_fit_re <- function(draws,
   )
 }
 
+# The metadata fields of an object saved by bayesEfron 0.1. They are used only
+# to recognize such an object: some methods still work on it, and the others
+# say why they cannot.
+.bef_v01_metadata_fields <- function() {
+  c("model_family", "grid_method", "seed", "cmdstan_version",
+    "stan_file_sha256", "data_list", "runtime_seconds", "mean_g_summary",
+    "var_g_summary", "theta_summary", "theta_rep_draws",
+    "effective_params_summary", "log_marginal_likelihood_summary")
+}
+
+# Was this object created by bayesEfron 0.1?
+.bef_is_v01_fit <- function(x) {
+  is.list(x) && is.list(x$metadata) &&
+    setequal(names(x$metadata), .bef_v01_metadata_fields())
+}
+
+# The error for a method that cannot use an object created by bayesEfron 0.1.
+.bef_abort_v01_fit <- function(what) {
+  .bef_abort_invalid_fit(
+    paste0(
+      "This object was created by bayesEfron 0.1, and `", what, "()` needs ",
+      "quantities that later versions store differently.\n",
+      "These methods still work on it: summary(), coef(), confint(), ",
+      "as.data.frame(), nobs(), print().\n",
+      "Refit the model to use diagnose(), loo(), waic() and predict()."
+    )
+  )
+}
+
 validate_bef_fit_re <- function(x) {
   class <- "bef_invalid_fit"
   .bef_require_inherits(x, "bef_fit_re", "x", class)
@@ -140,15 +321,12 @@ validate_bef_fit_re <- function(x) {
   n_draws <- prod(dim(x$draws)[seq_len(2L)])
   .bef_validate_postprocess_metadata_attrs(x$metadata, class)
   .bef_validate_theta_summary(x$metadata$theta_summary, K, class)
-  .bef_validate_theta_rep_draws(x$metadata$theta_rep_draws, K, n_draws, class)
   .bef_validate_generated_quantities(x$posterior, K, n_draws, class)
-  if (!identical(x$metadata$theta_rep_draws, x$posterior$theta_rep)) {
-    .bef_abort_validate(
-      "`metadata$theta_rep_draws` must be identical to `posterior$theta_rep`.",
-      class
-    )
-  }
-  .bef_validate_theta_summary_consistency(x$metadata$theta_summary, x$posterior, class)
+  .bef_validate_site_draws_present(x$draws, K, class)
+  .bef_validate_theta_summary_consistency(
+    x$metadata$theta_summary, .bef_site_draws(x, "theta_mean"),
+    .bef_site_draws(x, "theta_sd"), x$metadata$data_list$grid, class
+  )
 
   x
 }
@@ -158,6 +336,9 @@ validate_bef_fit_re <- function(x) {
                          posterior = list(),
                          cmdstan_fit = NULL,
                          class = "bef_fit") {
+  if (!is.null(metadata)) {
+    attr(metadata, "summary_definition_version") <- 1L
+  }
   out <- list(
     draws = draws,
     metadata = metadata,
@@ -171,96 +352,6 @@ validate_bef_fit_re <- function(x) {
   structure(out, class = class)
 }
 
-new_bef_diagnostic <- function(rhat,
-                               ess_bulk,
-                               ess_tail,
-                               divergences,
-                               max_treedepth,
-                               ...,
-                               model_family,
-                               stan_file_sha256,
-                               effective_params_summary = NULL,
-                               runtime_seconds = NULL,
-                               diagnostic_skipped = character(),
-                               sampler_diagnostics_failed = character()) {
-  structure(
-    list(
-      rhat = rhat,
-      ess_bulk = ess_bulk,
-      ess_tail = ess_tail,
-      divergences = divergences,
-      max_treedepth = max_treedepth,
-      effective_params_summary = effective_params_summary,
-      model_family = model_family,
-      stan_file_sha256 = stan_file_sha256,
-      runtime_seconds = runtime_seconds,
-      diagnostic_skipped = diagnostic_skipped,
-      sampler_diagnostics_failed = sampler_diagnostics_failed
-    ),
-    class = "bef_diagnostic"
-  )
-}
-
-validate_bef_diagnostic <- function(x) {
-  class <- "bef_invalid_fit"
-  .bef_require_inherits(x, "bef_diagnostic", "x", class)
-  .bef_require_fields(
-    x, .bef_diagnostic_fields(), "`bef_diagnostic`", class
-  )
-
-  .bef_validate_diagnostic_numeric(
-    x$rhat, "rhat", class, lower = 0, open_lower = TRUE
-  )
-  .bef_validate_diagnostic_numeric(
-    x$ess_bulk, "ess_bulk", class, lower = 0
-  )
-  .bef_validate_diagnostic_numeric(
-    x$ess_tail, "ess_tail", class, lower = 0
-  )
-  .bef_validate_diagnostic_integerish(
-    x$divergences, "divergences", class, lower = 0
-  )
-  .bef_validate_diagnostic_integerish(
-    x$max_treedepth, "max_treedepth", class, lower = 0
-  )
-
-  if (!identical(x$model_family, "RE")) {
-    .bef_abort_validate(
-      "`bef_diagnostic$model_family` must be \"RE\" for bayesEfron v0.1.",
-      class
-    )
-  }
-  .bef_validate_sha256(x$stan_file_sha256, "`bef_diagnostic$stan_file_sha256`", class)
-
-  if (!is.null(x$runtime_seconds) &&
-      (!.bef_is_number(x$runtime_seconds) || x$runtime_seconds < 0)) {
-    .bef_abort_validate(
-      "`bef_diagnostic$runtime_seconds` must be NULL or a non-negative finite numeric scalar.",
-      class
-    )
-  }
-  if (!is.character(x$diagnostic_skipped) || anyNA(x$diagnostic_skipped)) {
-    .bef_abort_validate(
-      "`bef_diagnostic$diagnostic_skipped` must be a character vector without missing values.",
-      class
-    )
-  }
-  if (!is.character(x$sampler_diagnostics_failed) ||
-      anyNA(x$sampler_diagnostics_failed)) {
-    .bef_abort_validate(
-      "`bef_diagnostic$sampler_diagnostics_failed` must be a character vector without missing values.",
-      class
-    )
-  }
-  if (!is.null(x$effective_params_summary)) {
-    .bef_validate_summary_list(
-      x$effective_params_summary, "effective_params_summary", class
-    )
-  }
-
-  x
-}
-
 .bef_abort_validate <- function(message, class, ...) {
   if (identical(class, "bef_invalid_args")) {
     .bef_abort_invalid_args(message, ..., validate = TRUE)
@@ -271,7 +362,7 @@ validate_bef_diagnostic <- function(x) {
       message,
       class,
       ...,
-      extra_class = "bayesEfron_validate_error"
+      extra_class = "bef_validate_error"
     )
   }
 }
@@ -312,483 +403,24 @@ validate_bef_diagnostic <- function(x) {
     "mean_g_summary",
     "var_g_summary",
     "theta_summary",
-    "theta_rep_draws",
     "effective_params_summary",
     "log_marginal_likelihood_summary"
   )
 }
 
+# The scalar series kept in `fit$posterior`. The site-level matrices
+# (theta_map, theta_mean, theta_sd, theta_rep) are in `fit$draws` and are read
+# with .bef_site_draws().
 .bef_generated_quantity_fields <- function() {
   c(
     "mean_g",
     "var_g",
     "sd_g",
-    "theta_map",
-    "theta_mean",
-    "theta_sd",
-    "theta_rep",
     "effective_params",
     "log_marginal_likelihood"
   )
 }
 
-.bef_diagnostic_fields <- function() {
-  c(
-    "rhat",
-    "ess_bulk",
-    "ess_tail",
-    "divergences",
-    "max_treedepth",
-    "effective_params_summary",
-    "model_family",
-    "stan_file_sha256",
-    "runtime_seconds",
-    "diagnostic_skipped",
-    "sampler_diagnostics_failed"
-  )
-}
-
-.bef_require_inherits <- function(x, class_name, arg, class) {
-  if (!inherits(x, class_name)) {
-    .bef_abort_validate(
-      sprintf("`%s` must inherit from class \"%s\".", arg, class_name),
-      class
-    )
-  }
-}
-
-.bef_require_fields <- function(x, required, what, class) {
-  missing <- setdiff(required, names(x))
-  if (!is.list(x) || length(missing) > 0L) {
-    .bef_abort_validate(
-      sprintf(
-        "%s must contain required fields: %s.",
-        what,
-        paste(required, collapse = ", ")
-      ),
-      class,
-      missing_fields = missing
-    )
-  }
-}
-
-.bef_require_exact_fields <- function(x, required, what, class) {
-  missing <- setdiff(required, names(x))
-  extra <- setdiff(names(x), required)
-  if (!is.list(x) || length(missing) > 0L || length(extra) > 0L ||
-      !identical(names(x), required)) {
-    .bef_abort_validate(
-      sprintf(
-        "%s must contain exactly these fields: %s.",
-        what,
-        paste(required, collapse = ", ")
-      ),
-      class,
-      missing_fields = missing,
-      extra_fields = extra
-    )
-  }
-}
-
-.bef_validate_draws_array <- function(x, class) {
-  if (!is.array(x) || !is.numeric(x) || length(dim(x)) != 3L ||
-      any(dim(x) <= 0L) ||
-      any(!is.finite(x))) {
-    .bef_abort_validate(
-      "`bef_fit$draws` must be a finite numeric 3D draws array with positive dimensions.",
-      class
-    )
-  }
-}
-
-.bef_validate_metadata_core <- function(metadata, class) {
-  if (!identical(metadata$model_family, "RE")) {
-    .bef_abort_validate(
-      "`metadata$model_family` must be \"RE\" for bayesEfron v0.1.",
-      class
-    )
-  }
-  if (!metadata$grid_method %in% .bef_grid_methods()) {
-    .bef_abort_validate(
-      "`metadata$grid_method` must be one of the supported grid methods.",
-      class
-    )
-  }
-  if (!.bef_is_whole_number(metadata$seed)) {
-    .bef_abort_validate("`metadata$seed` must be a finite integer scalar.", class)
-  }
-  if (!.bef_is_string(metadata$cmdstan_version)) {
-    .bef_abort_validate("`metadata$cmdstan_version` must be a non-empty string.", class)
-  }
-  .bef_validate_sha256(metadata$stan_file_sha256, "`metadata$stan_file_sha256`", class)
-  if (!.bef_is_number(metadata$runtime_seconds) ||
-      metadata$runtime_seconds < 0) {
-    .bef_abort_validate(
-      "`metadata$runtime_seconds` must be a non-negative finite numeric scalar.",
-      class
-    )
-  }
-}
-
-.bef_validate_stan_data_list <- function(data_list, class) {
-  .bef_require_fields(
-    data_list, c("K", "theta_hat", "sigma", "L", "grid", "M", "B"),
-    "`metadata$data_list`", class
-  )
-  if (!.bef_is_whole_number(data_list$K) || data_list$K < 5L) {
-    .bef_abort_validate("`metadata$data_list$K` must be an integer scalar >= 5.", class)
-  }
-  if (!.bef_is_whole_number(data_list$L) || data_list$L < 1L) {
-    .bef_abort_validate("`metadata$data_list$L` must be a positive integer scalar.", class)
-  }
-  if (!.bef_is_whole_number(data_list$M) || data_list$M < 1L) {
-    .bef_abort_validate("`metadata$data_list$M` must be a positive integer scalar.", class)
-  }
-
-  K <- as.integer(data_list$K)
-  L <- as.integer(data_list$L)
-  M <- as.integer(data_list$M)
-
-  if (!is.numeric(data_list$theta_hat) ||
-      length(data_list$theta_hat) != K ||
-      any(!is.finite(data_list$theta_hat))) {
-    .bef_abort_validate(
-      "`metadata$data_list$theta_hat` must be a finite numeric vector of length K.",
-      class
-    )
-  }
-  if (!is.numeric(data_list$sigma) ||
-      length(data_list$sigma) != K ||
-      any(!is.finite(data_list$sigma)) ||
-      any(data_list$sigma <= 0)) {
-    .bef_abort_validate(
-      "`metadata$data_list$sigma` must be a strictly positive finite numeric vector of length K.",
-      class
-    )
-  }
-  if (!is.numeric(data_list$grid) ||
-      length(data_list$grid) != L ||
-      any(!is.finite(data_list$grid)) ||
-      any(diff(data_list$grid) <= 0)) {
-    .bef_abort_validate(
-      "`metadata$data_list$grid` must be a finite strictly increasing numeric vector of length L.",
-      class
-    )
-  }
-  if (!is.matrix(data_list$B) ||
-      !is.numeric(data_list$B) ||
-      nrow(data_list$B) != L ||
-      ncol(data_list$B) != M ||
-      any(!is.finite(data_list$B))) {
-    .bef_abort_validate(
-      "`metadata$data_list$B` must be a finite numeric matrix with dimensions L by M.",
-      class
-    )
-  }
-}
-
-.bef_validate_summary_list <- function(x, field, class) {
-  required <- c("mean", "sd", "q5", "q50", "q95")
-  if (!is.list(x) || !identical(names(x), required)) {
-    .bef_abort_validate(
-      sprintf(
-        "`%s` must be a summary list with exactly these fields: %s.",
-        field,
-        paste(required, collapse = ", ")
-      ),
-      class
-    )
-  }
-  valid <- vapply(
-    x,
-    function(value) is.numeric(value) && length(value) == 1L && is.finite(value),
-    logical(1)
-  )
-  if (!all(valid)) {
-    .bef_abort_validate(
-      sprintf("All fields in `%s` must be finite numeric scalars.", field),
-      class
-    )
-  }
-}
-
-.bef_validate_postprocess_metadata_attrs <- function(metadata, class) {
-  .bef_validate_summary_list(
-    attr(metadata, "sd_g_summary", exact = TRUE),
-    "attr(metadata, \"sd_g_summary\")",
-    class
-  )
-
-  diagnostics <- attr(metadata, "diagnostics", exact = TRUE)
-  .bef_require_exact_fields(
-    diagnostics,
-    c("rhat", "ess_bulk", "ess_tail", "divergences", "max_treedepth"),
-    "attr(metadata, \"diagnostics\")",
-    class
-  )
-  .bef_validate_diagnostic_numeric(
-    diagnostics$rhat, "rhat", class, lower = 0, open_lower = TRUE
-  )
-  .bef_validate_diagnostic_numeric(
-    diagnostics$ess_bulk, "ess_bulk", class, lower = 0
-  )
-  .bef_validate_diagnostic_numeric(
-    diagnostics$ess_tail, "ess_tail", class, lower = 0
-  )
-  .bef_validate_diagnostic_integerish(
-    diagnostics$divergences, "divergences", class, lower = 0
-  )
-  .bef_validate_diagnostic_integerish(
-    diagnostics$max_treedepth, "max_treedepth", class, lower = 0
-  )
-
-  diagnostic_skipped <- attr(metadata, "diagnostic_skipped", exact = TRUE)
-  if (!is.character(diagnostic_skipped) || anyNA(diagnostic_skipped)) {
-    .bef_abort_validate(
-      "attr(metadata, \"diagnostic_skipped\") must be a character vector without missing values.",
-      class
-    )
-  }
-  if (any(duplicated(diagnostic_skipped)) ||
-      length(setdiff(diagnostic_skipped, .bef_diagnostic_skipped_fields())) > 0L) {
-    .bef_abort_validate(
-      "attr(metadata, \"diagnostic_skipped\") contains unsupported diagnostic names.",
-      class
-    )
-  }
-  .bef_validate_diagnostic_skip_consistency(diagnostics, diagnostic_skipped, class)
-
-  sampler_failed <- attr(metadata, "sampler_diagnostics_failed", exact = TRUE)
-  if (!is.character(sampler_failed) || anyNA(sampler_failed)) {
-    .bef_abort_validate(
-      "attr(metadata, \"sampler_diagnostics_failed\") must be a character vector without missing values.",
-      class
-    )
-  }
-  if (any(duplicated(sampler_failed)) ||
-      length(setdiff(sampler_failed, .bef_sampler_diagnostic_failure_fields())) > 0L ||
-      length(intersect(sampler_failed, diagnostic_skipped)) > 0L) {
-    .bef_abort_validate(
-      "attr(metadata, \"sampler_diagnostics_failed\") contains unsupported or skipped diagnostic names.",
-      class
-    )
-  }
-}
-
-.bef_diagnostic_skipped_fields <- function() {
-  c("rhat", "ess_bulk", "ess_tail", "sampler_diagnostics")
-}
-
-.bef_sampler_diagnostic_failure_fields <- function() {
-  c("rhat", "ess_bulk", "ess_tail", "divergences")
-}
-
-.bef_validate_diagnostic_skip_consistency <- function(diagnostics,
-                                                      diagnostic_skipped,
-                                                      class) {
-  scalar_skipped <- intersect(diagnostic_skipped, c("rhat", "ess_bulk", "ess_tail"))
-  for (field in scalar_skipped) {
-    if (!any(is.na(diagnostics[[field]]))) {
-      .bef_abort_validate(
-        sprintf("Skipped diagnostic `%s` must have an `NA` diagnostic value.", field),
-        class
-      )
-    }
-  }
-
-  if ("sampler_diagnostics" %in% diagnostic_skipped &&
-      (!any(is.na(diagnostics$divergences)) ||
-       !any(is.na(diagnostics$max_treedepth)))) {
-    .bef_abort_validate(
-      "Skipped sampler diagnostics must set divergences and max_treedepth to `NA`.",
-      class
-    )
-  }
-
-  unexpected_na <- c(
-    setdiff(c("rhat", "ess_bulk", "ess_tail"), diagnostic_skipped)[
-      vapply(
-        setdiff(c("rhat", "ess_bulk", "ess_tail"), diagnostic_skipped),
-        function(field) any(is.na(diagnostics[[field]])),
-        logical(1)
-      )
-    ],
-    if (!"sampler_diagnostics" %in% diagnostic_skipped &&
-        (any(is.na(diagnostics$divergences)) ||
-         any(is.na(diagnostics$max_treedepth)))) {
-      "sampler_diagnostics"
-    }
-  )
-  if (length(unexpected_na) > 0L) {
-    .bef_abort_validate(
-      "Diagnostic `NA` values must be recorded in attr(metadata, \"diagnostic_skipped\").",
-      class,
-      diagnostics = unexpected_na
-    )
-  }
-}
-
-.bef_validate_theta_summary <- function(x, K, class) {
-  if (!is.data.frame(x) || nrow(x) != K) {
-    .bef_abort_validate(
-      "`metadata$theta_summary` must be a data frame with one row per site.",
-      class
-    )
-  }
-  .bef_require_exact_fields(
-    x,
-    c("site", "mean", "sd", "hpdi_lower", "hpdi_upper", "map"),
-    "`metadata$theta_summary`",
-    class
-  )
-  if (!is.integer(x$site) && !is.numeric(x$site)) {
-    .bef_abort_validate("`metadata$theta_summary$site` must be numeric.", class)
-  }
-  if (!identical(as.integer(x$site), seq_len(K))) {
-    .bef_abort_validate(
-      "`metadata$theta_summary$site` must enumerate sites from 1 to K.",
-      class
-    )
-  }
-  .bef_validate_numeric_column(x$mean, "`metadata$theta_summary$mean`", class)
-  .bef_validate_numeric_column(x$sd, "`metadata$theta_summary$sd`", class, lower = 0)
-  .bef_validate_numeric_column(x$hpdi_lower, "`metadata$theta_summary$hpdi_lower`", class)
-  .bef_validate_numeric_column(x$hpdi_upper, "`metadata$theta_summary$hpdi_upper`", class)
-  if (any(x$hpdi_lower > x$hpdi_upper)) {
-    .bef_abort_validate(
-      "`metadata$theta_summary$hpdi_lower` must be <= `hpdi_upper`.",
-      class
-    )
-  }
-  .bef_validate_numeric_column(x$map, "`metadata$theta_summary$map`", class)
-}
-
-.bef_validate_theta_summary_consistency <- function(theta_summary, posterior, class) {
-  .bef_expect_close(
-    theta_summary$mean,
-    colMeans(posterior$theta_mean),
-    "`metadata$theta_summary$mean` must match posterior `theta_mean` column means.",
-    class
-  )
-  .bef_expect_close(
-    theta_summary$sd,
-    colMeans(posterior$theta_sd),
-    "`metadata$theta_summary$sd` must match posterior `theta_sd` column means.",
-    class
-  )
-  .bef_expect_close(
-    theta_summary$map,
-    colMeans(posterior$theta_map),
-    "`metadata$theta_summary$map` must match posterior `theta_map` column means.",
-    class
-  )
-}
-
-.bef_expect_close <- function(x, y, message, class) {
-  tolerance <- sqrt(.Machine$double.eps)
-  if (length(x) != length(y) || any(abs(x - y) > tolerance)) {
-    .bef_abort_validate(message, class)
-  }
-}
-
-.bef_validate_theta_rep_draws <- function(x, K, n_draws, class) {
-  if (!is.matrix(x) || !is.numeric(x) || ncol(x) != K ||
-      nrow(x) != n_draws || any(!is.finite(x))) {
-    .bef_abort_validate(
-      "`metadata$theta_rep_draws` must be a finite numeric matrix with one row per draw and one column per site.",
-      class
-    )
-  }
-}
-
-.bef_validate_generated_quantities <- function(posterior, K, n_draws, class) {
-  for (field in .bef_generated_quantity_fields()) {
-    value <- posterior[[field]]
-    if (!is.numeric(value) || any(!is.finite(value))) {
-      .bef_abort_validate(
-        sprintf("`bef_fit_re$posterior$%s` must be finite and numeric.", field),
-        class
-      )
-    }
-  }
-
-  for (field in c("theta_map", "theta_mean", "theta_sd", "theta_rep")) {
-    value <- posterior[[field]]
-    if (!is.matrix(value) || ncol(value) != K || nrow(value) != n_draws) {
-      .bef_abort_validate(
-        sprintf("`bef_fit_re$posterior$%s` must have one row per draw and one column per site.", field),
-        class
-      )
-    }
-  }
-  for (field in setdiff(
-    .bef_generated_quantity_fields(),
-    c("theta_map", "theta_mean", "theta_sd", "theta_rep")
-  )) {
-    if (length(posterior[[field]]) != n_draws) {
-      .bef_abort_validate(
-        sprintf("`bef_fit_re$posterior$%s` must have one value per draw.", field),
-        class
-      )
-    }
-  }
-  if (any(posterior$theta_sd < 0)) {
-    .bef_abort_validate("`bef_fit_re$posterior$theta_sd` must be non-negative.", class)
-  }
-}
-
-.bef_validate_diagnostic_numeric <- function(x,
-                                             field,
-                                             class,
-                                             lower = -Inf,
-                                             open_lower = FALSE) {
-  if (!is.numeric(x) || length(x) < 1L ||
-      any(is.infinite(x)) ||
-      any(!is.na(x) & if (open_lower) x <= lower else x < lower)) {
-    .bef_abort_validate(
-      sprintf("`bef_diagnostic$%s` must be numeric and respect its lower bound.", field),
-      class
-    )
-  }
-}
-
-.bef_validate_diagnostic_integerish <- function(x, field, class, lower = 0) {
-  if (!is.numeric(x) || length(x) < 1L || any(is.infinite(x)) ||
-      any(!is.na(x) & x != as.integer(x)) ||
-      any(!is.na(x) & x < lower)) {
-    .bef_abort_validate(
-      sprintf("`bef_diagnostic$%s` must be an integerish non-negative value.", field),
-      class
-    )
-  }
-}
-
-.bef_validate_numeric_column <- function(x, field, class, lower = -Inf) {
-  if (!is.numeric(x) || any(!is.finite(x)) || any(x < lower)) {
-    .bef_abort_validate(
-      sprintf("%s must be finite and numeric.", field),
-      class
-    )
-  }
-}
-
-.bef_validate_sha256 <- function(x, field, class) {
-  if (!.bef_is_string(x) || !grepl("^[0-9a-fA-F]{64}$", x)) {
-    .bef_abort_validate(
-      sprintf("%s must be a 64-character hexadecimal SHA-256 string.", field),
-      class
-    )
-  }
-}
-
-.bef_is_string <- function(x) {
-  is.character(x) && length(x) == 1L && !is.na(x) && nzchar(x)
-}
-
-.bef_is_number <- function(x) {
-  is.numeric(x) && length(x) == 1L && is.finite(x)
-}
-
-.bef_is_whole_number <- function(x) {
-  .bef_is_number(x) && x == as.integer(x)
+.bef_site_generated_quantity_fields <- function() {
+  c("theta_map", "theta_mean", "theta_sd", "theta_rep")
 }

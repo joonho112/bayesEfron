@@ -26,7 +26,8 @@ methods_metadata <- function(K = 5L, S = 4L) {
       L = 51L,
       grid = seq(-1, 1, length.out = 51L),
       M = 3L,
-      B = matrix(seq_len(51L * 3L) / 100, nrow = 51L, ncol = 3L)
+      B = matrix(seq_len(51L * 3L) / 100, nrow = 51L, ncol = 3L),
+      store_grid_quantities = 0L
     ),
     runtime_seconds = 2.5,
     mean_g_summary = methods_summary(0),
@@ -39,7 +40,6 @@ methods_metadata <- function(K = 5L, S = 4L) {
       hpdi_upper = rep(0, K),
       map = rep(0, K)
     ),
-    theta_rep_draws = matrix(0, nrow = S, ncol = K),
     effective_params_summary = methods_summary(3),
     log_marginal_likelihood_summary = methods_summary(-10)
   )
@@ -49,18 +49,22 @@ methods_metadata <- function(K = 5L, S = 4L) {
     ess_bulk = 500,
     ess_tail = 450,
     divergences = 0,
-    max_treedepth = 0
+    max_treedepth = 0,
+    ebfmi = 0.9
   )
   attr(metadata, "diagnostic_skipped") <- character()
   attr(metadata, "sampler_diagnostics_failed") <- character()
+  attr(metadata, "sampler_diagnostics_warned") <- character()
   metadata
 }
 
 methods_fit <- function(K = 5L, S = 4L) {
-  draws <- array(
-    seq_len(S * 1L * 2L),
-    dim = c(S, 1L, 2L),
-    dimnames = list(NULL, NULL, c("mean_g", "var_g"))
+  draws <- bef_fixture_draws(
+    theta_map = matrix(0, nrow = S, ncol = K),
+    theta_mean = matrix(0, nrow = S, ncol = K),
+    theta_sd = matrix(0.1, nrow = S, ncol = K),
+    theta_rep = matrix(0, nrow = S, ncol = K),
+    scalars = list(mean_g = rep(0, S), var_g = rep(1, S))
   )
   methods_ns("validate_bef_fit_re")(
     methods_ns("new_bef_fit_re")(
@@ -70,10 +74,6 @@ methods_fit <- function(K = 5L, S = 4L) {
         mean_g = rep(0, S),
         var_g = rep(1, S),
         sd_g = rep(1, S),
-        theta_map = matrix(0, nrow = S, ncol = K),
-        theta_mean = matrix(0, nrow = S, ncol = K),
-        theta_sd = matrix(0.1, nrow = S, ncol = K),
-        theta_rep = matrix(0, nrow = S, ncol = K),
         effective_params = rep(3, S),
         log_marginal_likelihood = rep(-10, S)
       )
@@ -101,7 +101,7 @@ test_that("parent bef_fit methods expose portable universal summaries", {
       "rhat", "ess_bulk", "ess_tail", "divergences", "max_treedepth",
       "effective_params", "log_marginal_likelihood", "model_family",
       "stan_file_sha256", "runtime_seconds", "diagnostic_skipped",
-      "sampler_diagnostics_failed"
+      "sampler_diagnostics_failed", "sampler_diagnostics_warned"
     )
   )
   expect_equal(fit_summary$diagnostics$effective_params$mean, 3)
@@ -169,20 +169,26 @@ test_that("parent bef_fit format surfaces diagnostic skipped and failed flags", 
   attr(fit$metadata, "diagnostics") <- diagnostics
   attr(fit$metadata, "diagnostic_skipped") <- "rhat"
   attr(fit$metadata, "sampler_diagnostics_failed") <- "divergences"
+  attr(fit$metadata, "sampler_diagnostics_warned") <- c("ess_bulk", "ebfmi")
 
   lines <- format(fit)
   expect_true(any(grepl("Skipped diagnostics: rhat", lines, fixed = TRUE)))
-  expect_true(any(grepl("Diagnostics over warning thresholds: divergences", lines, fixed = TRUE)))
+  expect_identical(sum(grepl("divergences$", lines)), 1L)
+  expect_true("Failed checks: divergences" %in% lines)
+  expect_true("Warnings: ess_bulk, ebfmi" %in% lines)
+  expect_false(any(grepl("SHA", lines, fixed = TRUE)))
 
   summary_lines <- format(summary(fit))
   expect_true(any(grepl("Skipped:", summary_lines, fixed = TRUE)))
-  expect_true(any(grepl("Warning flags:", summary_lines, fixed = TRUE)))
+  expect_true(any(grepl("Failed checks:     divergences", summary_lines, fixed = TRUE)))
+  expect_true(any(grepl("Warnings:          ess_bulk, ebfmi", summary_lines, fixed = TRUE)))
+  expect_false(any(grepl("SHA", summary_lines, fixed = TRUE)))
 })
 
-test_that("parent bef_fit format honors base formatting escape hatch", {
+test_that("options(bayesEfron.use_cli = FALSE) makes plain output the default", {
   fit <- methods_fit()
   class(fit) <- "bef_fit"
-  withr::local_envvar(c(BAYESEFRON_NO_CLI = "1"))
+  withr::local_options(bayesEfron.use_cli = FALSE)
 
   expect_identical(format(fit, use_cli = NULL), format(fit, use_cli = FALSE))
   expect_identical(
@@ -210,10 +216,10 @@ test_that("parent bef_fit format exposes optional cli path with stable shape", {
     )
   }
 
-  withr::local_envvar(c(BAYESEFRON_NO_CLI = "1"))
-  expect_identical(format(fit, use_cli = TRUE), format(fit, use_cli = FALSE))
+  withr::local_options(bayesEfron.use_cli = FALSE)
+  expect_identical(format(fit), format(fit, use_cli = FALSE))
   expect_identical(
-    format(fit_summary, use_cli = TRUE),
+    format(fit_summary),
     format(fit_summary, use_cli = FALSE)
   )
 })
