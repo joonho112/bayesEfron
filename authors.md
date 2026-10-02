@@ -8,7 +8,7 @@
 ## Citation
 
 Source:
-[`inst/CITATION`](https://github.com/joonho112/bayesEfron/blob/main/inst/CITATION)
+[`inst/CITATION`](https://github.com/joonho112/bayesEfron/blob/v0.3.0/inst/CITATION)
 
 Lee, J.; Sui, D. (2025). Fully Bayesian Inference for Meta-Analytic
 Deconvolution Using Efron's Log-Spline Prior. Mathematics, 13(16), 2639.
