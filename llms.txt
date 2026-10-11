@@ -13,7 +13,7 @@ uncertainty about the distribution ([Lee and Sui,
 
 ## Installation
 
-The package is installed from GitHub.
+You can install bayesEfron from GitHub with:
 
 ``` r
 
@@ -23,12 +23,11 @@ remotes::install_github("joonho112/bayesEfron")
 
 The vignettes are on the [package
 website](https://joonho112.github.io/bayesEfron/). To install them with
-the package, install knitr and rmarkdown, make sure that Pandoc is
-available (RStudio includes it), and add `build_vignettes = TRUE` to the
-call above.
+the package, you need knitr, rmarkdown and Pandoc (RStudio includes
+Pandoc). Then add `build_vignettes = TRUE` to the call above.
 
-Fitting a model also needs the cmdstanr package and CmdStan, neither of
-which is on CRAN.
+Fitting a model also requires the cmdstanr package and CmdStan, neither
+of which is on CRAN:
 
 ``` r
 
@@ -37,61 +36,171 @@ install.packages("cmdstanr",
 cmdstanr::install_cmdstan()
 ```
 
-CmdStan is built from source and needs a C++ toolchain;
+CmdStan is built from source and needs a C++ toolchain. Use
 [`cmdstanr::check_cmdstan_toolchain()`](https://mc-stan.org/cmdstanr/reference/install_cmdstan.html)
-says whether one is present, and the [cmdstanr
-documentation](https://mc-stan.org/cmdstanr/articles/cmdstanr.html)
-describes the setup for each operating system. The examples and
-vignettes of bayesEfron run without CmdStan.
+to check whether you have one. The cmdstanr [Getting started
+article](https://mc-stan.org/cmdstanr/articles/cmdstanr.html) describes
+the installation and points to the requirements for each operating
+system. The bayesEfron examples and vignettes run without CmdStan.
 
 ## Example
 
-`raudenbush1985` holds the results of 19 experiments on the effect of
-teachers’ expectations on their pupils’ IQ scores.
+The data set `krw_discrimination` contains estimates for 97 large U.S.
+firms from the correspondence experiment of [Kline, Rose and Walters
+(2022)](https://doi.org/10.1093/qje/qjac024). For each firm, `yi` is the
+difference between the callback rates of job applications with
+distinctively white and distinctively Black names, and `sei` is its
+standard error, clustered by job vacancy. A positive gap favors
+applications with white names, and 0.02 is a gap of 2 percentage points.
+The sample follows the authors’ [2024
+analysis](https://doi.org/10.1257/aer.20230700), and the estimates come
+from the public replication code that accompanies [Walters
+(2024)](https://doi.org/10.1016/bs.heslab.2024.11.001). [Lee and Sui
+(2025)](https://doi.org/10.3390/math13162639) analyze these data with
+this model.
 
 ``` r
 
 library(bayesEfron)
-
-fit <- bayes_efron_fit(
-  theta_hat = raudenbush1985$yi,   # the estimates
-  sigma = raudenbush1985$sei,      # their standard errors
-  seed = 1985
-)
+head(krw_discrimination[, c("firm_name", "yi", "sei")], 3)
+#>           firm_name         yi        sei
+#> 1          Rite Aid 0.04695712 0.01619358
+#> 2               KFC 0.02200000 0.01530472
+#> 3 Victoria's Secret 0.04216161 0.02296031
 ```
 
-The first call compiles the Stan model, which can take up to a minute.
-The result of this call is stored in the package as `raudenbush_fit`, so
-the lines below run without CmdStan.
+We fit the model with
+[`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md).
+This call requires CmdStan, and the first call compiles the Stan
+program, which can take up to a minute.
 
 ``` r
 
-fit <- raudenbush_fit
-summary(fit)               # the distribution of effects and each study's effect
-confint(fit, type = "g")   # mean and standard deviation of the distribution
-plot(fit, type = "g")      # the estimated distribution
-plot(fit)                  # the effect of each study, with intervals
-diagnose(fit)              # convergence diagnostics
+dat <- as_bef_data(krw_discrimination, site = "firm_name")
+fit <- bayes_efron_fit(dat, seed = 20250807)
 ```
 
-With as few studies as these, the result for a study whose estimate is
-extreme and imprecise can depend on the width of the grid and on the
-number of spline functions.
-[`vignette("choosing-a-grid")`](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.md)
-shows how far it does for study 4 of this example, and such a result
-should be compared over a few specifications before it is reported.
+The result of this call is included in the package as `krw_fit` (thinned
+to 800 draws), so the rest of the example runs without CmdStan.
 
-## Documentation
+``` r
 
-[`vignette("bayesEfron")`](https://joonho112.github.io/bayesEfron/articles/bayesEfron.md)
-goes through this example.
-[`vignette("choosing-a-grid")`](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.md)
-and
-[`vignette("diagnostics")`](https://joonho112.github.io/bayesEfron/articles/diagnostics.md)
-cover the choices and the checks that go with a fit, and
-[`vignette("model")`](https://joonho112.github.io/bayesEfron/articles/model.md)
-states the model. The reference and all vignettes are at
-<https://joonho112.github.io/bayesEfron/>.
+fit <- krw_fit
+fit
+#> <bayesEfron fit>
+#> Model family: RE
+#> Sites: 97
+#> Grid method: pilot
+#> Runtime: 0.7197 sec
+#> Draws: 800 (4 chains, one iteration in 15 kept); site-level draws not kept
+#> Diagnostics: Rhat 1.002; ESS bulk 1731; ESS tail 1780; divergences 0; treedepth hits 0
+#> Standard errors: 0.005344 to 0.0392 (largest / smallest 7.335)
+#> Grid: 101 points from -0.0829 to 0.1585; smallest standard error 2.213 grid spacings
+#> Grid range: rule "pilot", not narrowed (the range of "paper_realdata"); point masses; 6 spline functions
+#> Next: summary() and site_summary() for the sites, g_summary() for the distribution of effects, plot().
+```
+
+[`g_summary()`](https://joonho112.github.io/bayesEfron/reference/g_summary.md)
+summarizes the distribution of the gaps across firms. Here we ask for
+its mean, variance and standard deviation on the percentage-point scale,
+and for the proportion of firms with a positive gap. Each row has a
+posterior mean and a 90% posterior interval.
+
+``` r
+
+g_summary(fit, type = "moments", scale = 100)
+#>   parameter     mean    lower    upper
+#> 1    mean_g 1.660178 1.308119 2.064913
+#> 2     var_g 3.076948 1.399332 5.738865
+#> 3      sd_g 1.716216 1.182933 2.395593
+g_summary(fit, type = "prob", lower = 0)
+#>   from  to      mean     lower     upper
+#> 1    0 Inf 0.8754888 0.8083673 0.9366439
+```
+
+[`site_summary()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+returns posterior summaries of the gap at each firm, and
+[`exceedance_prob()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+the posterior probability that a gap is positive.
+
+``` r
+
+sites <- site_summary(fit, scale = 100)
+head(sites[, c("label", "estimate", "se", "mean", "lower", "upper")], 4)
+#>               label  estimate       se     mean      lower    upper
+#> 1          Rite Aid 4.6957123 1.619358 3.048175  1.0775168 5.349968
+#> 2               KFC 2.2000000 1.530472 1.786494  0.1227187 3.581179
+#> 3 Victoria's Secret 4.2161613 2.296031 2.334782  0.2864899 4.801767
+#> 4    United Rentals 0.5708306 1.504751 1.071991 -0.5107269 2.719213
+exceedance_prob(fit, sites = c("Rite Aid", "KFC"))
+#>  Rite Aid       KFC 
+#> 0.9967216 0.9624721
+```
+
+Finally, we plot the estimated distribution together with the normal
+distribution of a random-effects model.
+
+``` r
+
+plot_g(fit, normal = TRUE, scale = 100) +
+  ggplot2::labs(x = "White-minus-Black callback gap (percentage points)")
+```
+
+![The estimated density of the callback gaps of 97 firms in percentage
+points, with its 90% band, and the dashed curve of a normal distribution
+fitted to the same
+estimates.](reference/figures/README-callback-gaps-1.png)
+
+The solid curve is the posterior mean of the density of the gaps, and
+the band is a pointwise 90% posterior interval. The dashed curve is the
+normal distribution of the usual random-effects model, with its mean and
+standard deviation estimated by restricted maximum likelihood and shown
+without their uncertainty. The model is free to depart from the normal
+shape, and the band shows how well the data determine that shape: better
+in the center, where the band is narrow relative to the height of the
+curve, than in the tails.
+
+## A distribution with two groups
+
+`twin_towers` is a simulated data set of 1,500 sites from the public
+replication files of Lee and Sui (2025), in which the true effects form
+two groups. In
+[`vignette("twin-towers")`](https://joonho112.github.io/bayesEfron/articles/twin-towers.md)
+we fit it with the grid chosen from the estimates alone, as we would for
+real data, and compare the result with the true effects.
+
+![The estimated density of the effects of 1,500 simulated sites with its
+band, a histogram of the true effects in two groups, and the dashed
+curve of a normal distribution.](reference/figures/twin-towers.png)
+
+The largest standard error is nine times the smallest, and for about one
+site in seven it is larger than the gap between the two groups. The
+fitted density has a peak over each group and little mass between them,
+which a normal distribution, with its single peak, cannot have. This is
+a single data set; see
+[`vignette("implementation")`](https://joonho112.github.io/bayesEfron/articles/implementation.md)
+for how often the 90% intervals contain the true effects across
+simulated data sets, including the settings in which their coverage
+falls short of 90%.
+
+## Learning more
+
+- [Getting started with
+  bayesEfron](https://joonho112.github.io/bayesEfron/articles/bayesEfron.html)
+  walks through the analysis of the 97 firms, from preparing the data to
+  summarizing the results.
+- [Choosing the grid and checking sensitivity to
+  it](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.html)
+  discusses how the results can depend on the grid.
+- [Checking a
+  fit](https://joonho112.github.io/bayesEfron/articles/diagnostics.html)
+  covers the diagnostics.
+
+The [package website](https://joonho112.github.io/bayesEfron/) lists the
+other vignettes. It also has a case study that is not installed with the
+package: the effect of small classes in the 79 schools of Tennessee’s
+Project STAR, a multisite trial in education. The estimates for that
+case study are in `star_schools`.
 
 ## Citation
 
@@ -113,12 +222,13 @@ represent views of the Institute or the U.S. Department of Education.
 ## Fit the model
 
 [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
-fits the model, and
+fits the model.
 [`?bef_fit`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
-describes the object that it returns and the methods for it.
+describes the fitted object and its methods.
 
 - [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
-  : Fit the Efron log-spline model to estimates and standard errors
+  : Fit the Bayesian Efron log-spline model to estimates and standard
+  errors
 - [`print(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
   [`summary(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
   [`summary(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
@@ -132,10 +242,17 @@ describes the object that it returns and the methods for it.
   [`logLik(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
   [`as_draws(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
   [`format(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`quantile(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
   [`format(`*`<summary.bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`residuals(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`simulate(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`ndraws(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`variables(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`AIC(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
+  [`BIC(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
   : Fitted Efron log-spline model objects
 - [`predict(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/predict.bef_fit_re.md)
-  : Predict the effect or the estimate at a new site
+  : Posterior predictive distribution for a new site
 
 ## Prepare the data and the grid
 
@@ -146,33 +263,95 @@ the spline basis on which the distribution of effects is represented.
   [`print(`*`<bef_data>`*`)`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
   [`summary(`*`<bef_data>`*`)`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
   [`format(`*`<bef_data>`*`)`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
-  : Extract estimates and standard errors for a fit
+  [`as.data.frame(`*`<bef_data>`*`)`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
+  : Extract estimates and standard errors from a data frame or list
 - [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
-  : Build the grid and spline basis for the effect distribution
+  [`format(`*`<bef_grid>`*`)`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  [`print(`*`<bef_grid>`*`)`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  : Build the grid and spline basis for the distribution of effects
 
-## Check and plot a fit
+## Summarize a fit
 
-Convergence diagnostics and plots of a fitted model.
+The estimated distribution of effects and the posterior distributions of
+the site effects, as data frames.
+
+- [`g_summary()`](https://joonho112.github.io/bayesEfron/reference/g_summary.md)
+  : Summarize the estimated distribution of effects
+- [`site_summary()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+  [`exceedance_prob()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+  : Summarize the posterior distributions of the site effects
+
+## Check a fit
+
+Sampler and grid diagnostics.
 
 - [`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
   [`print(`*`<bef_diagnostic>`*`)`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
   [`summary(`*`<bef_diagnostic>`*`)`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  [`as.data.frame(`*`<bef_diagnostic>`*`)`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
   [`format(`*`<bef_diagnostic>`*`)`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
-  : Convergence diagnostics of a fitted model
+  [`nuts_params(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  [`log_posterior(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  [`rhat(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  [`neff_ratio(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  : MCMC convergence and grid diagnostics for a fitted model
+
+## Plots
+
+Each plot function returns a `ggplot` object.
+[`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a fit calls
+them by `type`.
+
 - [`plot(`*`<bef_fit_re>`*`)`](https://joonho112.github.io/bayesEfron/reference/plot.bef_fit_re.md)
   : Plot a fitted model
 
+### Results
+
+- [`plot_g()`](https://joonho112.github.io/bayesEfron/reference/plot_g.md)
+  : Density and CDF plots of the estimated distribution of effects
+- [`plot_sites()`](https://joonho112.github.io/bayesEfron/reference/plot_sites.md)
+  : Caterpillar (forest) plot of the site effects
+- [`plot_shrinkage()`](https://joonho112.github.io/bayesEfron/reference/plot_shrinkage.md)
+  : Shrinkage plot of posterior means against estimates
+- [`plot_exceedance()`](https://joonho112.github.io/bayesEfron/reference/plot_exceedance.md)
+  : Plot the exceedance probabilities of the site effects
+- [`plot_site_posterior()`](https://joonho112.github.io/bayesEfron/reference/plot_site_posterior.md)
+  : Plot the posterior distribution of individual site effects
+
+### Checks of a fit
+
+- [`plot_diagnostics()`](https://joonho112.github.io/bayesEfron/reference/plot_diagnostics.md)
+  : Plot sampler diagnostics and grid diagnostics
+- [`plot_loo()`](https://joonho112.github.io/bayesEfron/reference/plot_loo.md)
+  : Plot the Pareto k values of leave-one-out cross-validation
+- [`plot_ppc()`](https://joonho112.github.io/bayesEfron/reference/plot_ppc.md)
+  : Posterior predictive check
+- [`plot_mcmc()`](https://joonho112.github.io/bayesEfron/reference/plot_mcmc.md)
+  : Trace plots and other MCMC plots with bayesplot
+
+### Grids and simulated data
+
+- [`plot(`*`<bef_grid>`*`)`](https://joonho112.github.io/bayesEfron/reference/plot.bef_grid.md)
+  : Plot a grid and its spline basis with the estimates
+- [`plot(`*`<bef_grid_comparison>`*`)`](https://joonho112.github.io/bayesEfron/reference/plot.bef_grid_comparison.md)
+  : Plot the sensitivity of the results to the grid
+- [`plot_recovery()`](https://joonho112.github.io/bayesEfron/reference/plot_recovery.md)
+  : Plot the recovery of true effects in simulated data
+
 ## Compare models
 
-Leave-one-out cross-validation for one fit, and a comparison of several
-specifications of the grid and the spline basis.
+Leave-one-out cross-validation, a comparison of fits with different
+grids and spline bases, and the estimate of g in the form that the
+empirical Bayes functions of the ebnm package take.
 
 - [`loo(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/loo.bef_fit.md)
   [`waic(`*`<bef_fit>`*`)`](https://joonho112.github.io/bayesEfron/reference/loo.bef_fit.md)
-  : Leave-one-out cross-validation for a fitted model
+  : Leave-one-out cross-validation and WAIC for a fitted model
 - [`compare_efron_grids()`](https://joonho112.github.io/bayesEfron/reference/compare_efron_grids.md)
   [`print(`*`<bef_grid_comparison>`*`)`](https://joonho112.github.io/bayesEfron/reference/compare_efron_grids.md)
-  : Compare grids and numbers of spline functions by cross-validation
+  : Compare fits on several grids (sensitivity analysis)
+- [`as_normalmix()`](https://joonho112.github.io/bayesEfron/reference/as_normalmix.md)
+  : Export the estimated distribution of effects for the ebnm package
 
 ## Compile the model
 
@@ -181,55 +360,115 @@ model.
 
 - [`bayes_efron_compile()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_compile.md)
   [`bayes_efron_clear_cache()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_compile.md)
-  : Compile the Stan model ahead of time, or remove the compiled model
+  : Compile the Stan programs before the first fit
 
-## Data
+## Data sets and stored fits
 
-The teacher expectancy studies and the model fitted to them.
+Example data, and fits of them that are stored in the package so that
+the examples run without CmdStan.
+
+### Callback gaps of 97 firms, and 1,500 simulated sites (Lee and Sui, 2025)
+
+- [`krw_discrimination`](https://joonho112.github.io/bayesEfron/reference/krw_discrimination.md)
+  : Racial callback gaps among 97 large firms
+- [`krw_fit`](https://joonho112.github.io/bayesEfron/reference/krw_fit.md)
+  : Model fitted to the racial callback gaps
+- [`twin_towers`](https://joonho112.github.io/bayesEfron/reference/twin_towers.md)
+  : Twin Towers simulated data
+- [`twin_towers_fit`](https://joonho112.github.io/bayesEfron/reference/twin_towers_fit.md)
+  : Model fitted to the Twin Towers simulated data
+
+### A small meta-analysis (19 teacher expectancy studies)
 
 - [`raudenbush1985`](https://joonho112.github.io/bayesEfron/reference/raudenbush1985.md)
   : Teacher expectancy studies
 - [`raudenbush_fit`](https://joonho112.github.io/bayesEfron/reference/raudenbush_fit.md)
   : Model fitted to the teacher expectancy studies
 
+### A multisite trial in education (79 schools of Project STAR)
+
+- [`star_schools`](https://joonho112.github.io/bayesEfron/reference/star_schools.md)
+  : Small-class effects in 79 schools of Project STAR
+
 ## Package
 
 - [`bayesEfron-package`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-package.md)
   [`bayesEfron`](https://joonho112.github.io/bayesEfron/reference/bayesEfron-package.md)
-  : bayesEfron: Fully Bayesian Inference for the Empirical-Bayes
-  Deconvolution Problem
+  : bayesEfron: Fully Bayesian Deconvolution with Efron's Log-Spline
+  Prior
 
 # Articles
 
-### Vignettes
+### Case studies
 
-- [Using metafor and data frames as
-  input](https://joonho112.github.io/bayesEfron/articles/data-input.md):
+- [Twin Towers: recovering a distribution hidden by
+  noise](https://joonho112.github.io/bayesEfron/articles/twin-towers.md):
 
-  Getting estimates and standard errors into the model from a data
-  frame, a list or metafor, and labeling the results.
+  A simulated data set of 1,500 sites with known true effects in two
+  separated groups, fitted from the estimates and standard errors alone.
 
-- [Choosing the grid and comparing
-  models](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.md):
+- [Nineteen studies of teacher
+  expectancy](https://joonho112.github.io/bayesEfron/articles/teacher-expectancy.md):
 
-  What the grid and the spline basis do, and how to check whether the
-  results depend on them.
+  A case study of a meta-analysis with 19 studies: the estimated
+  distribution of effects, its sensitivity to the range of the grid, and
+  a simulation study of fits of this size.
 
-- [Checking convergence and
-  plotting](https://joonho112.github.io/bayesEfron/articles/diagnostics.md):
+- [Small classes in 79
+  schools](https://joonho112.github.io/bayesEfron/articles/class-size.md):
 
-  Reading the convergence diagnostics of a fit, acting on the warnings,
-  and the four plots.
+  Analyze a multisite trial in education: build an estimate and a
+  standard error for each of 79 schools from student data, fit the
+  model, and use alternative standard errors and a simulation with known
+  effects to judge the evidence that the effect of small classes varies
+  across schools.
 
-- [The model](https://joonho112.github.io/bayesEfron/articles/model.md):
+- [bayesEfron and empirical Bayes methods
+  compared](https://joonho112.github.io/bayesEfron/articles/empirical-bayes.md):
+
+  bayesEfron and the empirical Bayes methods in the ebnm package, fitted
+  to the same data: agreement of the posterior means, differences in the
+  intervals and in the estimated distribution of effects, and the
+  contribution of the uncertainty about that distribution.
+
+### Guides
+
+- [Estimates, standard errors and site
+  labels](https://joonho112.github.io/bayesEfron/articles/data-input.md):
+
+  Getting estimates and standard errors into a fit from a data frame,
+  two vectors or metafor, and keeping the names of the sites through to
+  the tables and plots.
+
+- [Plots of a fitted
+  model](https://joonho112.github.io/bayesEfron/articles/plots.md):
+
+  A gallery of the plot functions: the question that each answers, the
+  call, and what the result shows.
+
+- [Choosing the grid and checking sensitivity to
+  it](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.md):
+
+  The choices that define the grid, the default method for its range,
+  checks of the range after a fit, and a comparison of results across
+  grids.
+
+- [Checking a
+  fit](https://joonho112.github.io/bayesEfron/articles/diagnostics.md):
+
+  Sampler diagnostics, grid diagnostics, a posterior predictive check,
+  and how to respond to a warning.
+
+- [The model and the posterior distribution of a site
+  effect](https://joonho112.github.io/bayesEfron/articles/model.md):
 
   The deconvolution problem, the log-spline family for the distribution
   of effects, its prior, and the posterior distribution of a site
   effect.
 
-- [Implementation and
-  checks](https://joonho112.github.io/bayesEfron/articles/implementation.md):
+- [Reproducibility and interval
+  coverage](https://joonho112.github.io/bayesEfron/articles/implementation.md):
 
-  Reproducing a fit, the Stan model, the checks the package makes,
-  coverage on a benchmark with known effects, and the notation of the
-  paper.
+  Reproducing a fit, the draws stored in a fit, the two Stan programs,
+  checks of the computations, interval coverage in simulated data, and
+  the relation to the paper.

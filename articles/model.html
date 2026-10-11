@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>The model • bayesEfron</title>
+<title>The model and the posterior distribution of a site effect • bayesEfron</title>
 <!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
@@ -21,7 +21,7 @@
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="The model">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="The model and the posterior distribution of a site effect">
 <meta name="description" content="The deconvolution problem, the log-spline family for the distribution of effects, its prior, and the posterior distribution of a site effect.">
 <meta property="og:description" content="The deconvolution problem, the log-spline family for the distribution of effects, its prior, and the posterior distribution of a site effect.">
 <meta property="og:image" content="https://joonho112.github.io/bayesEfron/reference/figures/logo.png">
@@ -35,7 +35,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesEfron</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,11 +49,16 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/data-input.html">Using metafor and data frames as input</a></li>
-    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and comparing models</a></li>
-    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking convergence and plotting</a></li>
-    <li><a class="dropdown-item" href="../articles/model.html">The model</a></li>
-    <li><a class="dropdown-item" href="../articles/implementation.html">Implementation and checks</a></li>
+<li><a class="dropdown-item" href="../articles/twin-towers.html">Twin Towers: recovering a distribution hidden by noise</a></li>
+    <li><a class="dropdown-item" href="../articles/teacher-expectancy.html">Nineteen studies of teacher expectancy</a></li>
+    <li><a class="dropdown-item" href="../articles/class-size.html">Small classes in 79 schools</a></li>
+    <li><a class="dropdown-item" href="../articles/empirical-bayes.html">bayesEfron and empirical Bayes methods compared</a></li>
+    <li><a class="dropdown-item" href="../articles/data-input.html">Estimates, standard errors and site labels</a></li>
+    <li><a class="dropdown-item" href="../articles/plots.html">Plots of a fitted model</a></li>
+    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and checking sensitivity to it</a></li>
+    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking a fit</a></li>
+    <li><a class="dropdown-item" href="../articles/model.html">The model and the posterior distribution of a site effect</a></li>
+    <li><a class="dropdown-item" href="../articles/implementation.html">Reproducibility and interval coverage</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -75,7 +80,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-      <img src="../logo.png" class="logo" alt=""><h1>The model</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>The model and the posterior distribution of a site effect</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/joonho112/bayesEfron/blob/main/vignettes/model.Rmd" class="external-link"><code>vignettes/model.Rmd</code></a></small>
@@ -84,6 +89,20 @@
 
     
     
+<p>This vignette describes the model that <code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code>
+fits. It states the deconvolution problem, defines the log-spline family
+for the distribution of effects and the prior on its coefficients, and
+shows how the posterior distribution of a site effect and the summaries
+of the distribution of effects are computed from the posterior draws. It
+is written for readers who want the formulas behind the package’s
+output. To learn how to run an analysis, start with
+<code><a href="../articles/bayesEfron.html">vignette("bayesEfron")</a></code>.</p>
+<p>For the numerical examples we use <code>krw_fit</code>, which comes
+with the package. This is the fit to the callback gaps at 97 firms that
+<code><a href="../articles/bayesEfron.html">vignette("bayesEfron")</a></code> analyzes.</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/joonho112/bayesEfron" class="external-link">bayesEfron</a></span><span class="op">)</span></span>
+<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="va">krw_fit</span></span></code></pre></div>
 <p>A meta-analysis or a multisite trial yields, for each of <span class="math inline">\(K\)</span> sites, an estimate <span class="math inline">\(\hat\theta_i\)</span> of an effect and a standard
 error <span class="math inline">\(\sigma_i\)</span>. Inference about the
 true effects <span class="math inline">\(\theta_i\)</span> can be split
@@ -95,9 +114,8 @@ over sites, and</li>
 estimate, to the true effect of the site.</li>
 </ol>
 <p>Step (b) is an application of Bayes’ rule once the distribution is
-known. Step (a) is the difficult one. The model described here is that
-of <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>)</span>, who give the derivations and a
-simulation study.</p>
+known. Step (a) is the difficult one. The model comes from <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>)</span>,
+who give the derivations and a simulation study.</p>
 <div class="section level2">
 <h2 id="the-deconvolution-problem">The deconvolution problem<a class="anchor" aria-label="anchor" href="#the-deconvolution-problem"></a>
 </h2>
@@ -109,13 +127,13 @@ model is</p>
 \]</span></p>
 <p>with the <span class="math inline">\(\theta_i\)</span> independent.
 The standard errors <span class="math inline">\(\sigma_i\)</span> come
-from the design of each study; they are taken as known and usually
+from the design of each study. We treat them as known, and they usually
 differ from site to site. This is the model of a random-effects
 meta-analysis <span class="citation">(<a href="#ref-raudenbush1985">Raudenbush and Bryk 1985</a>)</span>, except
-that the distribution <span class="math inline">\(g\)</span> of true
-effects is left unspecified.</p>
+that we leave the distribution <span class="math inline">\(g\)</span> of
+true effects unspecified.</p>
 <p>Each estimate is the sum of a draw from <span class="math inline">\(g\)</span> and an error, so its density is not
-<span class="math inline">\(g\)</span> but <span class="math inline">\(g\)</span> blurred by a normal density,</p>
+<span class="math inline">\(g\)</span> but the convolution of <span class="math inline">\(g\)</span> with a normal density,</p>
 <p><span class="math display">\[
 f_i(x) = \int \phi(x;\, \theta, \sigma_i)\, g(\theta)\, d\theta ,
 \]</span></p>
@@ -134,29 +152,29 @@ p(\theta_i \mid \hat\theta_i) \propto
   g(\theta_i)\, \phi(\hat\theta_i;\, \theta_i, \sigma_i) ,
 \]</span></p>
 <p>the product of <span class="math inline">\(g\)</span> and the
-likelihood of the site’s own estimate. When <span class="math inline">\(\sigma_i\)</span> is small the likelihood is
-narrow and the posterior stays near the estimate; when it is large the
-posterior is drawn toward the regions where <span class="math inline">\(g\)</span> puts its probability. How far, and in
-which direction, depends on the shape of <span class="math inline">\(g\)</span>. That is the idea of empirical Bayes
-<span class="citation">(<a href="#ref-robbins1956">Robbins
-1956</a>)</span>: the other sites tell us about <span class="math inline">\(g\)</span>, and <span class="math inline">\(g\)</span> tells us how to read each site. In this
-sense <span class="math inline">\(g\)</span> is the prior distribution
-of each <span class="math inline">\(\theta_i\)</span>, and the printed
-output of the package labels it so; the distributions of <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\lambda\)</span> below are priors on the
-parameters of <span class="math inline">\(g\)</span>.</p>
-<p>It is also why <span class="math inline">\(g\)</span> is of interest
-in itself. From it follow the proportion of sites whose effects are
-negligible or large, the effect to be expected in a new site, and the
+likelihood of the site’s own estimate. When <span class="math inline">\(\sigma_i\)</span> is small, the likelihood is
+narrow and the posterior stays near the estimate. When <span class="math inline">\(\sigma_i\)</span> is large, the posterior is drawn
+toward the regions where <span class="math inline">\(g\)</span> puts its
+probability. How far, and in which direction, depends on the shape of
+<span class="math inline">\(g\)</span>. That is the idea of empirical
+Bayes <span class="citation">(<a href="#ref-robbins1956">Robbins
+1956</a>)</span>: we learn about <span class="math inline">\(g\)</span>
+from the other sites, and then use <span class="math inline">\(g\)</span> to read each site. In this sense <span class="math inline">\(g\)</span> is the prior distribution of each <span class="math inline">\(\theta_i\)</span>, and the package’s printed
+output labels it as such. The distributions of <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\lambda\)</span> introduced below are priors on
+the parameters of <span class="math inline">\(g\)</span>.</p>
+<p>The distribution <span class="math inline">\(g\)</span> is also of
+interest in itself. From it we obtain the proportion of sites with
+negligible or large effects, the effect to expect at a new site, and the
 amount of variation between sites.</p>
-<p>The difficulty lies in step (a). Blurring loses information:
-distributions <span class="math inline">\(g\)</span> that differ a great
-deal in detail can give nearly the same densities <span class="math inline">\(f_i\)</span>, so the data constrain the detail of
+<p>The difficulty lies in step (a). Convolution loses information:
+distributions <span class="math inline">\(g\)</span> that differ greatly
+in detail can give nearly the same densities <span class="math inline">\(f_i\)</span>, so the data constrain the detail of
 <span class="math inline">\(g\)</span> only weakly, and less so the
 larger the standard errors. Some assumption about <span class="math inline">\(g\)</span> is needed to obtain a stable estimate
 from a few dozen or a few hundred sites.</p>
 </div>
 <div class="section level2">
-<h2 id="what-to-assume-about-g">What to assume about g<a class="anchor" aria-label="anchor" href="#what-to-assume-about-g"></a>
+<h2 id="assumptions-about-g">Assumptions about g<a class="anchor" aria-label="anchor" href="#assumptions-about-g"></a>
 </h2>
 <p>The oldest assumption is that <span class="math inline">\(g\)</span>
 is normal. Its mean and variance are then the two parameters of the
@@ -166,24 +184,24 @@ assumption is convenient and often adequate. It fails, however, when the
 effects fall into groups, or when a few sites have effects much larger
 than the rest, because a normal distribution has one peak, is symmetric
 and has light tails.</p>
-<p>At the other extreme no assumption is made, and <span class="math inline">\(g\)</span> is estimated by maximum likelihood over
-all distributions <span class="citation">(<a href="#ref-kiefer1956">Kiefer and Wolfowitz 1956</a>; <a href="#ref-laird1978">Laird 1978</a>)</span>. The maximizing
-distribution is discrete, with no more points of support than there are
-sites <span class="citation">(<a href="#ref-lindsay1995">Lindsay
-1995</a>)</span>, and it can be computed by convex optimization <span class="citation">(<a href="#ref-koenker2014">Koenker and Mizera
-2014</a>)</span>. A discrete estimate is awkward when the effects are
-thought to vary continuously, and quantities such as the probability of
-an effect above a given size depend on where the few points of support
-happen to fall.</p>
+<p>At the other extreme no assumption is made, and <span class="math inline">\(g\)</span> is estimated by nonparametric maximum
+likelihood, that is, by maximum likelihood over all distributions <span class="citation">(<a href="#ref-kiefer1956">Kiefer and Wolfowitz
+1956</a>; <a href="#ref-laird1978">Laird 1978</a>)</span>. The
+maximizing distribution is discrete, with no more points of support than
+there are sites <span class="citation">(<a href="#ref-lindsay1995">Lindsay 1995</a>)</span>, and it can be computed
+by convex optimization <span class="citation">(<a href="#ref-koenker2014">Koenker and Mizera 2014</a>)</span>. A discrete
+estimate is awkward when the effects are thought to vary continuously,
+and quantities such as the probability of an effect above a given size
+depend on where the few points of support happen to fall.</p>
 <p>Between the two are parametric families richer than the normal, such
 as the mixtures of a point mass at zero with a normal or a Laplace
 distribution in the ebnm package <span class="citation">(<a href="#ref-willwerscheid2025">Willwerscheid et al. 2025</a>)</span>.
-These suit problems in which most effects are thought to be zero,
-although, like the normal, they commit to a shape in advance.</p>
+These suit problems in which most effects are thought to be zero, but,
+like the normal, they commit to a shape in advance.</p>
 <p><span class="citation">Efron (<a href="#ref-efron2016">2016</a>)</span> proposed a family that is
-flexible in shape but has few parameters, and in which <span class="math inline">\(g\)</span> is smooth. The model of this package
-uses that family. <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025, sec. 2</a>)</span> discuss the alternatives at
-greater length.</p>
+flexible in shape but has few parameters, and in which <span class="math inline">\(g\)</span> is smooth. bayesEfron uses that family.
+<span class="citation">Lee and Sui (<a href="#ref-lee2025">2025, sec.
+2</a>)</span> discuss the alternatives at greater length.</p>
 </div>
 <div class="section level2">
 <h2 id="the-log-spline-family">The log-spline family<a class="anchor" aria-label="anchor" href="#the-log-spline-family"></a>
@@ -205,76 +223,135 @@ function of the effect, described by <span class="math inline">\(M\)</span> numb
 the probabilities sum to one. With <span class="math inline">\(\alpha =
 0\)</span> every grid point has the same probability. Other values of
 <span class="math inline">\(\alpha\)</span> give distributions with one
-or several peaks, with skewness, or with long tails; the larger <span class="math inline">\(M\)</span>, the more shapes are within reach.</p>
-<p>A grid distribution stands in for a continuous one. With a fine grid
-the sum <span class="math inline">\(\sum_j g_j\, \phi(x; \tau_j,
-\sigma_i)\)</span> is close to the integral that defines <span class="math inline">\(f_i\)</span>, so little is lost as long as the
-spacing of the grid is small compared with the standard errors. The
-defaults are <span class="math inline">\(L = 101\)</span> points and
-<span class="math inline">\(M = 6\)</span> spline functions, as in the
-application of <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>)</span>.
-<code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code> discusses both choices and the
-placing of the grid.</p>
+or several peaks, with skewness, or with long tails, and the larger
+<span class="math inline">\(M\)</span> is, the more shapes are within
+reach.</p>
+<p>We approximate a continuous distribution by one on the grid. With a
+fine grid the sum <span class="math inline">\(\sum_j g_j\, \phi(x;
+\tau_j, \sigma_i)\)</span> is close to the integral that defines <span class="math inline">\(f_i\)</span>, so little is lost as long as the
+grid spacing is small compared with the standard errors. The defaults
+are <span class="math inline">\(M = 6\)</span> spline functions and
+<span class="math inline">\(L = 101\)</span> points, as in the
+application of <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>)</span>, with more points when the smallest
+standard error or the spread of the estimates is small compared with the
+spacing. <code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code> discusses both choices
+and the placement of the grid.</p>
 <p>The spline basis has no constant term, because adding a constant to
 every <span class="math inline">\(B_j^\top \alpha\)</span> leaves <span class="math inline">\(g\)</span> unchanged, so that the coefficient of a
-constant column could not be determined by the data. The basis is
-computed by <code>splines::ns(grid, df = M, intercept = FALSE)</code>,
-and <code><a href="../reference/make_efron_grid.html">make_efron_grid()</a></code> verifies that the columns of <span class="math inline">\(B\)</span> together with a constant column are
-linearly independent, stopping with an error if they are not.</p>
-<p>The columns of <span class="math inline">\(B\)</span> are used as
-<code>ns()</code> returns them, as in the code that accompanies <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>)</span>.
-The deconvolveR package <span class="citation">(<a href="#ref-narasimhan2020">Narasimhan and Efron 2020</a>)</span> by
-default centers each column and scales it to a sum of squares of one, so
-the coefficients of the two packages are on different scales, which
-matters for the prior distribution described next.</p>
+constant column could not be determined by the data. We use the columns
+of <span class="math inline">\(B\)</span> as <code><a href="https://rdrr.io/r/splines/ns.html" class="external-link">splines::ns()</a></code>
+returns them, as in the code that accompanies <span class="citation">Lee
+and Sui (<a href="#ref-lee2025">2025</a>)</span>. The deconvolveR
+package <span class="citation">(<a href="#ref-narasimhan2020">Narasimhan
+and Efron 2020</a>)</span> by default centers each column and scales it
+to a sum of squares of one, so the coefficients of the two packages are
+on different scales, which matters for the prior distribution on the
+coefficients described below.</p>
+</div>
+<div class="section level2">
+<h2 id="a-normal-component-at-each-grid-point">A normal component at each grid point<a class="anchor" aria-label="anchor" href="#a-normal-component-at-each-grid-point"></a>
+</h2>
+<p>In the family as defined so far, <span class="math inline">\(g\)</span> is a set of point masses, which keeps
+the effects on the grid. When the problem bounds the effects, give those
+bounds as <code>support</code> and use <code>reading = "step"</code> for
+probabilities and interval limits, because the default interpolated
+reading spreads the probability at each limit of the grid half a grid
+spacing beyond it. An example is given in
+<code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code>. Where the effects are not
+bounded, each grid point can instead carry a normal distribution
+(<code>component = "normal"</code>), which allows effects between the
+grid points even when their standard errors are small. The components
+have a common standard deviation <span class="math inline">\(\tau_c\)</span>, a multiple (<code>width</code>)
+of the grid spacing, as in the penalized Gaussian mixture of <span class="citation">Sui and Tipton (<a href="#ref-sui2026">2026</a>)</span>:</p>
+<p><span class="math display">\[
+g(\theta) = \sum_{j=1}^{L} g_j(\alpha)\, \phi(\theta;\, \tau_j, \tau_c)
+.
+\]</span></p>
+<p>Nothing else changes, and the density of an estimate keeps its form,
+since the convolution of a normal component with normal error is
+normal:</p>
+<p><span class="math display">\[
+f_i(x) = \sum_{j=1}^{L} g_j(\alpha)\,
+  \phi\!\left(x;\, \tau_j, \sqrt{\sigma_i^2 + \tau_c^2}\right) .
+\]</span></p>
+<p>Point masses are the case <span class="math inline">\(\tau_c =
+0\)</span> and the default. With normal components <span class="math inline">\(g\)</span> is a density, it reaches about two of
+their standard deviations beyond each limit of the grid, and a standard
+error smaller than the grid spacing does no harm.</p>
+<p>We write the formulas below for point masses. With normal components
+the likelihood has <span class="math inline">\(\sqrt{\sigma_i^2 +
+\tau_c^2}\)</span> in place of <span class="math inline">\(\sigma_i\)</span>, and the posterior distribution
+of a site effect is a mixture of normal distributions in place of
+probabilities on the grid points: within component <span class="math inline">\(j\)</span> the effect has mean <span class="math inline">\(\tau_j + b_i (\hat\theta_i - \tau_j)\)</span> and
+variance <span class="math inline">\(b_i \sigma_i^2\)</span>, with <span class="math inline">\(b_i = \tau_c^2 / (\tau_c^2 +
+\sigma_i^2)\)</span>.</p>
 </div>
 <div class="section level2">
 <h2 id="the-prior-on-the-coefficients">The prior on the coefficients<a class="anchor" aria-label="anchor" href="#the-prior-on-the-coefficients"></a>
 </h2>
-<p>Six coefficients estimated from a few dozen sites need restraint, or
-the estimated <span class="math inline">\(g\)</span> follows the
-accidents of the sample. <span class="citation">Efron (<a href="#ref-efron2016">2016</a>)</span> restrains them with a penalty of
-fixed size in the likelihood. Here the restraint is a prior distribution
-whose strength is itself estimated:</p>
+<p>Six coefficients estimated from a few dozen sites have to be
+regularized, or the estimated <span class="math inline">\(g\)</span>
+follows the noise in the sample. <span class="citation">Efron (<a href="#ref-efron2016">2016</a>)</span> regularizes them with a penalty
+of fixed size in the likelihood. We instead place a prior on the
+coefficients, with a strength that is itself estimated:</p>
 <p><span class="math display">\[
 \alpha_m \mid \lambda \sim N(0,\, 1/\lambda), \quad m = 1, \ldots, M,
 \qquad \lambda \sim \mbox{half-Cauchy}(0, 5) .
 \]</span></p>
 <p>The second argument of the normal distribution is a variance, so the
-coefficients have standard deviation <span class="math inline">\(\lambda^{-1/2}\)</span>. A large <span class="math inline">\(\lambda\)</span> holds the coefficients near zero,
+coefficients have standard deviation <span class="math inline">\(\lambda^{-1/2}\)</span>. A large <span class="math inline">\(\lambda\)</span> keeps the coefficients near zero,
 and <span class="math inline">\(g\)</span> near the uniform distribution
 on the grid. A small <span class="math inline">\(\lambda\)</span> lets
 them move, and <span class="math inline">\(g\)</span> take whatever
 shape the likelihood favors. Because <span class="math inline">\(\lambda\)</span> has a prior of its own, its value
 is estimated along with the coefficients. Six coefficients carry little
-information about it, however, and its posterior distribution is wide,
-as the output below shows.</p>
-<p>The half-Cauchy distribution is the choice of <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>)</span>.
-<span class="citation">Gelman (<a href="#ref-gelman2006">2006</a>)</span> proposed it as a prior for the
-standard deviation of the effects in a hierarchical model with few
-groups. Here it is placed on the precision, which implies a different
-prior for the standard deviation <span class="math inline">\(\lambda^{-1/2}\)</span> of the coefficients: one
-with median 0.45 that gives probability 0.13 to values above 1 and 0.03
-to values below 0.1. <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>, Appendix D)</span> replaced it by other
-families and other scales in a simulation, fitted with a variational
-approximation, and report that the estimates of the site effects and the
-coverage of their intervals changed little.</p>
-<p>For the teacher expectancy studies the posterior distribution of
-<span class="math inline">\(\lambda\)</span> is concentrated on small
-values, that is, on coefficients that are free to move.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+information about it, however, and its posterior distribution is
+wide.</p>
+<p>For the callback gaps, we extract the draws of <span class="math inline">\(\lambda\)</span> from the fit and compute the
+median and the limits of a 90% posterior interval, first for <span class="math inline">\(\lambda\)</span> and then for the standard
+deviation <span class="math inline">\(\lambda^{-1/2}\)</span> of the
+coefficients.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">draws</span> <span class="op">&lt;-</span> <span class="fu">posterior</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/posterior/reference/draws_matrix.html" class="external-link">as_draws_matrix</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
 <span><span class="va">lambda</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">draws</span><span class="op">[</span>, <span class="st">"lambda"</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/quantile.html" class="external-link">quantile</a></span><span class="op">(</span><span class="va">lambda</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.5</span>, <span class="fl">0.95</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;          5%         50%         95% </span></span>
-<span><span class="co">#&gt; 0.003969845 0.059235962 0.332104884</span></span>
+<span><span class="co">#&gt; 0.007785709 0.040286195 0.139342447</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/quantile.html" class="external-link">quantile</a></span><span class="op">(</span><span class="fl">1</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="va">lambda</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.5</span>, <span class="fl">0.95</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;        5%       50%       95% </span></span>
-<span><span class="co">#&gt;  1.735252  4.108756 15.871818</span></span></code></pre></div>
-<p>The second line is the standard deviation of the coefficients.</p>
+<span><span class="co">#&gt;  2.678917  4.982208 11.333164</span></span></code></pre></div>
+<p>The interval for <span class="math inline">\(\lambda\)</span> runs
+from 0.008 to 0.139, a range of more than a factor of ten, and the
+interval for the standard deviation of the coefficients, from the second
+call, runs from 2.7 to 11.3. The size of these numbers has no meaning
+apart from the basis, and bayesEfron leaves the columns of the basis
+unscaled.</p>
+<p>The half-Cauchy distribution is the choice of <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>)</span>.
+<span class="citation">Gelman (<a href="#ref-gelman2006">2006</a>)</span> proposed it as a prior for the
+standard deviation of the effects in a hierarchical model with few
+groups. Here we place it on the precision <span class="math inline">\(\lambda\)</span>, which implies a different prior
+for the standard deviation of the coefficients. <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>, Appendix
+D)</span> replaced it with other families and other scales in a
+simulation, fitted with a variational approximation, and report that the
+estimates of the site effects and the coverage of their intervals
+changed little.</p>
+<p>What this prior means for <span class="math inline">\(g\)</span> is
+easier to see than what it means for the coefficients. It is centered on
+<span class="math inline">\(\alpha = 0\)</span>, the uniform
+distribution on the grid, whose standard deviation is the width of the
+range divided by <span class="math inline">\(\sqrt{12}\)</span>. The
+range of the grid is therefore the scale of the prior distribution of
+<span class="math inline">\(g\)</span>: before seeing any data, we take
+the effects to be spread over all of it.</p>
+<p>For the 97 firms the prior median of the standard deviation of <span class="math inline">\(g\)</span> is 0.29 of the width of the grid and
+its posterior mean is 0.07, so the data dominate the prior. With few
+sites they do so less completely, which is why the range must then be
+chosen with care. The prior and the posterior for three data sets are
+shown in <code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code>, and the consequence
+for 19 studies in <code><a href="../articles/teacher-expectancy.html">vignette("teacher-expectancy")</a></code>.</p>
 </div>
 <div class="section level2">
-<h2 id="the-full-model-and-what-is-sampled">The full model and what is sampled<a class="anchor" aria-label="anchor" href="#the-full-model-and-what-is-sampled"></a>
+<h2 id="the-full-model-and-the-sampled-parameters">The full model and the sampled parameters<a class="anchor" aria-label="anchor" href="#the-full-model-and-the-sampled-parameters"></a>
 </h2>
 <p>Put together, the model has four parts,</p>
 <p><span class="math display">\[
@@ -289,23 +366,22 @@ P(\theta_i = \tau_j \mid \alpha) &amp;= g_j(\alpha), \\
 \rightarrow \theta_i \rightarrow
 \hat\theta_i\)</span>.</p>
 <p>Because each <span class="math inline">\(\theta_i\)</span> takes
-values on the grid, it can be summed out and need not be sampled, which
+values on the grid, we can sum it out and need not sample it, which
 gives the likelihood of the coefficients,</p>
 <p><span class="math display">\[
 p(\hat\theta \mid \alpha) = \prod_{i=1}^{K} \sum_{j=1}^{L}
   g_j(\alpha)\, \phi(\hat\theta_i;\, \tau_j, \sigma_i) .
 \]</span></p>
-<p>The sampler therefore works in <span class="math inline">\(M +
-1\)</span> dimensions, <span class="math inline">\(\alpha\)</span> and
-<span class="math inline">\(\lambda\)</span>, whatever the number of
-sites. The number of sites enters only through the cost of computing the
-likelihood, which is that of <span class="math inline">\(K \times
-L\)</span> normal densities computed once and a matrix product at each
-step. Sampling is by the No-U-Turn sampler of Stan <span class="citation">(<a href="#ref-hoffman2014">Hoffman and Gelman
+<p>We therefore sample only <span class="math inline">\(\alpha\)</span>
+and <span class="math inline">\(\lambda\)</span>, so the sampler works
+in <span class="math inline">\(M + 1\)</span> dimensions whatever the
+number of sites. The number of sites enters only through the cost of
+computing the likelihood, which is the cost of <span class="math inline">\(K \times L\)</span> normal densities computed once
+and a matrix product at each step. We use Stan’s No-U-Turn sampler <span class="citation">(<a href="#ref-hoffman2014">Hoffman and Gelman
 2014</a>; <a href="#ref-carpenter2017">Carpenter et al.
 2017</a>)</span>. The logarithm of the likelihood is stored for each
 draw as <code>log_marginal_likelihood</code>. The name refers to the
-true effects, which have been summed out; it is not the marginal
+true effects, which have been summed out. It is not the marginal
 likelihood of the model, in which <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\lambda\)</span> would be integrated out as
 well.</p>
 <p>The result is a set of draws <span class="math inline">\(\alpha^{(1)}, \ldots, \alpha^{(S)}\)</span> from
@@ -313,19 +389,17 @@ the posterior distribution of the coefficients, and with them draws
 <span class="math inline">\(g(\alpha^{(s)})\)</span> of the distribution
 of effects. Step (a) thus ends not with one estimate of <span class="math inline">\(g\)</span> but with a posterior distribution over
 <span class="math inline">\(g\)</span>.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">grid</span> <span class="op">&lt;-</span> <span class="va">fit</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">data_list</span><span class="op">$</span><span class="va">grid</span></span>
-<span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">draws</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"log_g[%d]"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">grid</span><span class="op">)</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">g</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">g</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">some</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">g</span><span class="op">)</span>, length.out <span class="op">=</span> <span class="fl">40</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/matplot.html" class="external-link">matplot</a></span><span class="op">(</span><span class="va">grid</span>, <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">g</span><span class="op">[</span><span class="va">some</span>, <span class="op">]</span><span class="op">)</span>, type <span class="op">=</span> <span class="st">"l"</span>, lty <span class="op">=</span> <span class="fl">1</span>, col <span class="op">=</span> <span class="st">"gray70"</span>,</span>
-<span>        xlab <span class="op">=</span> <span class="st">"Effect"</span>, ylab <span class="op">=</span> <span class="st">"Probability of the grid point"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/lines.html" class="external-link">lines</a></span><span class="op">(</span><span class="va">grid</span>, <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/colSums-methods.html" class="external-link">colMeans</a></span><span class="op">(</span><span class="va">g</span><span class="op">)</span>, lwd <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
-<p><img src="model_files/figure-html/g-draws-1.png" class="r-plt" alt="Forty posterior draws of the distribution of effects and their mean." width="700"></p>
-<p>The gray lines are 40 of the posterior draws of <span class="math inline">\(g\)</span> for the teacher expectancy studies and
-the black line is their mean. All of them have a peak near zero. They
-differ in how sharp the peak is and in how much probability they give to
-the right tail, which 19 studies cannot settle.</p>
+<p>With its <code>draws</code> argument, <code><a href="../reference/plot_g.html">plot_g()</a></code> adds
+single draws of <span class="math inline">\(g\)</span> to the plot. Here
+we show 40 of them for the callback gaps, with <code>scale = 100</code>
+so that the gaps are in percentage points.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_g.html">plot_g</a></span><span class="op">(</span><span class="va">fit</span>, draws <span class="op">=</span> <span class="fl">40</span>, scale <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></code></pre></div>
+<p><img src="model_files/figure-html/g-draws-1.png" class="r-plt" alt="Forty thin lines, each a posterior draw of the density of the callback gaps in percentage points, around their mean and its band. The draws differ most in the height of the peak and in the right tail." width="700"></p>
+<p>The thin lines are the draws of <span class="math inline">\(g\)</span>, and the thick line is the posterior
+mean. The draws differ in the height of their peak and in their tails.
+For a distribution with two separate groups,
+<code><a href="../articles/twin-towers.html">vignette("twin-towers")</a></code> shows the mean and its band.</p>
 </div>
 <div class="section level2">
 <h2 id="the-posterior-distribution-of-a-site-effect">The posterior distribution of a site effect<a class="anchor" aria-label="anchor" href="#the-posterior-distribution-of-a-site-effect"></a>
@@ -350,19 +424,20 @@ P(\theta_i = \tau_j \mid \mbox{data}) =
   \int w_{ij}(\alpha)\, p(\alpha \mid \mbox{data})\, d\alpha
   \approx \frac{1}{S} \sum_{s=1}^{S} w_{ij}(\alpha^{(s)}) .
 \]</span></p>
-<p>For every draw <span class="math inline">\(\alpha^{(s)}\)</span> the
-Stan program computes the mean, the standard deviation and the mode of
-<span class="math inline">\(w_{i\cdot}(\alpha^{(s)})\)</span>, stored as
-<code>theta_mean</code>, <code>theta_sd</code> and
-<code>theta_map</code>, and draws one value of <span class="math inline">\(\theta_i\)</span> from it, stored as
-<code>theta_rep</code>. The values of <code>theta_rep</code> are draws
-from the posterior distribution of <span class="math inline">\(\theta_i\)</span> given the data.
-<code><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef()</a></code> returns the average of <code>theta_mean</code>,
-which is the posterior mean, and <code><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint()</a></code> returns
-quantiles of <code>theta_rep</code>. The posterior mode,
-<code>coef(type = "map")</code>, is the grid point at which the averaged
-probabilities <span class="math inline">\(P(\theta_i = \tau_j \mid
-\mbox{data})\)</span> are largest.</p>
+<p>The package computes these averaged probabilities for every site from
+the stored draws of <span class="math inline">\(g\)</span>, and
+everything it reports about a site is a summary of them.
+<code><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef()</a></code> returns the posterior mean <span class="math inline">\(\sum_j P(\theta_i = \tau_j \mid \mbox{data})\,
+\tau_j\)</span>, and <code><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint()</a></code> and
+<code><a href="../reference/site_summary.html">site_summary()</a></code> return quantiles of the same distribution,
+so an interval is computed from the distribution itself and not from a
+sample of it. With point masses a quantile is read after the probability
+of each grid point has been spread evenly over the cell of one grid
+spacing around it, which makes the limits vary smoothly rather than jump
+from one grid point to the next. See <code><a href="../reference/g_summary.html">?g_summary</a></code> for this
+reading and the alternative. The posterior mode,
+<code>coef(type = "mode")</code>, is the grid point at which the
+averaged probabilities are largest.</p>
 <p>The posterior variance has two parts,</p>
 <p><span class="math display">\[
 \mbox{Var}(\theta_i \mid \mbox{data}) =
@@ -373,43 +448,44 @@ probabilities <span class="math inline">\(P(\theta_i = \tau_j \mid
 the posterior distribution of <span class="math inline">\(\alpha\)</span>. The first part is the uncertainty
 about the effect that would remain if <span class="math inline">\(g\)</span> were known. The second is the
 uncertainty about <span class="math inline">\(g\)</span> as it bears on
-this site. An analysis that plugs in an estimate of <span class="math inline">\(g\)</span> omits the second part, so its intervals
-tend to be too narrow <span class="citation">(<a href="#ref-lee2025">Lee
-and Sui 2025, sec. 3.4</a> and Appendix A)</span>.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">site_draws</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">name</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">x</span> <span class="op">&lt;-</span> <span class="va">draws</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%s[%d]"</span>, <span class="va">name</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/nobs.html" class="external-link">nobs</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">]</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span><span class="va">theta_mean</span> <span class="op">&lt;-</span> <span class="fu">site_draws</span><span class="op">(</span><span class="st">"theta_mean"</span><span class="op">)</span></span>
-<span><span class="va">theta_sd</span> <span class="op">&lt;-</span> <span class="fu">site_draws</span><span class="op">(</span><span class="st">"theta_sd"</span><span class="op">)</span></span>
-<span><span class="va">parts</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  sei <span class="op">=</span> <span class="va">raudenbush1985</span><span class="op">$</span><span class="va">sei</span>,</span>
-<span>  given_g <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/colSums-methods.html" class="external-link">colMeans</a></span><span class="op">(</span><span class="va">theta_sd</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  about_g <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">theta_mean</span>, <span class="fl">2</span>, <span class="va">sd</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">parts</span><span class="op">$</span><span class="va">posterior_sd</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="va">parts</span><span class="op">$</span><span class="va">given_g</span><span class="op">^</span><span class="fl">2</span> <span class="op">+</span> <span class="va">parts</span><span class="op">$</span><span class="va">about_g</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">parts</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4</span>, <span class="fl">10</span>, <span class="fl">17</span>, <span class="fl">18</span><span class="op">)</span>, <span class="op">]</span>, <span class="fl">3</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      sei given_g about_g posterior_sd</span></span>
-<span><span class="co">#&gt; 4  0.373   0.398   0.299        0.498</span></span>
-<span><span class="co">#&gt; 10 0.251   0.249   0.180        0.307</span></span>
-<span><span class="co">#&gt; 17 0.139   0.114   0.045        0.122</span></span>
-<span><span class="co">#&gt; 18 0.094   0.079   0.018        0.081</span></span></code></pre></div>
-<p>The rows are four of the teacher expectancy studies.
-<code>given_g</code> is the square root of the first part,
-<code>about_g</code> is the square root of the second and
-<code>posterior_sd</code> is the posterior standard deviation. The
-second part is small for study 18, whose estimate is precise and near
-the peak of <span class="math inline">\(g\)</span>. It is far from small
-for studies 4 and 10, whose large estimates fall in the tail, where the
-draws of <span class="math inline">\(g\)</span> disagree.
-<code>posterior_sd</code> is the column <code>sd</code> that
-<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> prints for each site.</p>
-<p>In the simulations of <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025, sec. 6</a>)</span>, in which the true effects
-of 1,500 sites formed two groups, 90% intervals from this model covered
-the true effects 88% to 91% of the time.
-<code><a href="../articles/implementation.html">vignette("implementation")</a></code> reports a check of the same kind
-with this package for 50 to 1,500 sites.</p>
+this site, which an analysis that plugs in one estimate of <span class="math inline">\(g\)</span> leaves out <span class="citation">(<a href="#ref-lee2025">Lee and Sui 2025, sec. 3.4</a> and Appendix
+A)</span>.</p>
+<p>In the table that <code><a href="../reference/site_summary.html">site_summary()</a></code> returns, the columns
+<code>sd_given_g</code> and <code>sd_about_g</code> are the square roots
+of the two parts. The code below adds a column with the fraction of the
+posterior variance that comes from the uncertainty about <span class="math inline">\(g\)</span> and prints three firms: the firm with
+the smallest standard error, the firm with the largest estimate and the
+firm with the largest standard error.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/site_summary.html">site_summary</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
+<span><span class="va">sites</span><span class="op">$</span><span class="va">share_about_g</span> <span class="op">&lt;-</span> <span class="va">sites</span><span class="op">$</span><span class="va">sd_about_g</span><span class="op">^</span><span class="fl">2</span> <span class="op">/</span> <span class="va">sites</span><span class="op">$</span><span class="va">sd</span><span class="op">^</span><span class="fl">2</span></span>
+<span><span class="va">shown</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/which.min.html" class="external-link">which.min</a></span><span class="op">(</span><span class="va">sites</span><span class="op">$</span><span class="va">se</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/which.min.html" class="external-link">which.max</a></span><span class="op">(</span><span class="va">sites</span><span class="op">$</span><span class="va">estimate</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/which.min.html" class="external-link">which.max</a></span><span class="op">(</span><span class="va">sites</span><span class="op">$</span><span class="va">se</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">sites</span><span class="op">[</span><span class="va">shown</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"label"</span>, <span class="st">"estimate"</span>, <span class="st">"se"</span>, <span class="st">"sd_given_g"</span>, <span class="st">"sd_about_g"</span>, <span class="st">"sd"</span>,</span>
+<span>               <span class="st">"share_about_g"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;                        label     estimate         se  sd_given_g  sd_about_g</span></span>
+<span><span class="co">#&gt; 29         Quest Diagnostics -0.008616163 0.00534379 0.004863534 0.001016245</span></span>
+<span><span class="co">#&gt; 62 Genuine Parts (Napa Auto)  0.098170502 0.02047973 0.022754349 0.014348927</span></span>
+<span><span class="co">#&gt; 65                   Walmart  0.070000000 0.03919826 0.017119474 0.003353090</span></span>
+<span><span class="co">#&gt;             sd share_about_g</span></span>
+<span><span class="co">#&gt; 29 0.004968573    0.04183440</span></span>
+<span><span class="co">#&gt; 62 0.026900783    0.28451752</span></span>
+<span><span class="co">#&gt; 65 0.017444759    0.03694541</span></span></code></pre></div>
+<p>In each row, the squares of <code>sd_given_g</code> and
+<code>sd_about_g</code> sum to the square of <code>sd</code>, the
+posterior standard deviation that <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports. The
+fraction in the last column, <code>share_about_g</code>, is not the same
+for every firm. For the median firm it is 2.3%, and for the firm with
+the largest estimate, whose posterior distribution depends on the right
+tail of <span class="math inline">\(g\)</span>, it is 28%.</p>
+<p>For most sites, then, the second part is small. In
+<code><a href="../articles/empirical-bayes.html">vignette("empirical-bayes")</a></code> we plug in the posterior mean
+of <span class="math inline">\(g\)</span> for these firms instead of
+using its posterior distribution, and the 90% intervals become 0.4%
+shorter on average. What the posterior distribution of <span class="math inline">\(g\)</span> adds is concentrated where an estimate
+of <span class="math inline">\(g\)</span> is least certain, in the sites
+that lie in its tails.</p>
+<p>For the coverage of the site intervals in simulated data sets with
+known effects, see <code><a href="../articles/implementation.html">vignette("implementation")</a></code>.</p>
 </div>
 <div class="section level2">
 <h2 id="summaries-of-g">Summaries of g<a class="anchor" aria-label="anchor" href="#summaries-of-g"></a>
@@ -418,41 +494,60 @@ with this package for 50 to 1,500 sites.</p>
 variance and a standard deviation,</p>
 <p><span class="math display">\[
 \mu(\alpha) = \sum_{j} g_j(\alpha)\, \tau_j, \qquad
-v(\alpha) = \sum_{j} g_j(\alpha)\, \{\tau_j - \mu(\alpha)\}^2 ,
+v(\alpha) = \sum_{j} g_j(\alpha)\, \{\tau_j - \mu(\alpha)\}^2 + \tau_c^2
+,
 \]</span></p>
-<p>stored as <code>mean_g</code>, <code>var_g</code> and
-<code>sd_g</code>. Their posterior distributions answer the questions
-that the mean and the between-site standard deviation answer in a
-random-effects model, without the assumption of normality;
+<p>where the last term of the variance is zero for point masses. These
+three quantities are stored as <code>mean_g</code>, <code>var_g</code>
+and <code>sd_g</code>. Their posterior distributions answer the
+questions that the mean and the between-site standard deviation answer
+in a random-effects model, without the assumption of normality, and
 <code>confint(fit, type = "g")</code> summarizes them. Other features of
-<span class="math inline">\(g\)</span>, such as the probability of an
-effect above a given value, are found from draws of
-<code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code>.</p>
+<span class="math inline">\(g\)</span> have posterior distributions as
+well, and <code><a href="../reference/g_summary.html">g_summary()</a></code> returns them: its density, its
+distribution function, its quantiles, and the probability that it gives
+to an interval.</p>
+<p>For example, we can ask for the probability that <span class="math inline">\(g\)</span> gives to gaps above 5 percentage
+points, which is 0.05 in the units of the estimates.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/g_summary.html">g_summary</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"prob"</span>, lower <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   from  to       mean       lower      upper</span></span>
+<span><span class="co">#&gt; 1 0.05 Inf 0.03397636 0.003640882 0.09058668</span></span></code></pre></div>
+<p>We estimate the proportion of firms with a gap above 5 percentage
+points as 3.4%, with a 90% interval from 0.4% to 9.1%. A proportion in
+the tail of <span class="math inline">\(g\)</span> is known far less
+precisely than its mean.</p>
+</div>
+<div class="section level2">
+<h2 id="the-effective-number-of-parameters">The effective number of parameters<a class="anchor" aria-label="anchor" href="#the-effective-number-of-parameters"></a>
+</h2>
 <p>The fit also reports an effective number of parameters, which is not
-in the paper. For a given <span class="math inline">\(\alpha\)</span> it
-is</p>
+in <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>)</span>. For a given <span class="math inline">\(\alpha\)</span> it is</p>
 <p><span class="math display">\[
 \sum_{i=1}^{K} \frac{\mbox{Var}(\theta_i \mid \alpha)}{\sigma_i^2} .
 \]</span></p>
 <p>In the normal model each term is the weight that the posterior mean
 gives to the site’s own estimate, so the sum counts how many estimates’
-worth of information the sites keep for themselves: near <span class="math inline">\(K\)</span> when the estimates are hardly drawn
-together, near zero when they are drawn to a common value. With a
-general <span class="math inline">\(g\)</span> a term can exceed one,
-and the sum is a rough guide. It is a different quantity from the
-<code>p_loo</code> that <code>loo()</code> reports under the same name
-(see <code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code>).</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+worth of information the sites keep for themselves: near <span class="math inline">\(K\)</span> when there is little shrinkage, near
+zero when the estimates are shrunk to a common value. With a general
+<span class="math inline">\(g\)</span> a term can exceed one, and the
+sum is a rough guide. It is a different quantity from the
+<code>p_loo</code> of <code>loo()</code>, which the loo package also
+calls an effective number of parameters, as
+<code><a href="../reference/compare_efron_grids.html">?compare_efron_grids</a></code> notes.</p>
+<p>For this sum, the fit stores the mean, the standard deviation and
+three quantiles of the draws.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">effective_params_summary</span><span class="op">)</span></span>
 <span><span class="co">#&gt;      mean        sd        q5       q50       q95 </span></span>
-<span><span class="co">#&gt; 10.293390  2.839847  4.855205 10.759065 14.301301</span></span></code></pre></div>
-<p>For the 19 studies the posterior mean is about 10.
+<span><span class="co">#&gt; 46.668012  6.377551 35.430396 46.916874 57.072080</span></span></code></pre></div>
+<p>For the 97 firms the posterior mean is about 47.
 <code><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik()</a></code> returns the posterior mean of
 <code>log_marginal_likelihood</code> with this number as its degrees of
 freedom. Because that is not a maximized log likelihood,
-<code><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">AIC()</a></code> and <code><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">BIC()</a></code> computed from it do not have
-their usual meaning, and fits are better compared with
-<code>loo()</code>.</p>
+<code><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">AIC()</a></code> and <code><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">BIC()</a></code> throw an error for a fit. To
+compare fits, use <code>loo()</code>, within the limits that
+<code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code> describes.</p>
 </div>
 <div class="section level2 unnumbered">
 <h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -525,6 +620,11 @@ Robbins, Herbert. 1956. <span>“An Empirical <span>B</span>ayes Approach
 to Statistics.”</span> <em>Proceedings of the Third
 <span>B</span>erkeley Symposium on Mathematical Statistics and
 Probability, Volume 1</em> (Berkeley), 157–63. <a href="https://projecteuclid.org/euclid.bsmsp/1200501653" class="external-link">https://projecteuclid.org/euclid.bsmsp/1200501653</a>.
+</div>
+<div id="ref-sui2026" class="csl-entry">
+Sui, Daihe, and Elizabeth Tipton. 2026. <em>Meta-Analysis Without
+Normality: Estimating the True Effect Distribution with Penalized
+<span>G</span>aussian Mixtures</em>. <a href="https://arxiv.org/abs/2604.27887" class="external-link">https://arxiv.org/abs/2604.27887</a>.
 </div>
 <div id="ref-willwerscheid2025" class="csl-entry">
 Willwerscheid, Jason, Peter Carbonetto, and Matthew Stephens. 2025.

@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesEfron</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -25,11 +25,16 @@
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/data-input.html">Using metafor and data frames as input</a></li>
-    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and comparing models</a></li>
-    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking convergence and plotting</a></li>
-    <li><a class="dropdown-item" href="../articles/model.html">The model</a></li>
-    <li><a class="dropdown-item" href="../articles/implementation.html">Implementation and checks</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/twin-towers.html">Twin Towers: recovering a distribution hidden by noise</a></li>
+    <li><a class="dropdown-item" href="../articles/teacher-expectancy.html">Nineteen studies of teacher expectancy</a></li>
+    <li><a class="dropdown-item" href="../articles/class-size.html">Small classes in 79 schools</a></li>
+    <li><a class="dropdown-item" href="../articles/empirical-bayes.html">bayesEfron and empirical Bayes methods compared</a></li>
+    <li><a class="dropdown-item" href="../articles/data-input.html">Estimates, standard errors and site labels</a></li>
+    <li><a class="dropdown-item" href="../articles/plots.html">Plots of a fitted model</a></li>
+    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and checking sensitivity to it</a></li>
+    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking a fit</a></li>
+    <li><a class="dropdown-item" href="../articles/model.html">The model and the posterior distribution of a site effect</a></li>
+    <li><a class="dropdown-item" href="../articles/implementation.html">Reproducibility and interval coverage</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -48,7 +53,7 @@
     <div class="section level2">
       <h2 id="fit-the-model">Fit the model<a class="anchor" aria-label="anchor" href="#fit-the-model"></a></h2>
 
-      <div class="section-desc"><p><code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> fits the model, and <code><a href="../reference/bef_fit.html">?bef_fit</a></code> describes the object that it returns and the methods for it.</p></div>
+      <div class="section-desc"><p><code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> fits the model. <code><a href="../reference/bef_fit.html">?bef_fit</a></code> describes the fitted object and its methods.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -60,11 +65,11 @@
           <code><a href="bayes_efron_fit.html">bayes_efron_fit()</a></code>
 
         </dt>
-        <dd>Fit the Efron log-spline model to estimates and standard errors</dd>
+        <dd>Fit the Bayesian Efron log-spline model to estimates and standard errors</dd>
 
         <dt>
 
-          <code><a href="bef_fit.html">print(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">summary(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">summary(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">print(<i>&lt;summary.bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">coef(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">confint(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">vcov(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">fitted(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">as.data.frame(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">nobs(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">logLik(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">as_draws(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">format(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">format(<i>&lt;summary.bef_fit&gt;</i>)</a></code>
+          <code><a href="bef_fit.html">print(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">summary(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">summary(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">print(<i>&lt;summary.bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">coef(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">confint(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">vcov(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">fitted(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">as.data.frame(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">nobs(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">logLik(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">as_draws(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">format(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">quantile(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">format(<i>&lt;summary.bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">residuals(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">simulate(<i>&lt;bef_fit_re&gt;</i>)</a></code> <code><a href="bef_fit.html">ndraws(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">variables(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">AIC(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="bef_fit.html">BIC(<i>&lt;bef_fit&gt;</i>)</a></code>
 
         </dt>
         <dd>Fitted Efron log-spline model objects</dd>
@@ -74,7 +79,7 @@
           <code><a href="predict.bef_fit_re.html">predict(<i>&lt;bef_fit_re&gt;</i>)</a></code>
 
         </dt>
-        <dd>Predict the effect or the estimate at a new site</dd>
+        <dd>Posterior predictive distribution for a new site</dd>
       </dl></div><div class="section level2">
       <h2 id="prepare-the-data-and-the-grid">Prepare the data and the grid<a class="anchor" aria-label="anchor" href="#prepare-the-data-and-the-grid"></a></h2>
 
@@ -87,21 +92,21 @@
 
       <dl><dt>
 
-          <code><a href="as_bef_data.html">as_bef_data()</a></code> <code><a href="as_bef_data.html">print(<i>&lt;bef_data&gt;</i>)</a></code> <code><a href="as_bef_data.html">summary(<i>&lt;bef_data&gt;</i>)</a></code> <code><a href="as_bef_data.html">format(<i>&lt;bef_data&gt;</i>)</a></code>
+          <code><a href="as_bef_data.html">as_bef_data()</a></code> <code><a href="as_bef_data.html">print(<i>&lt;bef_data&gt;</i>)</a></code> <code><a href="as_bef_data.html">summary(<i>&lt;bef_data&gt;</i>)</a></code> <code><a href="as_bef_data.html">format(<i>&lt;bef_data&gt;</i>)</a></code> <code><a href="as_bef_data.html">as.data.frame(<i>&lt;bef_data&gt;</i>)</a></code>
 
         </dt>
-        <dd>Extract estimates and standard errors for a fit</dd>
+        <dd>Extract estimates and standard errors from a data frame or list</dd>
 
         <dt>
 
-          <code><a href="make_efron_grid.html">make_efron_grid()</a></code>
+          <code><a href="make_efron_grid.html">make_efron_grid()</a></code> <code><a href="make_efron_grid.html">format(<i>&lt;bef_grid&gt;</i>)</a></code> <code><a href="make_efron_grid.html">print(<i>&lt;bef_grid&gt;</i>)</a></code>
 
         </dt>
-        <dd>Build the grid and spline basis for the effect distribution</dd>
+        <dd>Build the grid and spline basis for the distribution of effects</dd>
       </dl></div><div class="section level2">
-      <h2 id="check-and-plot-a-fit">Check and plot a fit<a class="anchor" aria-label="anchor" href="#check-and-plot-a-fit"></a></h2>
+      <h2 id="summarize-a-fit">Summarize a fit<a class="anchor" aria-label="anchor" href="#summarize-a-fit"></a></h2>
 
-      <div class="section-desc"><p>Convergence diagnostics and plots of a fitted model.</p></div>
+      <div class="section-desc"><p>The estimated distribution of effects and the posterior distributions of the site effects, as data frames.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -110,21 +115,164 @@
 
       <dl><dt>
 
-          <code><a href="diagnose.html">diagnose()</a></code> <code><a href="diagnose.html">print(<i>&lt;bef_diagnostic&gt;</i>)</a></code> <code><a href="diagnose.html">summary(<i>&lt;bef_diagnostic&gt;</i>)</a></code> <code><a href="diagnose.html">format(<i>&lt;bef_diagnostic&gt;</i>)</a></code>
+          <code><a href="g_summary.html">g_summary()</a></code>
 
         </dt>
-        <dd>Convergence diagnostics of a fitted model</dd>
+        <dd>Summarize the estimated distribution of effects</dd>
 
         <dt>
+
+          <code><a href="site_summary.html">site_summary()</a></code> <code><a href="site_summary.html">exceedance_prob()</a></code>
+
+        </dt>
+        <dd>Summarize the posterior distributions of the site effects</dd>
+      </dl></div><div class="section level2">
+      <h2 id="check-a-fit">Check a fit<a class="anchor" aria-label="anchor" href="#check-a-fit"></a></h2>
+
+      <div class="section-desc"><p>Sampler and grid diagnostics.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="diagnose.html">diagnose()</a></code> <code><a href="diagnose.html">print(<i>&lt;bef_diagnostic&gt;</i>)</a></code> <code><a href="diagnose.html">summary(<i>&lt;bef_diagnostic&gt;</i>)</a></code> <code><a href="diagnose.html">as.data.frame(<i>&lt;bef_diagnostic&gt;</i>)</a></code> <code><a href="diagnose.html">format(<i>&lt;bef_diagnostic&gt;</i>)</a></code> <code><a href="diagnose.html">nuts_params(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="diagnose.html">log_posterior(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="diagnose.html">rhat(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="diagnose.html">neff_ratio(<i>&lt;bef_fit&gt;</i>)</a></code>
+
+        </dt>
+        <dd>MCMC convergence and grid diagnostics for a fitted model</dd>
+      </dl></div><div class="section level2">
+      <h2 id="plots">Plots<a class="anchor" aria-label="anchor" href="#plots"></a></h2>
+
+      <div class="section-desc"><p>Each plot function returns a <code>ggplot</code> object. <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> on a fit calls them by <code>type</code>.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
 
           <code><a href="plot.bef_fit_re.html">plot(<i>&lt;bef_fit_re&gt;</i>)</a></code>
 
         </dt>
         <dd>Plot a fitted model</dd>
       </dl></div><div class="section level2">
+
+      <h3 id="results">Results<a class="anchor" aria-label="anchor" href="#results"></a></h3>
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="plot_g.html">plot_g()</a></code>
+
+        </dt>
+        <dd>Density and CDF plots of the estimated distribution of effects</dd>
+
+        <dt>
+
+          <code><a href="plot_sites.html">plot_sites()</a></code>
+
+        </dt>
+        <dd>Caterpillar (forest) plot of the site effects</dd>
+
+        <dt>
+
+          <code><a href="plot_shrinkage.html">plot_shrinkage()</a></code>
+
+        </dt>
+        <dd>Shrinkage plot of posterior means against estimates</dd>
+
+        <dt>
+
+          <code><a href="plot_exceedance.html">plot_exceedance()</a></code>
+
+        </dt>
+        <dd>Plot the exceedance probabilities of the site effects</dd>
+
+        <dt>
+
+          <code><a href="plot_site_posterior.html">plot_site_posterior()</a></code>
+
+        </dt>
+        <dd>Plot the posterior distribution of individual site effects</dd>
+      </dl></div><div class="section level2">
+
+      <h3 id="checks-of-a-fit">Checks of a fit<a class="anchor" aria-label="anchor" href="#checks-of-a-fit"></a></h3>
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="plot_diagnostics.html">plot_diagnostics()</a></code>
+
+        </dt>
+        <dd>Plot sampler diagnostics and grid diagnostics</dd>
+
+        <dt>
+
+          <code><a href="plot_loo.html">plot_loo()</a></code>
+
+        </dt>
+        <dd>Plot the Pareto k values of leave-one-out cross-validation</dd>
+
+        <dt>
+
+          <code><a href="plot_ppc.html">plot_ppc()</a></code>
+
+        </dt>
+        <dd>Posterior predictive check</dd>
+
+        <dt>
+
+          <code><a href="plot_mcmc.html">plot_mcmc()</a></code>
+
+        </dt>
+        <dd>Trace plots and other MCMC plots with bayesplot</dd>
+      </dl></div><div class="section level2">
+
+      <h3 id="grids-and-simulated-data">Grids and simulated data<a class="anchor" aria-label="anchor" href="#grids-and-simulated-data"></a></h3>
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="plot.bef_grid.html">plot(<i>&lt;bef_grid&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot a grid and its spline basis with the estimates</dd>
+
+        <dt>
+
+          <code><a href="plot.bef_grid_comparison.html">plot(<i>&lt;bef_grid_comparison&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot the sensitivity of the results to the grid</dd>
+
+        <dt>
+
+          <code><a href="plot_recovery.html">plot_recovery()</a></code>
+
+        </dt>
+        <dd>Plot the recovery of true effects in simulated data</dd>
+      </dl></div><div class="section level2">
       <h2 id="compare-models">Compare models<a class="anchor" aria-label="anchor" href="#compare-models"></a></h2>
 
-      <div class="section-desc"><p>Leave-one-out cross-validation for one fit, and a comparison of several specifications of the grid and the spline basis.</p></div>
+      <div class="section-desc"><p>Leave-one-out cross-validation, a comparison of fits with different grids and spline bases, and the estimate of g in the form that the empirical Bayes functions of the ebnm package take.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -136,14 +284,21 @@
           <code><a href="loo.bef_fit.html">loo(<i>&lt;bef_fit&gt;</i>)</a></code> <code><a href="loo.bef_fit.html">waic(<i>&lt;bef_fit&gt;</i>)</a></code>
 
         </dt>
-        <dd>Leave-one-out cross-validation for a fitted model</dd>
+        <dd>Leave-one-out cross-validation and WAIC for a fitted model</dd>
 
         <dt>
 
           <code><a href="compare_efron_grids.html">compare_efron_grids()</a></code> <code><a href="compare_efron_grids.html">print(<i>&lt;bef_grid_comparison&gt;</i>)</a></code>
 
         </dt>
-        <dd>Compare grids and numbers of spline functions by cross-validation</dd>
+        <dd>Compare fits on several grids (sensitivity analysis)</dd>
+
+        <dt>
+
+          <code><a href="as_normalmix.html">as_normalmix()</a></code>
+
+        </dt>
+        <dd>Export the estimated distribution of effects for the ebnm package</dd>
       </dl></div><div class="section level2">
       <h2 id="compile-the-model">Compile the model<a class="anchor" aria-label="anchor" href="#compile-the-model"></a></h2>
 
@@ -159,11 +314,53 @@
           <code><a href="bayes_efron_compile.html">bayes_efron_compile()</a></code> <code><a href="bayes_efron_compile.html">bayes_efron_clear_cache()</a></code>
 
         </dt>
-        <dd>Compile the Stan model ahead of time, or remove the compiled model</dd>
+        <dd>Compile the Stan programs before the first fit</dd>
       </dl></div><div class="section level2">
-      <h2 id="data">Data<a class="anchor" aria-label="anchor" href="#data"></a></h2>
+      <h2 id="data-sets-and-stored-fits">Data sets and stored fits<a class="anchor" aria-label="anchor" href="#data-sets-and-stored-fits"></a></h2>
 
-      <div class="section-desc"><p>The teacher expectancy studies and the model fitted to them.</p></div>
+      <div class="section-desc"><p>Example data, and fits of them that are stored in the package so that the examples run without CmdStan.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+      <h3 id="callback-gaps-of-firms-and-simulated-sites-lee-and-sui-">Callback gaps of 97 firms, and 1,500 simulated sites (Lee and Sui, 2025)<a class="anchor" aria-label="anchor" href="#callback-gaps-of-firms-and-simulated-sites-lee-and-sui-"></a></h3>
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="krw_discrimination.html">krw_discrimination</a></code>
+
+        </dt>
+        <dd>Racial callback gaps among 97 large firms</dd>
+
+        <dt>
+
+          <code><a href="krw_fit.html">krw_fit</a></code>
+
+        </dt>
+        <dd>Model fitted to the racial callback gaps</dd>
+
+        <dt>
+
+          <code><a href="twin_towers.html">twin_towers</a></code>
+
+        </dt>
+        <dd>Twin Towers simulated data</dd>
+
+        <dt>
+
+          <code><a href="twin_towers_fit.html">twin_towers_fit</a></code>
+
+        </dt>
+        <dd>Model fitted to the Twin Towers simulated data</dd>
+      </dl></div><div class="section level2">
+
+      <h3 id="a-small-meta-analysis-teacher-expectancy-studies-">A small meta-analysis (19 teacher expectancy studies)<a class="anchor" aria-label="anchor" href="#a-small-meta-analysis-teacher-expectancy-studies-"></a></h3>
+
 
       <dl></dl></div><div class="section level2">
 
@@ -184,6 +381,22 @@
         </dt>
         <dd>Model fitted to the teacher expectancy studies</dd>
       </dl></div><div class="section level2">
+
+      <h3 id="a-multisite-trial-in-education-schools-of-project-star-">A multisite trial in education (79 schools of Project STAR)<a class="anchor" aria-label="anchor" href="#a-multisite-trial-in-education-schools-of-project-star-"></a></h3>
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="star_schools.html">star_schools</a></code>
+
+        </dt>
+        <dd>Small-class effects in 79 schools of Project STAR</dd>
+      </dl></div><div class="section level2">
       <h2 id="package">Package<a class="anchor" aria-label="anchor" href="#package"></a></h2>
 
 
@@ -198,7 +411,7 @@
           <code><a href="bayesEfron-package.html">bayesEfron-package</a></code> <code><a href="bayesEfron-package.html">bayesEfron</a></code>
 
         </dt>
-        <dd>bayesEfron: Fully Bayesian Inference for the Empirical-Bayes Deconvolution Problem</dd>
+        <dd>bayesEfron: Fully Bayesian Deconvolution with Efron's Log-Spline Prior</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

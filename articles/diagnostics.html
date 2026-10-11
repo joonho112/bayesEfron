@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Checking convergence and plotting • bayesEfron</title>
+<title>Checking a fit • bayesEfron</title>
 <!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
@@ -21,9 +21,9 @@
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Checking convergence and plotting">
-<meta name="description" content="Reading the convergence diagnostics of a fit, acting on the warnings, and the four plots.">
-<meta property="og:description" content="Reading the convergence diagnostics of a fit, acting on the warnings, and the four plots.">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Checking a fit">
+<meta name="description" content="Sampler diagnostics, grid diagnostics, a posterior predictive check, and how to respond to a warning.">
+<meta property="og:description" content="Sampler diagnostics, grid diagnostics, a posterior predictive check, and how to respond to a warning.">
 <meta property="og:image" content="https://joonho112.github.io/bayesEfron/reference/figures/logo.png">
 <meta property="og:image:alt" content="bayesEfron hex sticker">
 </head>
@@ -35,7 +35,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesEfron</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,11 +49,16 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/data-input.html">Using metafor and data frames as input</a></li>
-    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and comparing models</a></li>
-    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking convergence and plotting</a></li>
-    <li><a class="dropdown-item" href="../articles/model.html">The model</a></li>
-    <li><a class="dropdown-item" href="../articles/implementation.html">Implementation and checks</a></li>
+<li><a class="dropdown-item" href="../articles/twin-towers.html">Twin Towers: recovering a distribution hidden by noise</a></li>
+    <li><a class="dropdown-item" href="../articles/teacher-expectancy.html">Nineteen studies of teacher expectancy</a></li>
+    <li><a class="dropdown-item" href="../articles/class-size.html">Small classes in 79 schools</a></li>
+    <li><a class="dropdown-item" href="../articles/empirical-bayes.html">bayesEfron and empirical Bayes methods compared</a></li>
+    <li><a class="dropdown-item" href="../articles/data-input.html">Estimates, standard errors and site labels</a></li>
+    <li><a class="dropdown-item" href="../articles/plots.html">Plots of a fitted model</a></li>
+    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and checking sensitivity to it</a></li>
+    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking a fit</a></li>
+    <li><a class="dropdown-item" href="../articles/model.html">The model and the posterior distribution of a site effect</a></li>
+    <li><a class="dropdown-item" href="../articles/implementation.html">Reproducibility and interval coverage</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -75,7 +80,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-      <img src="../logo.png" class="logo" alt=""><h1>Checking convergence and plotting</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>Checking a fit</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/joonho112/bayesEfron/blob/main/vignettes/diagnostics.Rmd" class="external-link"><code>vignettes/diagnostics.Rmd</code></a></small>
@@ -84,220 +89,498 @@
 
     
     
-<p>Every number that a fit reports is computed from the draws of a
-Markov chain, and it describes the posterior distribution only if the
-chains have reached that distribution and have moved through it often
-enough. Whether they have cannot be seen from the results themselves: a
-fit that has not converged prints a table of estimates that looks like
-any other. The diagnostics are the evidence on that point, and they
-should be read before the estimates are.</p>
-<div class="section level2">
-<h2 id="what-diagnose-returns">What <code>diagnose()</code> returns<a class="anchor" aria-label="anchor" href="#what-diagnose-returns"></a>
-</h2>
-<p>The fit examined here is <code>raudenbush_fit</code>, the model
-fitted to the teacher expectancy studies with the default settings.</p>
+<p>This vignette explains how to check a fit before you use its results.
+We start with <code><a href="../reference/diagnose.html">diagnose()</a></code>, which reports in a few lines on
+whether the sampler did its work and whether the results depend on where
+the grid ends. We then check whether the fitted model describes the
+estimates it was given. That takes a plot and some judgment. The last
+section covers what to do about a warning.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="va">raudenbush_fit</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/joonho112/bayesEfron" class="external-link">bayesEfron</a></span><span class="op">)</span></span></code></pre></div>
+<p>The reason to check first is that every number a fit reports is
+computed from the draws of a Markov chain. The numbers describe the
+posterior distribution only if the chains have reached that distribution
+and have moved through it often enough. You cannot tell from the results
+whether they have, because a fit that has not converged prints a table
+of estimates that looks like any other. The diagnostics are the evidence
+on that point, so read them before the estimates.</p>
+<div class="section level2">
+<h2 id="running-diagnose">Running <code>diagnose()</code><a class="anchor" aria-label="anchor" href="#running-diagnose"></a>
+</h2>
+<p>We use <code>krw_fit</code> as the main example. It is a fit that
+comes with the package: the model for the callback gaps at 97 firms from
+<code><a href="../articles/bayesEfron.html">vignette("bayesEfron")</a></code>, fitted with the default grid and
+the default sampler settings. We pass it to <code><a href="../reference/diagnose.html">diagnose()</a></code>.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="va">krw_fit</span></span>
 <span><span class="va">diag</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/diagnose.html">diagnose</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
 <span><span class="va">diag</span></span>
 <span><span class="co">#&gt; &lt;bef_diagnostic&gt;</span></span>
 <span><span class="co">#&gt; Model family: RE</span></span>
-<span><span class="co">#&gt; Rhat max: 1.007 (lp__)</span></span>
-<span><span class="co">#&gt; ESS bulk min: 676.6 (lp__)</span></span>
-<span><span class="co">#&gt; ESS tail min: 888.8 (lp__)</span></span>
+<span><span class="co">#&gt; Rhat max: 1.002 (log_g[97])</span></span>
+<span><span class="co">#&gt; ESS bulk min: 1731 (lp__)</span></span>
+<span><span class="co">#&gt; ESS tail min: 1780 (log_g[2])</span></span>
 <span><span class="co">#&gt; Divergences: 0</span></span>
-<span><span class="co">#&gt; Max treedepth hits: 1</span></span>
-<span><span class="co">#&gt; E-BFMI min: 0.2565</span></span>
-<span><span class="co">#&gt; Runtime: 1.351 sec</span></span>
-<span><span class="co">#&gt; Warnings: max_treedepth</span></span>
-<span><span class="co">#&gt; Effective params: mean 10.29; sd 2.84</span></span></code></pre></div>
-<p><code><a href="../reference/diagnose.html">diagnose()</a></code> collects what <code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code>
-computed when the model was fitted, and the printed lines give the worst
-value of each diagnostic. <code>raudenbush_fit</code> stores one
-posterior draw in fifteen, but its diagnostics are those of the full run
-of four chains with 3,000 sampling iterations each.
-<code><a href="../reference/diagnose.html">?diagnose</a></code> lists the elements of the object. Two of them
-name the diagnostics that call for attention:
-<code>sampler_diagnostics_failed</code> names those that fail a check,
-and <code>sampler_diagnostics_warned</code> those that only deserve a
-look.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">diag</span><span class="op">$</span><span class="va">sampler_diagnostics_failed</span></span>
-<span><span class="co">#&gt; character(0)</span></span>
-<span><span class="va">diag</span><span class="op">$</span><span class="va">sampler_diagnostics_warned</span></span>
-<span><span class="co">#&gt; [1] "max_treedepth"</span></span></code></pre></div>
+<span><span class="co">#&gt; Max treedepth hits: 0</span></span>
+<span><span class="co">#&gt; E-BFMI min: 0.5682</span></span>
+<span><span class="co">#&gt; Runtime: 0.7197 sec</span></span>
+<span><span class="co">#&gt; Grid:</span></span>
+<span><span class="co">#&gt;   lower end -0.0829: at most 0% of a site's posterior in the outer 2% (site "Safeway")</span></span>
+<span><span class="co">#&gt;   upper end 0.1585: at most 0.1% of a site's posterior in the outer 2% (site "Genuine Parts (Napa Auto)")</span></span>
+<span><span class="co">#&gt;   sd of g: posterior 0.01716 (0.01183 to 0.02396); prior 0.06991 (0.05814 to 0.07644)</span></span>
+<span><span class="co">#&gt;   the central 99.9% of g spans 98% of the grid</span></span>
+<span><span class="co">#&gt; Effective params: mean 46.67; sd 6.378</span></span></code></pre></div>
+<p><code><a href="../reference/diagnose.html">diagnose()</a></code> does not run the sampler again. It collects
+what <code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> computed when the model was fitted.
+Each printed line gives the worst value of a diagnostic, with the
+quantity or the site that it belongs to in parentheses, or a total count
+for the divergent transitions and the iterations at the maximum tree
+depth. The six lines from <code>Rhat max</code> to
+<code>E-BFMI min</code> are the sampler diagnostics, and the lines under
+<code>Grid</code> are the grid diagnostics, where “end” means the lower
+or the upper limit of the grid. The remaining lines
+(<code>Model family</code>, <code>Runtime</code> and
+<code>Effective params</code>) repeat information from the fit.</p>
+<p>To see the outcome of each check, convert the result to a data frame,
+which has one row for each check with its threshold and its status.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">diag</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"diagnostic"</span>, <span class="st">"threshold"</span>, <span class="st">"rule"</span>, <span class="st">"status"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;      diagnostic threshold     rule status</span></span>
+<span><span class="co">#&gt; 1          rhat      1.01  at most     ok</span></span>
+<span><span class="co">#&gt; 2      ess_bulk    400.00 at least     ok</span></span>
+<span><span class="co">#&gt; 3      ess_tail    400.00 at least     ok</span></span>
+<span><span class="co">#&gt; 4   divergences      0.00  at most     ok</span></span>
+<span><span class="co">#&gt; 5 max_treedepth      0.00  at most     ok</span></span>
+<span><span class="co">#&gt; 6         ebfmi      0.30 at least     ok</span></span>
+<span><span class="co">#&gt; 7     grid_ends      0.05  at most     ok</span></span></code></pre></div>
+<p>The <code>rule</code> column gives the direction of the comparison:
+R-hat, for example, should be at most 1.01. Every check has the status
+<code>"ok"</code>.</p>
+<p>The result is a list, and three of its elements name the diagnostics
+that need attention:</p>
+<ul>
+<li>
+<code>sampler_diagnostics_failed</code>, those that fail a
+check</li>
+<li>
+<code>sampler_diagnostics_warned</code>, those that get a
+warning</li>
+<li>
+<code>diagnostic_skipped</code>, those that could not be computed or
+were not compared with their thresholds</li>
+</ul>
+<p>All three are empty here.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/lengths.html" class="external-link">lengths</a></span><span class="op">(</span><span class="va">diag</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"sampler_diagnostics_failed"</span>, <span class="st">"sampler_diagnostics_warned"</span>,</span>
+<span>               <span class="st">"diagnostic_skipped"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt; sampler_diagnostics_failed sampler_diagnostics_warned </span></span>
+<span><span class="co">#&gt;                          0                          0 </span></span>
+<span><span class="co">#&gt;         diagnostic_skipped </span></span>
+<span><span class="co">#&gt;                          0</span></span></code></pre></div>
+<p>You will learn about a failed check even if you never call
+<code><a href="../reference/diagnose.html">diagnose()</a></code>, because <code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> also
+issues a warning about it when it returns.</p>
 </div>
 <div class="section level2">
-<h2 id="reading-the-diagnostics">Reading the diagnostics<a class="anchor" aria-label="anchor" href="#reading-the-diagnostics"></a>
+<h2 id="the-six-sampler-diagnostics">The six sampler diagnostics<a class="anchor" aria-label="anchor" href="#the-six-sampler-diagnostics"></a>
 </h2>
-<p>The sampler moves through the posterior distribution in a sequence of
-small steps, whose size it sets during warmup, and each iteration is a
-path of many steps <span class="citation">(<a href="#ref-hoffman2014">Hoffman and Gelman 2014</a>)</span>. R-hat and
-the effective sample sizes describe the draws that result. The other
-three diagnostics describe the paths.</p>
+<p>The model is fitted with the No-U-Turn sampler (NUTS) of <span class="citation">Hoffman and Gelman (<a href="#ref-hoffman2014">2014</a>)</span>. This sampler moves through the
+posterior distribution in a sequence of small steps, with a step size
+that it sets during warmup, and each iteration is a path of many steps.
+R-hat and the two effective sample sizes describe the draws that result.
+The other three diagnostics describe the paths.</p>
 <p>R-hat compares the chains with one another. If they have all settled
 on the same distribution, the variation between chains is no larger than
 the variation within them, and R-hat is close to 1. The effective sample
-size says how many independent draws the correlated draws of the chains
-are worth. The bulk effective sample size concerns the center of the
-distribution, and with it the posterior means, whereas the tail
-effective sample size concerns the 5% and 95% quantiles, and with them
-the intervals. <span class="citation">Vehtari et al. (<a href="#ref-vehtari2021">2021</a>)</span> recommend that the draws be
+size (ESS) is the number of independent draws that the correlated draws
+of the chains are worth. The bulk ESS concerns the center of the
+distribution, and with it the posterior means, whereas the tail ESS
+concerns the 5% and 95% quantiles, and with them the intervals. <span class="citation">Vehtari et al. (<a href="#ref-vehtari2021">2021</a>)</span> recommend that the draws be
 used only if, for every quantity, R-hat is below 1.01 and both effective
-sample sizes are at least 400 when four chains are run.
+sample sizes are at least 400 when 4 chains are run.
 <code><a href="../reference/diagnose.html">diagnose()</a></code> lists a warning when a value falls short of
-these recommendations. It counts an R-hat above 1.05 as a failed check,
-and <code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> then gives a warning as soon as the
-fit ends.</p>
-<p>A divergent transition means that the sampler met a region of the
-posterior distribution that it could not follow with the step size it
-had chosen. The draws may then miss part of the distribution, so
-<code><a href="../reference/diagnose.html">diagnose()</a></code> counts even one divergent transition as a failed
-check. An iteration reaches the maximum tree depth when its path is cut
-short at the greatest length allowed. That makes the sampler less
-efficient, which shows in the effective sample sizes, but it does not
-bias the draws, and it is listed as a warning and not as a failure. The
-energy Bayesian fraction of missing information (E-BFMI) is computed for
-each chain and is low when the chain moves slowly between the high and
-the low levels of the log density. <code><a href="../reference/diagnose.html">diagnose()</a></code> lists a
-warning below 0.2, whereas cmdstanr prints a message of its own below
-0.3, so a message can appear for a fit that <code><a href="../reference/diagnose.html">diagnose()</a></code> does
-not flag.</p>
-<p>When a fit has fewer than 400 draws in all, R-hat and the effective
-sample sizes are too unreliable to act on. Their values are still
-returned, but they are not compared with the thresholds, and the element
-<code>diagnostic_skipped</code> says so. Divergent transitions, the
-maximum tree depth and E-BFMI are checked however short the run.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">reported</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"mean_g"</span>, <span class="st">"sd_g"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"theta_mean[%d]"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4</span>, <span class="fl">10</span>, <span class="fl">18</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  rhat <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag</span><span class="op">$</span><span class="va">rhat</span><span class="op">[</span><span class="va">reported</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>,</span>
-<span>  ess_bulk <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag</span><span class="op">$</span><span class="va">ess_bulk</span><span class="op">[</span><span class="va">reported</span><span class="op">]</span><span class="op">)</span>,</span>
-<span>  ess_tail <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag</span><span class="op">$</span><span class="va">ess_tail</span><span class="op">[</span><span class="va">reported</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="co">#&gt;                 rhat ess_bulk ess_tail</span></span>
-<span><span class="co">#&gt; mean_g         1.001     8257     9908</span></span>
-<span><span class="co">#&gt; sd_g           1.003     1262     1088</span></span>
-<span><span class="co">#&gt; theta_mean[4]  1.002     2062     1362</span></span>
-<span><span class="co">#&gt; theta_mean[10] 1.001     2166     1289</span></span>
-<span><span class="co">#&gt; theta_mean[18] 1.001    11780     6085</span></span></code></pre></div>
-<p>For the teacher expectancy studies the largest R-hat is 1.007. The
-smallest bulk effective sample size, 677, belongs to lp__, the log
-density, whereas the quantities that are reported, such as those in the
-table, have larger ones. There is no divergent transition. The maximum
-tree depth was reached in 1 of the 12,000 iterations, and since the
-effective sample sizes are adequate nothing needs to be done about it.
-The smallest E-BFMI is 0.26, which lies between the two thresholds:
-cmdstanr printed its message when the model was fitted, and
-<code><a href="../reference/diagnose.html">diagnose()</a></code> lists no warning.</p>
+these recommendations, and it counts an R-hat above 1.05 as a failed
+check.</p>
+<p>A divergent transition, or divergence, means that the sampler met a
+region of the posterior distribution that it could not follow with the
+step size it had chosen. The draws may then miss part of the
+distribution, so even one divergent transition is a failed check. An
+iteration reaches the maximum tree depth when its path is cut short at
+the greatest length that <code>max_treedepth</code> allows. That makes
+the sampler less efficient, which shows in the effective sample sizes,
+but it does not bias the draws, so it is listed as a warning. The energy
+Bayesian fraction of missing information (E-BFMI) is computed for each
+chain and is low when the chain moves slowly between the high and the
+low levels of the log density. A warning is listed below 0.3, the value
+below which cmdstanr prints a message of its own.</p>
+<p>R-hat and the effective sample sizes are computed for every quantity
+in the draws. For these data a default fit stores 114 quantities:</p>
+<ul>
+<li>the log density <code>lp__</code>
+</li>
+<li>the 6 spline coefficients <code>alpha</code>
+</li>
+<li>the parameter <code>lambda</code>, which sets how strongly those
+coefficients are held toward zero</li>
+<li>the logarithm of <span class="math inline">\(g\)</span> at each of
+the 101 grid points, <code>log_g</code>
+</li>
+<li>five quantities computed from those, among them the mean and the
+standard deviation of <span class="math inline">\(g\)</span>
+</li>
+</ul>
+<p>Here we print R-hat and the effective sample sizes for six of
+them.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">shown</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"lambda"</span>, <span class="st">"mean_g"</span>, <span class="st">"sd_g"</span>, <span class="st">"log_g[1]"</span>, <span class="st">"log_g[51]"</span>, <span class="st">"log_g[101]"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>rhat <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag</span><span class="op">$</span><span class="va">rhat</span><span class="op">[</span><span class="va">shown</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>           ess_bulk <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag</span><span class="op">$</span><span class="va">ess_bulk</span><span class="op">[</span><span class="va">shown</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>           ess_tail <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag</span><span class="op">$</span><span class="va">ess_tail</span><span class="op">[</span><span class="va">shown</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;             rhat ess_bulk ess_tail</span></span>
+<span><span class="co">#&gt; lambda     1.001     2082     2588</span></span>
+<span><span class="co">#&gt; mean_g     1.001    12864     8277</span></span>
+<span><span class="co">#&gt; sd_g       1.001     5430     6259</span></span>
+<span><span class="co">#&gt; log_g[1]   1.001     2600     1806</span></span>
+<span><span class="co">#&gt; log_g[51]  1.000     6521     6003</span></span>
+<span><span class="co">#&gt; log_g[101] 1.002     3874     2921</span></span></code></pre></div>
+<p>A site’s effect is not among the stored quantities. What a default
+fit reports about a site is computed from the draws of <span class="math inline">\(g\)</span>, so the checks of <code>log_g</code> at
+the grid points are the ones that matter for the sites. A fit made with
+<code>site_draws = TRUE</code> also stores draws for each site, and they
+are checked with the rest.</p>
+<p>For the firms the largest R-hat is 1.002, the smallest bulk and tail
+effective sample sizes are 1,731 and 1,780, there are no divergent
+transitions, no iteration reaches the maximum tree depth, and the
+smallest E-BFMI is 0.57. All six diagnostics pass.</p>
+<p>R-hat can also be <code>NA</code> or infinite. It is <code>NA</code>
+for a quantity that has the same value in every draw, which is not a
+sign of trouble. A quantity that stays at one value within each chain,
+but at different values in different chains, has an infinite R-hat, and
+<code><a href="../reference/diagnose.html">diagnose()</a></code> counts that as a failed check because the chains
+have not mixed at all. See <code><a href="../reference/diagnose.html">?diagnose</a></code> for the details. If
+the whole run has fewer than 400 draws, R-hat and the effective sample
+sizes are returned but not compared with their thresholds, and
+<code>diagnostic_skipped</code> names the checks that were left out.</p>
 </div>
 <div class="section level2">
-<h2 id="what-to-do-about-a-warning">What to do about a warning<a class="anchor" aria-label="anchor" href="#what-to-do-about-a-warning"></a>
+<h2 id="plotting-the-sampler-diagnostics">Plotting the sampler diagnostics<a class="anchor" aria-label="anchor" href="#plotting-the-sampler-diagnostics"></a>
 </h2>
-<p>The remedies are arguments of <code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code>.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">theta_hat</span> <span class="op">&lt;-</span> <span class="va">raudenbush1985</span><span class="op">$</span><span class="va">yi</span></span>
-<span><span class="va">sigma</span> <span class="op">&lt;-</span> <span class="va">raudenbush1985</span><span class="op">$</span><span class="va">sei</span></span>
+<p><code><a href="../reference/plot_diagnostics.html">plot_diagnostics()</a></code> shows R-hat and the effective sample
+sizes of all the quantities at once, so you can tell whether a poor
+value is one of a kind or one of many. We select the panels for the
+sampler with <code>what</code>.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_diagnostics.html">plot_diagnostics</a></span><span class="op">(</span><span class="va">fit</span>, what <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rhat"</span>, <span class="st">"ess"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><img src="diagnostics_files/figure-html/diagnostics-plot-1.png" class="r-plt" alt="Three panels for the callback fit: R-hat, bulk and tail effective sample sizes of the monitored quantities in blocks, all on the good side of the dashed threshold lines." width="700"></p>
+<p>The quantities are grouped in blocks. A block of up to 30 quantities
+is shown as points. A larger block, here the 101 values of
+<code>log_g</code>, is shown as a box with its worst value as a point.
+The name beside a block is the name of its worst quantity. Dashed lines
+mark the thresholds 1.01 and 400, and a dotted line marks 1.05. The
+caption gives the other three diagnostics: divergent transitions,
+iterations at the maximum tree depth, and the smallest E-BFMI.</p>
+<p>In this fit every point is on the good side of its dashed line. The
+smallest bulk ESS belongs to the log density and the smallest tail ESS
+to a value of <code>log_g</code>. The mean of <span class="math inline">\(g\)</span> has a bulk ESS of 12,864 from 12,000
+draws. An ESS above the number of draws is possible when successive
+draws are negatively correlated.</p>
+</div>
+<div class="section level2">
+<h2 id="grid-diagnostics">Grid diagnostics<a class="anchor" aria-label="anchor" href="#grid-diagnostics"></a>
+</h2>
+<p>With point masses at the grid points
+(<code>component = "point"</code>, the default), no effect can lie
+beyond the ends of the grid. A range that is too narrow therefore
+distorts the results for the sites near its ends, however well the
+chains have mixed. Two values in the <code>grid</code> element of the
+result bear on this. The first is in <code>diag$grid$ends</code>, a data
+frame with one row for each end.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">diag</span><span class="op">$</span><span class="va">grid</span><span class="op">$</span><span class="va">ends</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"end"</span>, <span class="st">"value"</span>, <span class="st">"set_by"</span>, <span class="st">"mass"</span>, <span class="st">"label"</span>, <span class="st">"status"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;     end       value    set_by         mass                     label status</span></span>
+<span><span class="co">#&gt; 1 lower -0.08289621 estimates 2.220066e-05                   Safeway     ok</span></span>
+<span><span class="co">#&gt; 2 upper  0.15852607 estimates 1.440206e-03 Genuine Parts (Napa Auto)     ok</span></span></code></pre></div>
+<p>For each end, <code>mass</code> is the largest proportion of
+posterior probability that any site has in the outer 2% of the range,
+and <code>label</code> is that site. If a site has more than 5% of its
+posterior probability there, its result depends on where the grid ends.
+For the firms the larger of the two values is 0.14%.</p>
+<p>The second value is the standard deviation of <span class="math inline">\(g\)</span>: <code>sd_g</code> describes its
+posterior distribution, and <code>sd_g_prior</code> the distribution
+that the prior alone would give it on the same grid.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag</span><span class="op">$</span><span class="va">grid</span><span class="op">$</span><span class="va">sd_g</span>, <span class="fl">4</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   mean     q5    q95 </span></span>
+<span><span class="co">#&gt; 0.0172 0.0118 0.0240</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag</span><span class="op">$</span><span class="va">grid</span><span class="op">$</span><span class="va">sd_g_prior</span>, <span class="fl">4</span><span class="op">)</span></span>
+<span><span class="co">#&gt;     q5    q50    q95 </span></span>
+<span><span class="co">#&gt; 0.0581 0.0699 0.0764</span></span></code></pre></div>
+<p>The posterior mean is 0.017 and the prior median is 0.070, so the
+data have moved the spread of <span class="math inline">\(g\)</span>
+well away from what the grid alone implies. When the two are close, the
+data have done little to determine the tails of <span class="math inline">\(g\)</span>, and it is worth comparing fits on
+other ranges.</p>
+<p><code><a href="../reference/plot_diagnostics.html">plot_diagnostics()</a></code> shows both values when
+<code>what</code> includes <code>"grid"</code>. This time we plot them
+for <code>twin_towers_fit</code>, the fit of the 1,500 simulated sites
+from <code><a href="../articles/twin-towers.html">vignette("twin-towers")</a></code>.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_diagnostics.html">plot_diagnostics</a></span><span class="op">(</span><span class="va">twin_towers_fit</span>, what <span class="op">=</span> <span class="st">"grid"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="diagnostics_files/figure-html/grid-plot-1.png" class="r-plt" alt="Two panels for the fit of the simulated sites. Left: the largest posterior mass of a site in the outer part of the range, near zero at the upper end and, at the lower end, well beyond the dashed line at 0.05. Right: the 90 percent interval of the standard deviation of the distribution of effects under the prior, wide, and under the posterior, narrow and lower." width="700"></p>
+<p>The mass at the lower end is well beyond the dashed line, so we print
+the ends for this fit.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/diagnose.html">diagnose</a></span><span class="op">(</span><span class="va">twin_towers_fit</span><span class="op">)</span><span class="op">$</span><span class="va">grid</span><span class="op">$</span><span class="va">ends</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"end"</span>, <span class="st">"set_by"</span>, <span class="st">"mass"</span>, <span class="st">"label"</span>,</span>
+<span>                                        <span class="st">"estimate_beyond"</span>, <span class="st">"status"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;     end set_by        mass label estimate_beyond status</span></span>
+<span><span class="co">#&gt; 1 lower  pilot 0.145083332   774       1.1327343   note</span></span>
+<span><span class="co">#&gt; 2 upper  pilot 0.001203667  1146       0.5651119     ok</span></span></code></pre></div>
+<p>At the lower end a site has 14.5% of its posterior probability in the
+outer part of the range, and yet <code><a href="../reference/diagnose.html">diagnose()</a></code> reports no
+warning: the status is <code>"note"</code>. The default method moved
+this end in (<code>set_by</code> is <code>"pilot"</code>). It moves an
+end only as far as the point where the pilot fit, a short preliminary
+fit on a wider range, put the end of <span class="math inline">\(g\)</span>. A site with an estimate beyond such an
+end is shrunk to it. The estimate of site 774 lies 1.1 standard errors
+beyond the lower end, and the mass is reported as a note. At an end that
+was given in <code>support</code>, or that follows from the estimates
+alone, the same mass leads to a warning that names the site. See
+<code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code> for what to do in each
+case.</p>
+<p>The last line under <code>Grid</code> gives the part of the grid
+spanned by the central 99.9% of the estimate of <span class="math inline">\(g\)</span>. It is informative only when there are
+many sites. Like the summaries of a fit, all the grid diagnostics are
+computed from the draws stored in the fit.</p>
+</div>
+<div class="section level2">
+<h2 id="a-posterior-predictive-check">A posterior predictive check<a class="anchor" aria-label="anchor" href="#a-posterior-predictive-check"></a>
+</h2>
+<p>A model can pass all the checks so far and still be a poor
+description of the data, because convergence only means that the draws
+describe the model’s posterior distribution. <code><a href="../reference/plot_ppc.html">plot_ppc()</a></code> is
+a posterior predictive check: it compares the estimates with what the
+fitted model predicts for them.</p>
+<p>Under the model, the distribution of an estimate is the distribution
+of effects convolved with a normal distribution whose standard deviation
+is the site’s standard error. We compare each estimate with that
+distribution through its probability integral transform (PIT), the
+probability that the fitted model gives to a smaller estimate at that
+site. If <span class="math inline">\(g\)</span> were known and the model
+described the estimates, the PIT values would be spread evenly between 0
+and 1. The check compares the PIT values of the fitted model with the
+uniform distribution.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_ppc.html">plot_ppc</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
+<p><img src="diagnostics_files/figure-html/ppc-1.png" class="r-plt" alt="The empirical distribution function of the probability integral transforms of the 97 estimates less the uniform one, a stepped line that stays inside a gray band." width="700"></p>
+<p>The line is the empirical distribution function of the 97 PIT values
+minus the distribution function of the uniform distribution. The band is
+where that difference would lie with probability 95% at each point if
+the values were independent draws from the uniform distribution, as they
+would be with <span class="math inline">\(g\)</span> known. However, the
+PIT values of a fitted model all depend on the same estimate of <span class="math inline">\(g\)</span>, and the band makes no allowance for
+that. It is a reference, and 95% is not the probability that the line of
+a fitted model lies inside it at a given point. The line for the firms
+stays inside the band.</p>
+<p>The model was fitted to the same estimates that it is checked
+against, which makes the check lenient. With <code>loo = TRUE</code>,
+the PIT of each site is computed from the posterior distribution without
+that site (the LOO-PIT), by Pareto smoothed importance sampling <span class="citation">(<a href="#ref-vehtari2017">Vehtari et al.
+2017</a>)</span>. This needs the loo package.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_ppc.html">plot_ppc</a></span><span class="op">(</span><span class="va">fit</span>, loo <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p><img src="diagnostics_files/figure-html/ppc-loo-1.png" class="r-plt" alt="The same plot with each probability integral transform computed without its own site. The stepped line dips just below the gray band at one point near 0.9." width="700"></p>
+<p>The line now drops below the band at one of the 201 points at which
+it is plotted, near 0.9, by the weight of a single estimate, 1/97.
+Leaving out a site’s estimate keeps it from being used in its own check,
+but any two of the PIT values still rest on nearly the same estimates,
+so they are not independent. The band remains a pointwise reference, and
+a departure at one of many plotted points is weak evidence against the
+model. A departure over a long stretch would be a reason to examine the
+likelihood, the standard errors and the grid more closely.</p>
+<p>The importance sampling has a diagnostic of its own, the Pareto k of
+each site. <code><a href="../reference/plot_loo.html">plot_loo()</a></code> plots the Pareto k values against the
+threshold above which the result for a site should not be trusted. A
+site above the threshold would change the posterior distribution
+substantially if it were removed. No firm is near it: the largest Pareto
+k of the 97 is below 0.5.</p>
+<p>A check like this can detect that the estimates are not what a normal
+likelihood with the given standard errors and some <span class="math inline">\(g\)</span> on this grid would produce. The cause
+may be standard errors that are too small, a grid that is too narrow, or
+too few spline functions. Passing the check is not evidence that the
+shape of <span class="math inline">\(g\)</span> is right. Distributions
+of effects that differ in shape give nearly the same distribution of
+noisy estimates, so a model can pass with a wrong <span class="math inline">\(g\)</span>.</p>
+</div>
+<div class="section level2">
+<h2 id="thinned-fits">Thinned fits<a class="anchor" aria-label="anchor" href="#thinned-fits"></a>
+</h2>
+<p>When <code>thin</code> is set, <code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> stores
+only part of the draws. The example fits in the package were made with
+<code>thin = 15</code>, which stores 1 iteration in 15, or 800 of the
+12,000 draws, so that the package stays small. The sampler diagnostics
+in <code><a href="../reference/diagnose.html">diagnose()</a></code> and <code><a href="../reference/plot_diagnostics.html">plot_diagnostics()</a></code> are still
+computed from the whole run, because it is the whole run that shows
+whether the chains converged. The summaries of the fit and the grid
+diagnostics are computed from the stored draws. How precise they are is
+a separate question, which we can answer from the stored draws
+themselves with the posterior package. We do this for three
+quantities.</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">kept</span> <span class="op">&lt;-</span> <span class="fu">posterior</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/posterior/reference/subset_draws.html" class="external-link">subset_draws</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">draws</span>,</span>
+<span>                                variable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"lambda"</span>, <span class="st">"mean_g"</span>, <span class="st">"sd_g"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">posterior</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/posterior/reference/draws_summary.html" class="external-link">summarize_draws</a></span><span class="op">(</span><span class="va">kept</span>, <span class="st">"mean"</span>, <span class="st">"sd"</span>, <span class="st">"mcse_mean"</span>, <span class="st">"ess_bulk"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 5</span></span></span>
+<span><span class="co">#&gt;   variable   mean      sd mcse_mean ess_bulk</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> lambda   0.053<span style="text-decoration: underline;">0</span> 0.046<span style="text-decoration: underline;">9</span>  0.001<span style="text-decoration: underline;">76</span>       713.</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> mean_g   0.016<span style="text-decoration: underline;">6</span> 0.002<span style="text-decoration: underline;">33</span> 0.000<span style="text-decoration: underline;">081</span>4     846.</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> sd_g     0.017<span style="text-decoration: underline;">2</span> 0.003<span style="text-decoration: underline;">63</span> 0.000<span style="text-decoration: underline;">130</span>      737.</span></span></code></pre></div>
+<p>The draws that thinning discards were correlated with their
+neighbors, so the 800 that remain are nearly independent. For the
+standard deviation of <span class="math inline">\(g\)</span> they have a
+bulk ESS of 737, compared with 5,430 for the 12,000 draws of the whole
+run, and the Monte Carlo standard error of its posterior mean is 3.6% of
+the posterior standard deviation. A fit of your own stores every draw
+unless you set <code>thin</code>, and then the sampler diagnostics and
+the summaries describe the same draws.</p>
+</div>
+<div class="section level2">
+<h2 id="looking-at-the-chains">Looking at the chains<a class="anchor" aria-label="anchor" href="#looking-at-the-chains"></a>
+</h2>
+<p>When a diagnostic is poor, plots of the chains can show where the
+problem is. <code><a href="../reference/plot_mcmc.html">plot_mcmc()</a></code> makes several bayesplot plots
+directly from a fit. We start with a trace plot, in which each chain is
+a line over the iterations. Chains that have converged cover the same
+range, and none of them drifts.</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_mcmc.html">plot_mcmc</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"trace"</span>, pars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"lambda"</span>, <span class="st">"sd_g"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><img src="diagnostics_files/figure-html/trace-1.png" class="r-plt" alt="Trace plots of lambda and of the standard deviation of the distribution of effects for the callback fit: four chains of 200 kept draws each, overlapping." width="700"></p>
+<p>Each line has 200 points, the stored draws of one chain.</p>
+<p>The plot that goes with E-BFMI is the bayesplot energy plot, which
+compares the spread of the energy over the iterations with the size of
+its changes from one iteration to the next. It needs neighboring
+iterations, so <code><a href="../reference/plot_mcmc.html">plot_mcmc()</a></code> throws an error for a thinned
+fit such as the example fits. Among them, the fit of the 19 studies has
+the lowest E-BFMI, 0.31, just above the threshold, so these are the data
+to look at. The code below fits them without thinning and plots the
+energy. It is shown but not run here, because it calls the sampler.</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">studies</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span><span class="va">raudenbush1985</span>, seed <span class="op">=</span> <span class="fl">1985</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/plot_mcmc.html">plot_mcmc</a></span><span class="op">(</span><span class="va">studies</span>, type <span class="op">=</span> <span class="st">"energy"</span><span class="op">)</span></span></code></pre></div>
+<p>For other bayesplot plots, a fit has methods for
+<code>nuts_params()</code>, <code>log_posterior()</code>,
+<code>rhat()</code> and <code>neff_ratio()</code>, which return what the
+plot functions take as input. The last two return the values of the
+whole run. For example:</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">bayesplot</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/bayesplot/reference/MCMC-diagnostics.html" class="external-link">mcmc_rhat</a></span><span class="op">(</span><span class="fu">bayesplot</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/bayesplot/reference/bayesplot-extractors.html" class="external-link">rhat</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">bayesplot</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/bayesplot/reference/MCMC-diagnostics.html" class="external-link">mcmc_neff</a></span><span class="op">(</span><span class="fu">bayesplot</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/bayesplot/reference/bayesplot-extractors.html" class="external-link">neff_ratio</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">bayesplot</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/bayesplot/reference/MCMC-nuts.html" class="external-link">mcmc_nuts_divergence</a></span><span class="op">(</span><span class="fu">bayesplot</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/bayesplot/reference/bayesplot-extractors.html" class="external-link">nuts_params</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>,</span>
+<span>                                <span class="fu">bayesplot</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/bayesplot/reference/bayesplot-extractors.html" class="external-link">log_posterior</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="responding-to-a-warning">Responding to a warning<a class="anchor" aria-label="anchor" href="#responding-to-a-warning"></a>
+</h2>
+<p>The remedies for the sampler are arguments of
+<code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code>. The calls below show three of them.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="va">krw_discrimination</span>, site <span class="op">=</span> <span class="st">"firm_name"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Divergent transitions: smaller steps.</span></span>
-<span><span class="fu"><a href="../reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span><span class="va">theta_hat</span>, <span class="va">sigma</span>, adapt_delta <span class="op">=</span> <span class="fl">0.99</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span><span class="va">dat</span>, adapt_delta <span class="op">=</span> <span class="fl">0.99</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Iterations that reach the maximum tree depth: allow longer paths.</span></span>
-<span><span class="fu"><a href="../reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span><span class="va">theta_hat</span>, <span class="va">sigma</span>, max_treedepth <span class="op">=</span> <span class="fl">12</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span><span class="va">dat</span>, max_treedepth <span class="op">=</span> <span class="fl">12</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Small effective sample sizes, or R-hat between 1.01 and 1.05: run longer.</span></span>
-<span><span class="fu"><a href="../reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span><span class="va">theta_hat</span>, <span class="va">sigma</span>, iter_warmup <span class="op">=</span> <span class="fl">2000</span>, iter_sampling <span class="op">=</span> <span class="fl">6000</span><span class="op">)</span></span></code></pre></div>
-<p>These remedies address the sampler. The grid can be a cause as well.
-When a large share of the iterations reaches the maximum tree depth, the
-grid may be wider than it needs to be. For the simulated data of
-<code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code> a narrower grid (a smaller
-<code>expansion</code>) removed those iterations without changing the
-results, and for the fits with 1,500 sites in
-<code><a href="../articles/implementation.html">vignette("implementation")</a></code> it brought R-hat below 1.05.</p>
-<p>When R-hat is well above 1.05, the specification of the model
-deserves a look. The simulated data with two separate groups of effects
-give an example. The table shows three fits of those data: with four
-spline functions and the default length of run, with four spline
-functions and a run four times as long, and with six spline
-functions.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">stored</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"examples"</span>, <span class="st">"grid_comparison_example.rds"</span>,</span>
+<span><span class="fu"><a href="../reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span><span class="va">dat</span>, iter_warmup <span class="op">=</span> <span class="fl">2000</span>, iter_sampling <span class="op">=</span> <span class="fl">6000</span><span class="op">)</span></span></code></pre></div>
+<p>Before you change the sampler settings, though, ask whether the grid
+is the cause. Two sets of results in the package suggest why.</p>
+<p>First, the range can be too narrow.
+<code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code> compares three ranges for the
+19 studies of <code>raudenbush1985</code>, fitted with the same seed and
+the same sampler settings. We print that comparison with the narrowest
+range first.</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">ranges</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"examples"</span>, <span class="st">"raudenbush_ranges.rds"</span>,</span>
 <span>                              package <span class="op">=</span> <span class="st">"bayesEfron"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">runs</span> <span class="op">&lt;-</span> <span class="va">stored</span><span class="op">$</span><span class="va">two_groups_runs</span></span>
-<span><span class="va">shown</span> <span class="op">&lt;-</span> <span class="va">runs</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"M"</span>, <span class="st">"iter_sampling"</span>, <span class="st">"draws"</span>, <span class="st">"max_rhat"</span>, <span class="st">"min_ess_bulk"</span>,</span>
-<span>                  <span class="st">"treedepth_hits"</span>, <span class="st">"coverage"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="va">shown</span><span class="op">$</span><span class="va">max_rhat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">shown</span><span class="op">$</span><span class="va">max_rhat</span>, <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">shown</span><span class="op">$</span><span class="va">min_ess_bulk</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">shown</span><span class="op">$</span><span class="va">min_ess_bulk</span><span class="op">)</span></span>
-<span><span class="va">shown</span></span>
-<span><span class="co">#&gt;   M iter_sampling draws max_rhat min_ess_bulk treedepth_hits coverage</span></span>
-<span><span class="co">#&gt; 1 4          3000 12000     1.09           30           4960    0.925</span></span>
-<span><span class="co">#&gt; 2 4         12000 48000     1.04          121          18388    0.920</span></span>
-<span><span class="co">#&gt; 3 6          3000 12000     1.01          731           2182    0.925</span></span></code></pre></div>
-<p>With four spline functions the default run does not converge: R-hat
-is 1.09 and the smallest effective sample size is 30 out of 12,000
-draws. The run four times as long brings R-hat down to 1.04, but its
-smallest effective sample size is still only 121 out of 48,000 draws,
-and 18,388 of its iterations reached the maximum tree depth. The chains
-move very slowly, and more iterations buy little. With six spline
-functions the default run converges. Why four functions make the sampler
-struggle with these data is not established here; the practical point is
-that the remedy was a different specification and not a longer run.</p>
-<p>The last column is the share of the true effects that lie inside the
-90% intervals, which can be computed here because the data are
-simulated. It is nearly the same in the three fits. The diagnostics,
-then, do not measure how wrong a fit is. They say whether there is
-evidence that the chains have sampled the posterior distribution, and
-for the first two fits the evidence is that they have not.</p>
-<p>Convergence also becomes harder as the number of sites grows. In the
-benchmark that <code><a href="../articles/implementation.html">vignette("implementation")</a></code> describes, which
-uses the default sampler settings, none of the 80 fits with up to 500
-sites had an R-hat above 1.05, whereas 3 of the 20 fits with 1,500 sites
-did.</p>
-</div>
-<div class="section level2">
-<h2 id="plots-of-a-fit">Plots of a fit<a class="anchor" aria-label="anchor" href="#plots-of-a-fit"></a>
-</h2>
-<p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> draws four plots, chosen with <code>type</code>.
-With ggplot2 installed it returns a <code>ggplot</code> object, which
-can be changed like any other; <code>backend = "base"</code> uses base
-graphics.</p>
-<p>The first two show what the fit estimates.
-<code>"caterpillar"</code>, the default, shows the posterior mean of
-each site effect with an interval of probability <code>level</code> and
-the central 50% interval. The sites are in the order of their posterior
-means unless <code>sort_by</code> says otherwise: <code>"sigma"</code>
-orders them by standard error, which shows how the intervals widen as
-the estimates become less precise, and <code>"none"</code> keeps the
-order of the data.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"caterpillar"</span>, sort_by <span class="op">=</span> <span class="st">"sigma"</span>, level <span class="op">=</span> <span class="fl">0.95</span><span class="op">)</span></span></code></pre></div>
-<p><img src="diagnostics_files/figure-html/caterpillar-1.png" class="r-plt" alt="Site effects ordered by standard error, with 95 percent intervals." width="700"></p>
-<p><code>"g"</code> shows the estimated distribution of effects, that
-is, the posterior mean of the probability of each grid point, with a
-pointwise band.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"g"</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="cn">NULL</span>, x <span class="op">=</span> <span class="st">"Standardized mean difference"</span>,</span>
-<span>                y <span class="op">=</span> <span class="st">"Probability of the grid point"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="diagnostics_files/figure-html/g-plot-1.png" class="r-plt" alt="The estimated distribution of effects with a relabeled axis." width="700"></p>
-<p>The other two show diagnostics. <code>"diagnostic"</code> draws the
-largest R-hat, the smallest bulk and tail effective sample sizes and the
-numbers of divergent transitions and of iterations at the maximum tree
-depth, the values that <code><a href="../reference/diagnose.html">diagnose()</a></code> prints. E-BFMI is not
-drawn.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"diagnostic"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="diagnostics_files/figure-html/diagnostic-plot-1.png" class="r-plt" alt="The worst value of each convergence diagnostic." width="700"></p>
-<p><code>"loo"</code> shows the Pareto k value of each site from
-leave-one-out cross-validation, with reference lines at 0.5 and 0.7. A
-large value means that leaving the site out would change the posterior
-distribution a good deal, so that the approximation is poor for that
-site. Here the values are all small.
-<code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code> says more about this
-criterion.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"loo"</span>, backend <span class="op">=</span> <span class="st">"base"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="diagnostics_files/figure-html/loo-plot-1.png" class="r-plt" alt="Pareto k values by site." width="700"></p>
+<span><span class="va">ranges</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">ranges</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">ranges</span><span class="op">$</span><span class="va">expansion</span><span class="op">)</span>, <span class="op">]</span></span>
+<span><span class="va">ranges</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"expansion"</span>, <span class="st">"lower"</span>, <span class="st">"upper"</span>, <span class="st">"divergences"</span>, <span class="st">"max_rhat"</span>,</span>
+<span>           <span class="st">"end_mass"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;   expansion  lower upper divergences max_rhat     end_mass</span></span>
+<span><span class="co">#&gt; 2      0.25 -0.695 1.555          18 1.011240 5.621880e-02</span></span>
+<span><span class="co">#&gt; 1      0.50 -1.070 1.930           0 1.003404 1.347800e-02</span></span>
+<span><span class="co">#&gt; 3      1.00 -1.820 2.680           0 1.002558 2.664855e-05</span></span></code></pre></div>
+<p>On the narrowest range the run has 18 divergent transitions, an R-hat
+above 1.01, and a study with 5.6% of its posterior probability in the
+outer 2% of the range (<code>end_mass</code>). On the two wider ranges
+there are no divergent transitions. We have not checked whether a
+smaller step size (a higher <code>adapt_delta</code>) would also remove
+them on the narrowest range. But the mass at the end of the grid points
+to a cause that no sampler setting changes: the range stops where the
+data still put an effect. The remedy is a wider range.</p>
+<p>Second, the range can be wider than the data need.
+<code><a href="../articles/twin-towers.html">vignette("twin-towers")</a></code> fits the same 1,500 simulated sites
+on several grids, and we print three of those fits.</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">towers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"examples"</span>, <span class="st">"twin_towers_comparison.rds"</span>,</span>
+<span>                              package <span class="op">=</span> <span class="st">"bayesEfron"</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">table</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span>, <span class="op">]</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">towers</span><span class="op">$</span><span class="va">lower</span>, <span class="fl">1</span><span class="op">)</span>, upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">towers</span><span class="op">$</span><span class="va">upper</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>           M <span class="op">=</span> <span class="va">towers</span><span class="op">$</span><span class="va">M</span>, at_max_treedepth <span class="op">=</span> <span class="va">towers</span><span class="op">$</span><span class="va">treedepth_hits</span>,</span>
+<span>           min_ess_bulk <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">towers</span><span class="op">$</span><span class="va">min_ess_bulk</span><span class="op">)</span>,</span>
+<span>           seconds <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">towers</span><span class="op">$</span><span class="va">sampling_seconds</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   lower upper M at_max_treedepth min_ess_bulk seconds</span></span>
+<span><span class="co">#&gt; 1 -10.7  11.6 6             5323         1446     107</span></span>
+<span><span class="co">#&gt; 2  -3.0   3.7 6              128         1184      42</span></span>
+<span><span class="co">#&gt; 3  -3.0   3.7 8                0         1287      12</span></span></code></pre></div>
+<p>The first row is the wide range that follows from the estimates alone
+(<code>grid_method = "paper_realdata"</code>), which is more than 3
+times as wide as the range that the default method chooses. On the wide
+range 44% of the iterations reach the maximum tree depth, and sampling
+takes 107 seconds. On the default range, in the second row, the
+proportion is 1.1% and the time is 42 seconds. In the third row, with 8
+spline functions instead of 6, no iteration reaches the maximum tree
+depth. All three runs pass the R-hat check, so in this data set the wide
+range costs time and, as <code><a href="../articles/twin-towers.html">vignette("twin-towers")</a></code> shows, a
+less accurate estimate of <span class="math inline">\(g\)</span>, but
+not convergence.</p>
+<p>Across simulated data sets, a wide range can also cost convergence.
+<code><a href="../articles/implementation.html">vignette("implementation")</a></code> tabulates fits of 20 simulated
+data sets of 1,500 sites. With the defaults, none of the fits has an
+R-hat above 1.01. With the settings of version 0.3.0 of the package
+(<code>settings = "0.3.0"</code>), which use the wide range and that
+version’s Stan program, 15 of the 20 fits have an R-hat above 1.01, and
+2 have one above 1.05. Both the range and the Stan program differ from
+the defaults, so this comparison cannot tell us which of the two is
+responsible.</p>
+<p>The same fits show what the diagnostics measure. The coverage of the
+90% intervals (the proportion of the true effects inside them) is 0.900
+under both settings. So the diagnostics do not measure how wrong a fit
+is. They tell us whether there is evidence that the chains have sampled
+the posterior distribution, and for most of the fits made with
+<code>settings = "0.3.0"</code> that evidence is missing. Ease of
+sampling is also not a reason to prefer a specification: with 8 spline
+functions the coverage is 0.893, more than 2 standard errors below
+0.90.</p>
+<p>These results come from two data sets and one simulation design. That
+is too little for a rule, but it suggests which questions to ask
+first:</p>
+<ul>
+<li>If there is a warning about an end of the grid, widen the range
+before anything else.</li>
+<li>If many iterations reach the maximum tree depth, or the effective
+sample sizes are small, first check whether the range is far wider than
+the estimates need. If it is not, increase <code>max_treedepth</code> or
+run longer.</li>
+<li>A fit with more spline functions may sample more easily. If you
+switch to one, compare the results of the two fits as well as their
+diagnostics.</li>
+<li>If there are divergent transitions and no warning about the grid,
+raise <code>adapt_delta</code>. See
+<code><a href="../articles/teacher-expectancy.html">vignette("teacher-expectancy")</a></code> for what that did for data
+sets of 19 studies.</li>
+<li>If an R-hat is above 1.05, do not use the draws.</li>
+</ul>
 </div>
 <div class="section level2 unnumbered">
 <h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -308,6 +591,12 @@ Hoffman, Matthew D., and Andrew Gelman. 2014. <span>“The
 <span>No-U-Turn</span> Sampler: Adaptively Setting Path Lengths in
 <span>H</span>amiltonian <span>M</span>onte <span>C</span>arlo.”</span>
 <em>Journal of Machine Learning Research</em> 15 (47): 1593–623. <a href="https://jmlr.org/papers/v15/hoffman14a.html" class="external-link">https://jmlr.org/papers/v15/hoffman14a.html</a>.
+</div>
+<div id="ref-vehtari2017" class="csl-entry">
+Vehtari, Aki, Andrew Gelman, and Jonah Gabry. 2017. <span>“Practical
+<span>B</span>ayesian Model Evaluation Using Leave-One-Out
+Cross-Validation and <span>WAIC</span>.”</span> <em>Statistics and
+Computing</em> 27 (5): 1413–32. <a href="https://doi.org/10.1007/s11222-016-9696-4" class="external-link">https://doi.org/10.1007/s11222-016-9696-4</a>.
 </div>
 <div id="ref-vehtari2021" class="csl-entry">
 Vehtari, Aki, Andrew Gelman, Daniel Simpson, Bob Carpenter, and

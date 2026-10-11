@@ -1,13 +1,11 @@
-# Predict the effect or the estimate at a new site
+# Posterior predictive distribution for a new site
 
-[`predict()`](https://rdrr.io/r/stats/predict.html) draws from the
-predictive distribution for a site that was not in the data. With
-`type = "theta"` it draws the true effect of the new site from \\g\\,
-using a different posterior draw of \\g\\ each time, so that the draws
-describe the distribution of effects with the uncertainty about \\g\\
-included. With `type = "theta_hat"` it adds sampling error with the
-standard error given in `newdata`, and so draws the estimate that a new
-study of that precision would give.
+Draws from the posterior predictive distribution for a site that was not
+in the data: either its true effect, or the estimate that a new study
+with a given standard error would produce. For a new site whose estimate
+is already known, [`predict()`](https://rdrr.io/r/stats/predict.html)
+instead returns the mean, standard deviation, interval and mode of the
+posterior distribution of its effect.
 
 ## Usage
 
@@ -20,7 +18,8 @@ predict(
   type = c("theta", "theta_hat"),
   n = NULL,
   jitter = FALSE,
-  seed = NULL
+  seed = NULL,
+  level = 0.9
 )
 ```
 
@@ -28,13 +27,16 @@ predict(
 
 - object:
 
-  A `bef_fit_re` object from
+  A `bef_fit` object created by
   [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md).
 
 - newdata:
 
-  Numeric vector of positive standard errors, one for each new site. It
-  is needed for `type = "theta_hat"` and not used otherwise.
+  For `type = "theta_hat"`, a numeric vector of positive standard
+  errors, one per new site. It is required for that type and not used
+  for `type = "theta"`. Can also be a data frame with the columns
+  `estimate` and `se`, for new sites whose estimates are known; see
+  Details.
 
 - ...:
 
@@ -42,59 +44,137 @@ predict(
 
 - type:
 
-  Character string: `"theta"` (the default) for the true effect of a new
-  site, or `"theta_hat"` for its estimate.
+  Quantity to draw for a new site: `"theta"` (the default) for its true
+  effect, or `"theta_hat"` for its estimate.
 
 - n:
 
-  Whole number, the number of draws. `NULL` (the default) means the
-  number of posterior draws in the fit. If `n` is larger than that,
-  posterior draws of \\g\\ are used more than once.
+  Number of draws, a positive integer. If `NULL` (the default), the
+  number of posterior draws in the fit is used. If `n` is larger than
+  that, posterior draws of \\g\\ are used more than once.
 
 - jitter:
 
-  Logical. If `TRUE`, the draws are spread between the grid points, as
-  described in Details. Defaults to `FALSE`.
+  If `TRUE`, the draws from a fit with point masses are spread between
+  the grid points; see Details.
 
 - seed:
 
-  Whole number, a seed for the draws, or `NULL` (the default). When a
-  seed is given, R's random number generator is left afterward in the
-  state in which it was found.
+  Integer seed for the draws. If `NULL` (the default), no seed is set.
+  If a seed is specified, the state of R's random number generator is
+  restored afterward.
+
+- level:
+
+  Posterior probability of the interval in the columns `lower` and
+  `upper`, a number between 0 and 1. Only used if `newdata` is a data
+  frame.
 
 ## Value
 
-A numeric vector of `n` draws. For `type = "theta_hat"` with more than
-one standard error in `newdata`, a matrix with `n` rows and one column
-for each standard error.
+For `type = "theta"`, and for `type = "theta_hat"` with one standard
+error in `newdata`, a numeric vector of `n` draws. For
+`type = "theta_hat"` with more than one standard error, a matrix with
+`n` rows and one column per standard error.
+
+If `newdata` is a data frame, a data frame with one row per row of
+`newdata` and the following columns.
+
+- `estimate`, `se`:
+
+  The estimate and its standard error, as given.
+
+- `mean`, `sd`:
+
+  The posterior mean and the posterior standard deviation of the effect.
+
+- `lower`, `upper`:
+
+  The limits of the posterior interval at `level`.
+
+- `mode`:
+
+  The posterior mode.
 
 ## Details
 
-\\g\\ is a distribution on the grid, so a draw of the effect is one of
-the grid points. With `jitter = TRUE` a uniform random number of up to
-half the grid spacing is added or subtracted, which spreads the draws
-over the intervals between the grid points.
+[`predict()`](https://rdrr.io/r/stats/predict.html) has three uses,
+which are selected by `type` and `newdata`.
+
+- `type = "theta"` (the default) draws the true effect of a new site
+  from \\g\\. Each draw uses a different posterior draw of \\g\\, so the
+  draws describe the distribution of effects and include the uncertainty
+  about \\g\\.
+
+- `type = "theta_hat"` draws the estimate that a new study would
+  produce: sampling error with the standard error given in `newdata` is
+  added to a draw of the effect. If `newdata` contains several standard
+  errors, the result has one column per new site. Each row then uses one
+  posterior draw of \\g\\ for all sites and draws a separate effect and
+  sampling error for each site, so the sites in a row are independent
+  given that draw.
+
+- If `newdata` is a data frame with the columns `estimate` and `se`, the
+  estimates of the new sites are known. Nothing is drawn, and for each
+  row [`predict()`](https://rdrr.io/r/stats/predict.html) returns the
+  posterior mean, the posterior standard deviation, the interval at
+  `level` and the posterior mode of the effect. `type`, `n`, `jitter`
+  and `seed` are not used.
+
+For a fit with point masses, \\g\\ is a distribution on the grid, so
+each draw of an effect is one of the grid points. If `jitter = TRUE`, a
+uniform random number between minus and plus half the grid spacing is
+added to the draw, which spreads the draws over the intervals between
+the grid points. For a fit with `component = "normal"`, a draw comes
+from the normal component at the grid point that was drawn, and `jitter`
+is not used.
+
+A new site with a known estimate was not in the data, so before its
+estimate is observed the distribution of its effect is the posterior
+mean of \\g\\. Bayes' rule with the estimate then gives the posterior
+distribution that [`predict()`](https://rdrr.io/r/stats/predict.html)
+summarizes. The summaries are those that the site would have in a fit of
+the data with that site added, on the same grid, up to Monte Carlo
+error. They differ from the summaries that
+[`site_summary()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+gives for a site in the fit with the same estimate and standard error,
+because that site's estimate was already used to estimate \\g\\. The
+difference is small when there are many sites and is largest for an
+estimate in a tail of the distribution. Each row of `newdata` is treated
+as the only new site, so the other rows do not affect its result. For a
+fit with point masses, the interval limits are computed as in
+[`site_summary()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+with its default `reading`.
 
 ## See also
 
+[`site_summary()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md),
 [bef_fit](https://joonho112.github.io/bayesEfron/reference/bef_fit.md),
 [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
 
 ## Examples
 
 ``` r
-# The effect in a new study.
-theta_new <- predict(raudenbush_fit, seed = 1)
+# The callback gap of a firm that was not in the data.
+theta_new <- predict(krw_fit, seed = 1)
 quantile(theta_new, c(0.05, 0.5, 0.95))
-#>    5%   50%   95% 
-#> -0.23  0.07  0.73 
+#>           5%          50%          95% 
+#> -0.008055305  0.013672701  0.045057598 
 mean(theta_new > 0)
-#> [1] 0.67625
+#> [1] 0.85625
 
-# The estimate that a new study with standard error 0.15 would give.
-estimate_new <- predict(raudenbush_fit, newdata = 0.15, type = "theta_hat",
+# An estimate with a standard error of 1 percentage point.
+estimate_new <- predict(krw_fit, newdata = 0.01, type = "theta_hat",
                         seed = 1)
 quantile(estimate_new, c(0.05, 0.5, 0.95))
 #>          5%         50%         95% 
-#> -0.33594410  0.07391744  0.76314394 
+#> -0.01264502  0.01529825  0.04897299 
+
+# Two new firms whose estimates are known: gaps of 0 and of 5 percentage
+# points, with standard errors of 1 and 2 points.
+predict(krw_fit, newdata = data.frame(estimate = c(0, 0.05),
+                                      se = c(0.01, 0.02)))
+#>   estimate   se        mean          sd        lower      upper        mode
+#> 1     0.00 0.01 0.005452166 0.007714249 -0.007174759 0.01826861 0.006430032
+#> 2     0.05 0.02 0.028766853 0.014235719  0.007674624 0.05445411 0.025743815
 ```

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Fully Bayesian Inference for the Empirical-Bayes Deconvolution Problem • bayesEfron</title>
+<title>Fully Bayesian Deconvolution with Efron's Log-Spline Prior • bayesEfron</title>
 <!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
@@ -21,9 +21,9 @@
 <link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Fully Bayesian Inference for the Empirical-Bayes Deconvolution Problem">
-<meta name="description" content="Estimates the distribution of true effects from a set of estimates with known standard errors, as in a meta-analysis or a multisite trial, using the fully Bayesian version of Efrons log-spline prior described in Lee and Sui (2025) &lt;doi:10.3390/math13162639&gt;. The fit returns posterior draws and summaries for each effect and for the effect distribution, with sampler diagnostics, plots, and model comparison by approximate leave-one-out cross-validation. The model is written in Stan and is fitted with CmdStan through the cmdstanr' package.">
-<meta property="og:description" content="Estimates the distribution of true effects from a set of estimates with known standard errors, as in a meta-analysis or a multisite trial, using the fully Bayesian version of Efrons log-spline prior described in Lee and Sui (2025) &lt;doi:10.3390/math13162639&gt;. The fit returns posterior draws and summaries for each effect and for the effect distribution, with sampler diagnostics, plots, and model comparison by approximate leave-one-out cross-validation. The model is written in Stan and is fitted with CmdStan through the cmdstanr' package.">
+<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Fully Bayesian Deconvolution with Efron's Log-Spline Prior">
+<meta name="description" content="Estimates the distribution of true effects from a set of estimates with known standard errors, as in a meta-analysis or a multisite trial, using the fully Bayesian version of Efrons log-spline prior described in Lee and Sui (2025) &lt;doi:10.3390/math13162639&gt;. The fit returns posterior draws of the distribution of effects, from which the summaries of each effect are computed. The package also provides sampler and grid diagnostics, plots made with ggplot2, and model comparison by approximate leave-one-out cross-validation. The estimated distribution can be passed to the ebnm package for comparison with empirical Bayes estimates. The model is written in Stan and is fitted with CmdStan through the cmdstanr' package.">
+<meta property="og:description" content="Estimates the distribution of true effects from a set of estimates with known standard errors, as in a meta-analysis or a multisite trial, using the fully Bayesian version of Efrons log-spline prior described in Lee and Sui (2025) &lt;doi:10.3390/math13162639&gt;. The fit returns posterior draws of the distribution of effects, from which the summaries of each effect are computed. The package also provides sampler and grid diagnostics, plots made with ggplot2, and model comparison by approximate leave-one-out cross-validation. The estimated distribution can be passed to the ebnm package for comparison with empirical Bayes estimates. The model is written in Stan and is fitted with CmdStan through the cmdstanr' package.">
 <meta property="og:image" content="https://joonho112.github.io/bayesEfron/reference/figures/logo.png">
 <meta property="og:image:alt" content="bayesEfron hex sticker">
 </head>
@@ -35,7 +35,7 @@
 
     <a class="navbar-brand me-2" href="index.html">bayesEfron</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,11 +49,16 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="articles/data-input.html">Using metafor and data frames as input</a></li>
-    <li><a class="dropdown-item" href="articles/choosing-a-grid.html">Choosing the grid and comparing models</a></li>
-    <li><a class="dropdown-item" href="articles/diagnostics.html">Checking convergence and plotting</a></li>
-    <li><a class="dropdown-item" href="articles/model.html">The model</a></li>
-    <li><a class="dropdown-item" href="articles/implementation.html">Implementation and checks</a></li>
+<li><a class="dropdown-item" href="articles/twin-towers.html">Twin Towers: recovering a distribution hidden by noise</a></li>
+    <li><a class="dropdown-item" href="articles/teacher-expectancy.html">Nineteen studies of teacher expectancy</a></li>
+    <li><a class="dropdown-item" href="articles/class-size.html">Small classes in 79 schools</a></li>
+    <li><a class="dropdown-item" href="articles/empirical-bayes.html">bayesEfron and empirical Bayes methods compared</a></li>
+    <li><a class="dropdown-item" href="articles/data-input.html">Estimates, standard errors and site labels</a></li>
+    <li><a class="dropdown-item" href="articles/plots.html">Plots of a fitted model</a></li>
+    <li><a class="dropdown-item" href="articles/choosing-a-grid.html">Choosing the grid and checking sensitivity to it</a></li>
+    <li><a class="dropdown-item" href="articles/diagnostics.html">Checking a fit</a></li>
+    <li><a class="dropdown-item" href="articles/model.html">The model and the posterior distribution of a site effect</a></li>
+    <li><a class="dropdown-item" href="articles/implementation.html">Reproducibility and interval coverage</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
@@ -81,44 +86,96 @@
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>The package is installed from GitHub.</p>
+<p>You can install bayesEfron from GitHub with:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
 <span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"joonho112/bayesEfron"</span><span class="op">)</span></span></code></pre></div>
-<p>The vignettes are on the <a href="https://joonho112.github.io/bayesEfron/">package website</a>. To install them with the package, install knitr and rmarkdown, make sure that Pandoc is available (RStudio includes it), and add <code>build_vignettes = TRUE</code> to the call above.</p>
-<p>Fitting a model also needs the cmdstanr package and CmdStan, neither of which is on CRAN.</p>
+<p>The vignettes are on the <a href="https://joonho112.github.io/bayesEfron/">package website</a>. To install them with the package, you need knitr, rmarkdown and Pandoc (RStudio includes Pandoc). Then add <code>build_vignettes = TRUE</code> to the call above.</p>
+<p>Fitting a model also requires the cmdstanr package and CmdStan, neither of which is on CRAN:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"cmdstanr"</span>,</span>
 <span>                 repos <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"https://stan-dev.r-universe.dev"</span>, <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"repos"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu">cmdstanr</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/cmdstanr/reference/install_cmdstan.html" class="external-link">install_cmdstan</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<p>CmdStan is built from source and needs a C++ toolchain; <code><a href="https://mc-stan.org/cmdstanr/reference/install_cmdstan.html" class="external-link">cmdstanr::check_cmdstan_toolchain()</a></code> says whether one is present, and the <a href="https://mc-stan.org/cmdstanr/articles/cmdstanr.html" class="external-link">cmdstanr documentation</a> describes the setup for each operating system. The examples and vignettes of bayesEfron run without CmdStan.</p>
+<p>CmdStan is built from source and needs a C++ toolchain. Use <code><a href="https://mc-stan.org/cmdstanr/reference/install_cmdstan.html" class="external-link">cmdstanr::check_cmdstan_toolchain()</a></code> to check whether you have one. The cmdstanr <a href="https://mc-stan.org/cmdstanr/articles/cmdstanr.html" class="external-link">Getting started article</a> describes the installation and points to the requirements for each operating system. The bayesEfron examples and vignettes run without CmdStan.</p>
 </div>
 <div class="section level2">
 <h2 id="example">Example<a class="anchor" aria-label="anchor" href="#example"></a>
 </h2>
-<p><code>raudenbush1985</code> holds the results of 19 experiments on the effect of teachers’ expectations on their pupils’ IQ scores.</p>
+<p>The data set <code>krw_discrimination</code> contains estimates for 97 large U.S. firms from the correspondence experiment of <a href="https://doi.org/10.1093/qje/qjac024" class="external-link">Kline, Rose and Walters (2022)</a>. For each firm, <code>yi</code> is the difference between the callback rates of job applications with distinctively white and distinctively Black names, and <code>sei</code> is its standard error, clustered by job vacancy. A positive gap favors applications with white names, and 0.02 is a gap of 2 percentage points. The sample follows the authors’ <a href="https://doi.org/10.1257/aer.20230700" class="external-link">2024 analysis</a>, and the estimates come from the public replication code that accompanies <a href="https://doi.org/10.1016/bs.heslab.2024.11.001" class="external-link">Walters (2024)</a>. <a href="https://doi.org/10.3390/math13162639" class="external-link">Lee and Sui (2025)</a> analyze these data with this model.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/joonho112/bayesEfron" class="external-link">bayesEfron</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span></span>
-<span>  theta_hat <span class="op">=</span> <span class="va">raudenbush1985</span><span class="op">$</span><span class="va">yi</span>,   <span class="co"># the estimates</span></span>
-<span>  sigma <span class="op">=</span> <span class="va">raudenbush1985</span><span class="op">$</span><span class="va">sei</span>,      <span class="co"># their standard errors</span></span>
-<span>  seed <span class="op">=</span> <span class="fl">1985</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<p>The first call compiles the Stan model, which can take up to a minute. The result of this call is stored in the package as <code>raudenbush_fit</code>, so the lines below run without CmdStan.</p>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">krw_discrimination</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"firm_name"</span>, <span class="st">"yi"</span>, <span class="st">"sei"</span><span class="op">)</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="co">#&gt;           firm_name         yi        sei</span></span>
+<span><span class="co">#&gt; 1          Rite Aid 0.04695712 0.01619358</span></span>
+<span><span class="co">#&gt; 2               KFC 0.02200000 0.01530472</span></span>
+<span><span class="co">#&gt; 3 Victoria's Secret 0.04216161 0.02296031</span></span></code></pre></div>
+<p>We fit the model with <code><a href="reference/bayes_efron_fit.html">bayes_efron_fit()</a></code>. This call requires CmdStan, and the first call compiles the Stan program, which can take up to a minute.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="va">raudenbush_fit</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>               <span class="co"># the distribution of effects and each study's effect</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"g"</span><span class="op">)</span>   <span class="co"># mean and standard deviation of the distribution</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"g"</span><span class="op">)</span>      <span class="co"># the estimated distribution</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>                  <span class="co"># the effect of each study, with intervals</span></span>
-<span><span class="fu"><a href="reference/diagnose.html">diagnose</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>              <span class="co"># convergence diagnostics</span></span></code></pre></div>
-<p>With as few studies as these, the result for a study whose estimate is extreme and imprecise can depend on the width of the grid and on the number of spline functions. <code><a href="articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code> shows how far it does for study 4 of this example, and such a result should be compared over a few specifications before it is reported.</p>
+<code class="sourceCode R"><span><span class="va">dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="va">krw_discrimination</span>, site <span class="op">=</span> <span class="st">"firm_name"</span><span class="op">)</span></span>
+<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span><span class="va">dat</span>, seed <span class="op">=</span> <span class="fl">20250807</span><span class="op">)</span></span></code></pre></div>
+<p>The result of this call is included in the package as <code>krw_fit</code> (thinned to 800 draws), so the rest of the example runs without CmdStan.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="va">krw_fit</span></span>
+<span><span class="va">fit</span></span>
+<span><span class="co">#&gt; &lt;bayesEfron fit&gt;</span></span>
+<span><span class="co">#&gt; Model family: RE</span></span>
+<span><span class="co">#&gt; Sites: 97</span></span>
+<span><span class="co">#&gt; Grid method: pilot</span></span>
+<span><span class="co">#&gt; Runtime: 0.7197 sec</span></span>
+<span><span class="co">#&gt; Draws: 800 (4 chains, one iteration in 15 kept); site-level draws not kept</span></span>
+<span><span class="co">#&gt; Diagnostics: Rhat 1.002; ESS bulk 1731; ESS tail 1780; divergences 0; treedepth hits 0</span></span>
+<span><span class="co">#&gt; Standard errors: 0.005344 to 0.0392 (largest / smallest 7.335)</span></span>
+<span><span class="co">#&gt; Grid: 101 points from -0.0829 to 0.1585; smallest standard error 2.213 grid spacings</span></span>
+<span><span class="co">#&gt; Grid range: rule "pilot", not narrowed (the range of "paper_realdata"); point masses; 6 spline functions</span></span>
+<span><span class="co">#&gt; Next: summary() and site_summary() for the sites, g_summary() for the distribution of effects, plot().</span></span></code></pre></div>
+<p><code><a href="reference/g_summary.html">g_summary()</a></code> summarizes the distribution of the gaps across firms. Here we ask for its mean, variance and standard deviation on the percentage-point scale, and for the proportion of firms with a positive gap. Each row has a posterior mean and a 90% posterior interval.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/g_summary.html">g_summary</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"moments"</span>, scale <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   parameter     mean    lower    upper</span></span>
+<span><span class="co">#&gt; 1    mean_g 1.660178 1.308119 2.064913</span></span>
+<span><span class="co">#&gt; 2     var_g 3.076948 1.399332 5.738865</span></span>
+<span><span class="co">#&gt; 3      sd_g 1.716216 1.182933 2.395593</span></span>
+<span><span class="fu"><a href="reference/g_summary.html">g_summary</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"prob"</span>, lower <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   from  to      mean     lower     upper</span></span>
+<span><span class="co">#&gt; 1    0 Inf 0.8754888 0.8083673 0.9366439</span></span></code></pre></div>
+<p><code><a href="reference/site_summary.html">site_summary()</a></code> returns posterior summaries of the gap at each firm, and <code><a href="reference/site_summary.html">exceedance_prob()</a></code> the posterior probability that a gap is positive.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/site_summary.html">site_summary</a></span><span class="op">(</span><span class="va">fit</span>, scale <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">sites</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"label"</span>, <span class="st">"estimate"</span>, <span class="st">"se"</span>, <span class="st">"mean"</span>, <span class="st">"lower"</span>, <span class="st">"upper"</span><span class="op">)</span><span class="op">]</span>, <span class="fl">4</span><span class="op">)</span></span>
+<span><span class="co">#&gt;               label  estimate       se     mean      lower    upper</span></span>
+<span><span class="co">#&gt; 1          Rite Aid 4.6957123 1.619358 3.048175  1.0775168 5.349968</span></span>
+<span><span class="co">#&gt; 2               KFC 2.2000000 1.530472 1.786494  0.1227187 3.581179</span></span>
+<span><span class="co">#&gt; 3 Victoria's Secret 4.2161613 2.296031 2.334782  0.2864899 4.801767</span></span>
+<span><span class="co">#&gt; 4    United Rentals 0.5708306 1.504751 1.071991 -0.5107269 2.719213</span></span>
+<span><span class="fu"><a href="reference/site_summary.html">exceedance_prob</a></span><span class="op">(</span><span class="va">fit</span>, sites <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Rite Aid"</span>, <span class="st">"KFC"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;  Rite Aid       KFC </span></span>
+<span><span class="co">#&gt; 0.9967216 0.9624721</span></span></code></pre></div>
+<p>Finally, we plot the estimated distribution together with the normal distribution of a random-effects model.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/plot_g.html">plot_g</a></span><span class="op">(</span><span class="va">fit</span>, normal <span class="op">=</span> <span class="cn">TRUE</span>, scale <span class="op">=</span> <span class="fl">100</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"White-minus-Black callback gap (percentage points)"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="reference/figures/README-callback-gaps-1.png" alt="The estimated density of the callback gaps of 97 firms in percentage points, with its 90% band, and the dashed curve of a normal distribution fitted to the same estimates." width="100%"></p>
+<p>The solid curve is the posterior mean of the density of the gaps, and the band is a pointwise 90% posterior interval. The dashed curve is the normal distribution of the usual random-effects model, with its mean and standard deviation estimated by restricted maximum likelihood and shown without their uncertainty. The model is free to depart from the normal shape, and the band shows how well the data determine that shape: better in the center, where the band is narrow relative to the height of the curve, than in the tails.</p>
 </div>
 <div class="section level2">
-<h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
+<h2 id="a-distribution-with-two-groups">A distribution with two groups<a class="anchor" aria-label="anchor" href="#a-distribution-with-two-groups"></a>
 </h2>
-<p><code><a href="articles/bayesEfron.html">vignette("bayesEfron")</a></code> goes through this example. <code><a href="articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code> and <code><a href="articles/diagnostics.html">vignette("diagnostics")</a></code> cover the choices and the checks that go with a fit, and <code><a href="articles/model.html">vignette("model")</a></code> states the model. The reference and all vignettes are at <a href="https://joonho112.github.io/bayesEfron/" class="uri">https://joonho112.github.io/bayesEfron/</a>.</p>
+<p><code>twin_towers</code> is a simulated data set of 1,500 sites from the public replication files of Lee and Sui (2025), in which the true effects form two groups. In <code><a href="articles/twin-towers.html">vignette("twin-towers")</a></code> we fit it with the grid chosen from the estimates alone, as we would for real data, and compare the result with the true effects.</p>
+<p><img src="reference/figures/twin-towers.png" alt="The estimated density of the effects of 1,500 simulated sites with its band, a histogram of the true effects in two groups, and the dashed curve of a normal distribution." width="100%"></p>
+<p>The largest standard error is nine times the smallest, and for about one site in seven it is larger than the gap between the two groups. The fitted density has a peak over each group and little mass between them, which a normal distribution, with its single peak, cannot have. This is a single data set; see <code><a href="articles/implementation.html">vignette("implementation")</a></code> for how often the 90% intervals contain the true effects across simulated data sets, including the settings in which their coverage falls short of 90%.</p>
+</div>
+<div class="section level2">
+<h2 id="learning-more">Learning more<a class="anchor" aria-label="anchor" href="#learning-more"></a>
+</h2>
+<ul>
+<li>
+<a href="https://joonho112.github.io/bayesEfron/articles/bayesEfron.html">Getting started with bayesEfron</a> walks through the analysis of the 97 firms, from preparing the data to summarizing the results.</li>
+<li>
+<a href="https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.html">Choosing the grid and checking sensitivity to it</a> discusses how the results can depend on the grid.</li>
+<li>
+<a href="https://joonho112.github.io/bayesEfron/articles/diagnostics.html">Checking a fit</a> covers the diagnostics.</li>
+</ul>
+<p>The <a href="https://joonho112.github.io/bayesEfron/">package website</a> lists the other vignettes. It also has a case study that is not installed with the package: the effect of small classes in the 79 schools of Tennessee’s Project STAR, a multisite trial in education. The estimates for that case study are in <code>star_schools</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="citation">Citation<a class="anchor" aria-label="anchor" href="#citation"></a>

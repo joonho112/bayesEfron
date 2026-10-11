@@ -74,7 +74,7 @@ package, which distributes the same data.
 ## See also
 
 [raudenbush_fit](https://joonho112.github.io/bayesEfron/reference/raudenbush_fit.md),
-the model fitted to these data.
+[`vignette("teacher-expectancy")`](https://joonho112.github.io/bayesEfron/articles/teacher-expectancy.md)
 
 ## Examples
 

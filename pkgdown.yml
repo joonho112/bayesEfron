@@ -4,11 +4,16 @@ pkgdown_sha: ~
 articles:
   bayesEfron: bayesEfron.html
   choosing-a-grid: choosing-a-grid.html
+  articles/class-size: class-size.html
   data-input: data-input.html
   diagnostics: diagnostics.html
+  empirical-bayes: empirical-bayes.html
   implementation: implementation.html
   model: model.html
-last_built: 2026-10-02T23:30Z
+  plots: plots.html
+  teacher-expectancy: teacher-expectancy.html
+  twin-towers: twin-towers.html
+last_built: 2026-10-11T20:57Z
 urls:
   reference: https://joonho112.github.io/bayesEfron/reference
   article: https://joonho112.github.io/bayesEfron/articles

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Implementation and checks • bayesEfron</title>
+<title>Reproducibility and interval coverage • bayesEfron</title>
 <!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
@@ -21,9 +21,9 @@
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Implementation and checks">
-<meta name="description" content="Reproducing a fit, the Stan model, the checks the package makes, coverage on a benchmark with known effects, and the notation of the paper.">
-<meta property="og:description" content="Reproducing a fit, the Stan model, the checks the package makes, coverage on a benchmark with known effects, and the notation of the paper.">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Reproducibility and interval coverage">
+<meta name="description" content="Reproducing a fit, the draws stored in a fit, the two Stan programs, checks of the computations, interval coverage in simulated data, and the relation to the paper.">
+<meta property="og:description" content="Reproducing a fit, the draws stored in a fit, the two Stan programs, checks of the computations, interval coverage in simulated data, and the relation to the paper.">
 <meta property="og:image" content="https://joonho112.github.io/bayesEfron/reference/figures/logo.png">
 <meta property="og:image:alt" content="bayesEfron hex sticker">
 </head>
@@ -35,7 +35,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesEfron</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,11 +49,16 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/data-input.html">Using metafor and data frames as input</a></li>
-    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and comparing models</a></li>
-    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking convergence and plotting</a></li>
-    <li><a class="dropdown-item" href="../articles/model.html">The model</a></li>
-    <li><a class="dropdown-item" href="../articles/implementation.html">Implementation and checks</a></li>
+<li><a class="dropdown-item" href="../articles/twin-towers.html">Twin Towers: recovering a distribution hidden by noise</a></li>
+    <li><a class="dropdown-item" href="../articles/teacher-expectancy.html">Nineteen studies of teacher expectancy</a></li>
+    <li><a class="dropdown-item" href="../articles/class-size.html">Small classes in 79 schools</a></li>
+    <li><a class="dropdown-item" href="../articles/empirical-bayes.html">bayesEfron and empirical Bayes methods compared</a></li>
+    <li><a class="dropdown-item" href="../articles/data-input.html">Estimates, standard errors and site labels</a></li>
+    <li><a class="dropdown-item" href="../articles/plots.html">Plots of a fitted model</a></li>
+    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and checking sensitivity to it</a></li>
+    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking a fit</a></li>
+    <li><a class="dropdown-item" href="../articles/model.html">The model and the posterior distribution of a site effect</a></li>
+    <li><a class="dropdown-item" href="../articles/implementation.html">Reproducibility and interval coverage</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -75,7 +80,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-      <img src="../logo.png" class="logo" alt=""><h1>Implementation and checks</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>Reproducibility and interval coverage</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/joonho112/bayesEfron/blob/main/vignettes/implementation.Rmd" class="external-link"><code>vignettes/implementation.Rmd</code></a></small>
@@ -84,199 +89,370 @@
 
     
     
-<p>Someone who reports results from this package may be asked whether
-the fit can be reproduced and what evidence there is that the intervals
-mean what they say.</p>
+<p>If you report results from bayesEfron, you may be asked whether the
+fit can be reproduced and what evidence there is that its intervals have
+their nominal coverage. Here we collect what you need to answer: how to
+reproduce a fit, what a fitted object stores, the two Stan programs, the
+checks that we ran on the computations, interval coverage in simulated
+data, and how the package relates to the paper <span class="citation">(<a href="#ref-lee2025">Lee and Sui
+2025</a>)</span>.</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/joonho112/bayesEfron" class="external-link">bayesEfron</a></span><span class="op">)</span></span></code></pre></div>
+<p>Our example is <code>krw_fit</code>, a fit that comes with the
+package. It is the fit to the callback gaps of 97 firms that
+<code><a href="../articles/bayesEfron.html">vignette("bayesEfron")</a></code> analyzes.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="va">krw_fit</span></span></code></pre></div>
 <div class="section level2">
 <h2 id="reproducing-a-fit">Reproducing a fit<a class="anchor" aria-label="anchor" href="#reproducing-a-fit"></a>
 </h2>
-<p>A fitted object records what produced its draws.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<p>A fitted object records what produced its draws. We first print the
+seed, the CmdStan version, the name of the Stan program and the first
+characters of a hash of the program’s file.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">seed</span></span>
-<span><span class="co">#&gt; [1] 1985</span></span>
+<span><span class="co">#&gt; [1] 20250807</span></span>
 <span><span class="va">fit</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">cmdstan_version</span></span>
 <span><span class="co">#&gt; [1] "2.38.0"</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">metadata</span>, <span class="st">"program"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "efron_mix"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/substr.html" class="external-link">substr</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">stan_file_sha256</span>, <span class="fl">1</span>, <span class="fl">12</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "95fa186dda55"</span></span></code></pre></div>
-<p><code>seed</code> is the seed of the sampler. If none is given to
-<code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> one is taken from the clock, and it is
-stored either way. The last value is the beginning of a hash of the Stan
-file. The settings of the sampler and the versions of bayesEfron and
-cmdstanr are attributes of <code>metadata</code>.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">metadata</span>, <span class="st">"sampler_settings"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; List of 9</span></span>
-<span><span class="co">#&gt;  $ chains         : int 4</span></span>
-<span><span class="co">#&gt;  $ parallel_chains: int 4</span></span>
-<span><span class="co">#&gt;  $ iter_warmup    : int 1000</span></span>
-<span><span class="co">#&gt;  $ iter_sampling  : int 3000</span></span>
-<span><span class="co">#&gt;  $ adapt_delta    : num 0.9</span></span>
-<span><span class="co">#&gt;  $ max_treedepth  : int 10</span></span>
-<span><span class="co">#&gt;  $ seed           : int 1985</span></span>
-<span><span class="co">#&gt;  $ refresh        : int 0</span></span>
-<span><span class="co">#&gt;  $ init           : num 0.5</span></span>
+<span><span class="co">#&gt; [1] "0ea40bf867ec"</span></span></code></pre></div>
+<p>If you do not set <code>seed</code> in
+<code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code>, the sampler’s seed is taken from the
+clock, and it is stored either way. Of the two Stan programs, which are
+described below, <code>efron_mix</code> is the default.</p>
+<p>The sampler settings are stored as an attribute of
+<code>metadata</code>, and so are the bayesEfron and cmdstanr versions
+that made the fit.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">settings</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">metadata</span>, <span class="st">"sampler_settings"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="va">settings</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"chains"</span>, <span class="st">"iter_warmup"</span>, <span class="st">"iter_sampling"</span>, <span class="st">"adapt_delta"</span>,</span>
+<span>               <span class="st">"max_treedepth"</span>, <span class="st">"init"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt; List of 6</span></span>
+<span><span class="co">#&gt;  $ chains       : int 4</span></span>
+<span><span class="co">#&gt;  $ iter_warmup  : int 1000</span></span>
+<span><span class="co">#&gt;  $ iter_sampling: int 3000</span></span>
+<span><span class="co">#&gt;  $ adapt_delta  : num 0.9</span></span>
+<span><span class="co">#&gt;  $ max_treedepth: int 10</span></span>
+<span><span class="co">#&gt;  $ init         : num 0.5</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">metadata</span>, <span class="st">"package_version"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "0.3.0"</span></span>
+<span><span class="co">#&gt; [1] "0.4.0"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">metadata</span>, <span class="st">"cmdstanr_version"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "0.8.0"</span></span></code></pre></div>
-<p>The data, the grid and the spline basis are in
-<code>fit$metadata$data_list</code>. With the same data, settings, seed
-and versions on the same machine, the draws are the same. Between
-machines or versions of CmdStan they can differ, and the results then
-agree to within Monte Carlo error only.</p>
+<p>Another attribute is the grid, stored as
+<code><a href="../reference/make_efron_grid.html">make_efron_grid()</a></code> returned it, together with the method
+that chose its range. By default this is <code>"pilot"</code>, which
+fits the model once on a wide range before it sets the limits of the
+grid. Because this pilot fit runs with the seed of the call, the grid is
+reproduced along with the rest.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">grid</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">metadata</span>, <span class="st">"grid"</span><span class="op">)</span></span>
+<span><span class="va">grid</span><span class="op">$</span><span class="va">grid_method</span></span>
+<span><span class="co">#&gt; [1] "pilot"</span></span>
+<span><span class="va">grid</span><span class="op">$</span><span class="va">support</span></span>
+<span><span class="co">#&gt; [1] -0.08289621  0.15852607</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="va">grid</span><span class="op">$</span><span class="va">pilot</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"narrowed"</span>, <span class="st">"seed"</span>, <span class="st">"iter_warmup"</span>, <span class="st">"iter_sampling"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt; List of 4</span></span>
+<span><span class="co">#&gt;  $ narrowed     : logi FALSE</span></span>
+<span><span class="co">#&gt;  $ seed         : int 20250807</span></span>
+<span><span class="co">#&gt;  $ iter_warmup  : int 500</span></span>
+<span><span class="co">#&gt;  $ iter_sampling: int 500</span></span></code></pre></div>
+<p>Here the pilot fit used the same seed as the fit and did not narrow
+the range.</p>
+<p>Finally, <code>fit$metadata$data_list</code> contains the data and
+the spline basis. If you use the same data, settings, seed and versions
+on the same machine, you get the same draws. On another machine or with
+another CmdStan version the draws can differ, and the results then agree
+only to within Monte Carlo error.</p>
 </div>
 <div class="section level2">
-<h2 id="the-stan-model">The Stan model<a class="anchor" aria-label="anchor" href="#the-stan-model"></a>
+<h2 id="stored-draws-and-the-size-of-a-fit">Stored draws and the size of a fit<a class="anchor" aria-label="anchor" href="#stored-draws-and-the-size-of-a-fit"></a>
 </h2>
-<p>The model is one Stan file, which can be read at</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"stan"</span>, <span class="st">"efron_re.stan"</span>, package <span class="op">=</span> <span class="st">"bayesEfron"</span><span class="op">)</span></span></code></pre></div>
-<p>Its comments state the model, which <code><a href="../articles/model.html">vignette("model")</a></code>
-describes. The file is compiled the first time a model is fitted. The
-compiled model is kept in the user’s cache directory and used again in
-later sessions, and it is recompiled when the Stan file or the version
-of CmdStan changes. <code><a href="../reference/bayes_efron_compile.html">?bayes_efron_compile</a></code> says where the
-directory is and how to clear it.</p>
+<p>By default a fit stores the draws of the spline coefficients,
+<code>lambda</code> and <span class="math inline">\(g\)</span>, with
+five quantities computed from them, and nothing for the sites. Every
+site summary is computed from the draws of <span class="math inline">\(g\)</span> when a method needs it, as
+<code><a href="../articles/model.html">vignette("model")</a></code> describes, so the size of a fit does not
+grow with the number of sites.</p>
+<p>The dimensions of the draws and the <code>storage</code> attribute
+show what the example fit contains.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">draws</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 200   4 114</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">metadata</span>, <span class="st">"storage"</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"site_draws"</span>, <span class="st">"iterations"</span>, <span class="st">"chains"</span>,</span>
+<span>                                    <span class="st">"thin"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt; List of 4</span></span>
+<span><span class="co">#&gt;  $ site_draws: logi FALSE</span></span>
+<span><span class="co">#&gt;  $ iterations: int 200</span></span>
+<span><span class="co">#&gt;  $ chains    : int 4</span></span>
+<span><span class="co">#&gt;  $ thin      : int 15</span></span></code></pre></div>
+<p>We made the example fit with <code>thin = 15</code>, so it has 800
+draws of 114 variables. Without thinning the same fit has 12,000 draws,
+which take about 10 megabytes. A fit made with
+<code>site_draws = TRUE</code> also stores five variables for each site,
+as version 0.3.0 did, and its 12,000 draws take about 55 megabytes for
+the 97 firms and about 697 megabytes for 1,500 sites. These sizes are
+for the draws alone, and the fitted object as a whole is a little
+larger.</p>
+<p>Thinning only reduces what is stored. The sampler diagnostics still
+describe the whole run, as <code><a href="../articles/diagnostics.html">vignette("diagnostics")</a></code>
+explains. You can also store the cmdstanr fit object, with
+<code>keep_cmdstan_fit = TRUE</code>, but it refers to temporary files
+and is only useful in the session that created it.</p>
+<div class="section level3">
+<h3 id="fits-saved-by-earlier-versions">Fits saved by earlier versions<a class="anchor" aria-label="anchor" href="#fits-saved-by-earlier-versions"></a>
+</h3>
+<p>A fit that was saved by an earlier version of the package can still
+be used, although it may lack some of the attributes described above. If
+its table of site effects or its <code>effective_params</code> was
+computed under earlier definitions, the methods compute them again from
+the stored draws of <span class="math inline">\(g\)</span> and issue a
+warning, and the saved object is not changed (see
+<code><a href="../reference/bef_fit.html">?bef_fit</a></code>). A saved result of <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>
+contains no draws, so it cannot be updated in this way:
+<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> throws an error that asks you to call
+<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> again on the fit. For a fit saved by the first
+released version, 0.1.0, <code><a href="../reference/diagnose.html">diagnose()</a></code>, <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code>
+and <code>loo()</code> are not available and throw an error.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="two-stan-programs">Two Stan programs<a class="anchor" aria-label="anchor" href="#two-stan-programs"></a>
+</h2>
+<p>bayesEfron contains two Stan programs. To read them, find the files
+with <code><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file()</a></code>:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"stan"</span>, <span class="st">"efron_mix.stan"</span>, package <span class="op">=</span> <span class="st">"bayesEfron"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"stan"</span>, <span class="st">"efron_re.stan"</span>, package <span class="op">=</span> <span class="st">"bayesEfron"</span><span class="op">)</span></span></code></pre></div>
+<p>The default program is <code>efron_mix.stan</code>, and its comments
+state the model that <code><a href="../articles/model.html">vignette("model")</a></code> describes. It allows
+a normal component at each grid point, computes the likelihood of all
+the sites as one matrix product, and writes nothing for the sites.</p>
+<p>The other program, <code>efron_re.stan</code>, is the program of
+version 0.3.0. We have left it as it was, and a test in the package
+checks that the file has the same hash as the released one. For a <span class="math inline">\(g\)</span> with point masses the two programs
+describe the same model, and a test checks that their fits of the
+callback data agree within Monte Carlo error.</p>
+<p>Each program is compiled the first time it is needed, and the
+compiled model is stored in your user cache directory and reused in
+later sessions. Its file name includes a hash of the Stan file, the
+CmdStan version and the machine architecture, so the program is compiled
+again when the Stan file or the CmdStan version changes. See
+<code><a href="../reference/bayes_efron_compile.html">?bayes_efron_compile</a></code> for where the directory is and how to
+clear it.</p>
+<div class="section level3">
+<h3 id="reproducing-a-result-of-version-0-3-0">Reproducing a result of version 0.3.0<a class="anchor" aria-label="anchor" href="#reproducing-a-result-of-version-0-3-0"></a>
+</h3>
+<p>To obtain a result of version 0.3.0 again, set
+<code>settings = "0.3.0"</code>. The fit then runs
+<code>efron_re.stan</code> with the grid method, the 101 grid points and
+the site-level draws of that version:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span><span class="va">raudenbush1985</span>, seed <span class="op">=</span> <span class="fl">1985</span>, settings <span class="op">=</span> <span class="st">"0.3.0"</span><span class="op">)</span></span></code></pre></div>
+<p>For the same seed this gives the draws of version 0.3.0, provided
+that the CmdStan version, the compiler and the machine are the same as
+well. Another CmdStan version can change the draws, and also the number
+of digits with which they are written.</p>
+<p>The current program writes its draws with 12 significant digits, and
+the site summaries are computed from the draws of <span class="math inline">\(g\)</span> (see above), so estimates far from zero
+need no centering. In a fit with <code>settings = "0.3.0"</code>,
+however, the site-level draws are written with CmdStan’s default number
+of digits (8 in recent versions). They lose the digits in which the
+sites differ when the estimates are about 10 million times their
+standard errors or more, so center such estimates first.</p>
+<p>For a fit made with <code>settings = "0.3.0"</code>, the summaries
+follow the definitions of the current version. To get the interval
+limits as version 0.3.0 computed them, use
+<code>confint(method = "draws")</code>.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="the-data-and-the-stored-results">The data and the stored results<a class="anchor" aria-label="anchor" href="#the-data-and-the-stored-results"></a>
+</h2>
+<p>The vignettes use three data sets, each with a stored fit
+(<code>krw_fit</code>, <code>twin_towers_fit</code> and
+<code>raudenbush_fit</code>).</p>
+<ul>
+<li>
+<code>krw_discrimination</code> contains the callback gaps of 97
+firms from the experiment of <span class="citation">Kline et al. (<a href="#ref-kline2022">2022</a>)</span>. It uses the sample of <span class="citation">Kline et al. (<a href="#ref-kline2024">2024</a>)</span>, and we recomputed the estimates
+from the replication files of <span class="citation">Walters (<a href="#ref-walters2024">2024</a>)</span>.</li>
+<li>
+<code>twin_towers</code> is one simulated data set with 1,500 sites
+from the simulation study of <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>)</span>, taken from that study’s
+files.</li>
+<li>
+<code>raudenbush1985</code> contains the 19 studies of <span class="citation">Raudenbush and Bryk (<a href="#ref-raudenbush1985">1985</a>)</span>.</li>
+</ul>
+<p>A fourth data set, <code>star_schools</code>, has the estimated
+effects of small classes in the 79 schools of Tennessee’s Project STAR.
+The case study that analyzes it is an article on the package website,
+and its fit is not installed with the package.</p>
+<p>See each data set’s help page for its source.</p>
+<p>We made the fits with <code>data-raw/example-fits.R</code> in the
+source repository, using the defaults (with 8 spline functions for the
+simulated sites) and fixed seeds. The script runs each fit with all
+12,000 draws and thins it to 1 draw in 15. It then compares the site
+intervals from the thinned draws with the intervals from all the draws,
+and it fails with an error if a fit has not converged or an interval
+limit moves by more than 2 grid spacings.</p>
+<p>For the simulated sites we also compared the probability that a
+site’s effect is positive, read on the grid points
+(<code>reading = "step"</code>), between the thinned draws and all the
+draws. It differs by at most 0.0013.</p>
+<p>No model is fitted when the documentation is built. The vignettes
+read these fits and the files in <code>inst/examples</code> and
+<code>inst/verification</code>, and both directories have a README that
+names the script that made every file.</p>
 </div>
 <div class="section level2">
 <h2 id="checks-against-known-answers">Checks against known answers<a class="anchor" aria-label="anchor" href="#checks-against-known-answers"></a>
 </h2>
-<p>The tests of the package check its computations in two steps. First
-the formulas of the model are written out in plain R and compared with
-results obtained in another way: the posterior distribution of a site
-effect under a normal <span class="math inline">\(g\)</span> with the
-conjugate normal result, and the mean and variance of <span class="math inline">\(g\)</span> with Gauss-Hermite quadrature. Then the
-quantities that the Stan model wrote for the stored fit
-<code>raudenbush_fit</code> are recomputed with those R formulas from
-the draws of the spline coefficients and compared: the probabilities of
-<span class="math inline">\(g\)</span>, its mean and variance, the
-posterior mean, standard deviation and mode of each site, the log
-likelihood and the effective number of parameters.</p>
+<p>The checks in this section are tests in the package’s test suite
+(<code>tests/testthat</code> in the source repository), so they are run
+again whenever the package is checked. The tests that sample need
+CmdStan.</p>
+<p>The tests check the package’s computations in two steps. In the first
+step the model’s formulas, written out in plain R, are compared with
+results obtained in another way:</p>
+<ul>
+<li>the posterior distribution of a site effect under a normal <span class="math inline">\(g\)</span>, with the conjugate normal result</li>
+<li>the mean and variance of <span class="math inline">\(g\)</span>,
+with Gauss-Hermite quadrature</li>
+<li>the posterior mode, with a numerical optimizer</li>
+</ul>
+<p>In the second step the quantities that each Stan program writes are
+recomputed from the spline coefficients with those R formulas, and the
+two are compared.</p>
+<p>With a single normal component the default program is the normal
+model, so another test samples from it in that case and checks that the
+result agrees with the normal model. For the spline basis the package
+calls <code>splines::ns(grid, df = M, intercept = FALSE)</code>, and a
+test checks that it uses the result unchanged. If the columns of the
+basis and a constant column are not linearly independent,
+<code><a href="../reference/make_efron_grid.html">make_efron_grid()</a></code> throws an error.</p>
 <p>Other tests compare fits with deconvolveR, the implementation by
 <span class="citation">Narasimhan and Efron (<a href="#ref-narasimhan2020">2020</a>)</span> of the empirical Bayes
 estimator of <span class="citation">Efron (<a href="#ref-efron2016">2016</a>)</span>, on three simulated data sets
-with equal standard errors and 20, 50 and 100 sites. The two methods are
-not expected to coincide. The tests require that the posterior means of
-the site effects lie within one standard error of the estimates of
-deconvolveR, with a correlation of at least 0.99, and that the two
+with equal standard errors and 20, 50 and 100 sites. We do not expect
+the two methods to coincide, so the tests only require them to be close:
+the posterior means of the site effects within one standard error of the
+deconvolveR estimates, with a correlation of at least 0.99, and the two
 estimates of <span class="math inline">\(g\)</span> for the largest data
-set differ by at most 0.25 in total variation distance.</p>
+set within 0.25 in total variation distance.</p>
 <p>These tests show that the pieces are computed correctly. They do not
-show that the intervals have the right coverage.</p>
+show that the intervals have the right coverage, which only simulated
+data can.</p>
 </div>
 <div class="section level2">
-<h2 id="a-benchmark-with-known-effects">A benchmark with known effects<a class="anchor" aria-label="anchor" href="#a-benchmark-with-known-effects"></a>
+<h2 id="interval-coverage-in-simulated-data">Interval coverage in simulated data<a class="anchor" aria-label="anchor" href="#interval-coverage-in-simulated-data"></a>
 </h2>
-<p>The benchmark repeats, with the package and with Markov chain Monte
-Carlo, a check that <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>, Appendix E)</span> made with a variational
-approximation. The true effects are the 1,500 values of their simulation
-study, in two separate groups: 500 between <span class="math inline">\(-1.7\)</span> and <span class="math inline">\(-0.7\)</span> and 1,000 between <span class="math inline">\(0.7\)</span> and <span class="math inline">\(2.7\)</span>. The standard errors are unequal, the
-largest being 9 times the smallest. Data sets of 50, 100, 200, 500 and
-1,500 sites are fitted, 20 of each size, with the default sampler
-settings, the default rule for the ends of the grid and the numbers of
-grid points used in the paper (51, 71, 81, 101 and 101).</p>
-<p>The 20 data sets of 50 to 500 sites are stratified random samples of
-the sites of one simulated panel of 1,500. They differ in the sites that
-they hold, and they overlap, more so the larger they are. The 20 data
-sets of 1,500 sites hold the same true effects, each with its own
-assignment of the standard errors to the sites and its own errors. The
-coverage of a fit is the share of sites whose true effect lies inside
-the 90% interval that <code><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint()</a></code> returns.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">benchmark</span> <span class="op">&lt;-</span> <span class="fu">utils</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"verification"</span>, <span class="st">"benchmark-coverage.csv"</span>, package <span class="op">=</span> <span class="st">"bayesEfron"</span><span class="op">)</span>,</span>
-<span>  check.names <span class="op">=</span> <span class="cn">FALSE</span></span>
+<p>Whether 90% intervals contain the true effects 90% of the time can
+only be checked where the true effects are known. We fitted three sets
+of simulated data with the defaults, and the code below collects the
+stored results in one table.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">verification</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">name</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"verification"</span>, <span class="va">name</span>, package <span class="op">=</span> <span class="st">"bayesEfron"</span><span class="op">)</span>,</span>
+<span>           check.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="va">panels</span> <span class="op">&lt;-</span> <span class="fu">verification</span><span class="op">(</span><span class="st">"panels-methods.csv"</span><span class="op">)</span></span>
+<span><span class="va">panels</span> <span class="op">&lt;-</span> <span class="va">panels</span><span class="op">[</span><span class="va">panels</span><span class="op">$</span><span class="va">method</span> <span class="op">==</span> <span class="st">"bayesEfron"</span>, <span class="op">]</span></span>
+<span><span class="va">few</span> <span class="op">&lt;-</span> <span class="fu">verification</span><span class="op">(</span><span class="st">"few-studies.csv"</span><span class="op">)</span></span>
+<span><span class="va">few</span> <span class="op">&lt;-</span> <span class="va">few</span><span class="op">[</span><span class="va">few</span><span class="op">$</span><span class="va">method</span> <span class="op">==</span> <span class="st">"bayesEfron"</span>, <span class="op">]</span></span>
+<span><span class="va">equal</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"examples"</span>, <span class="st">"ebnm_comparison.rds"</span>,</span>
+<span>                             package <span class="op">=</span> <span class="st">"bayesEfron"</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">equal_se</span><span class="op">$</span><span class="va">repeated</span></span>
+<span><span class="va">equal</span> <span class="op">&lt;-</span> <span class="va">equal</span><span class="op">[</span><span class="va">equal</span><span class="op">$</span><span class="va">method</span> <span class="op">==</span> <span class="st">"bayesEfron"</span> <span class="op">&amp;</span> <span class="va">equal</span><span class="op">$</span><span class="va">M</span> <span class="op">==</span> <span class="fl">6</span>, <span class="op">]</span></span>
+<span></span>
+<span><span class="va">checked</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  effects <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"two groups"</span>, <span class="st">"two groups"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"19 studies,"</span>, <span class="va">few</span><span class="op">$</span><span class="va">scenario</span><span class="op">)</span>,</span>
+<span>              <span class="st">"two groups, equal standard errors"</span><span class="op">)</span>,</span>
+<span>  sites <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">panels</span><span class="op">$</span><span class="va">K</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">19</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">few</span><span class="op">)</span><span class="op">)</span>, <span class="fl">1500</span><span class="op">)</span>,</span>
+<span>  data_sets <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">panels</span><span class="op">$</span><span class="va">panels</span>, <span class="va">few</span><span class="op">$</span><span class="va">replications</span>, <span class="va">equal</span><span class="op">$</span><span class="va">panels</span><span class="op">)</span>,</span>
+<span>  inclusion <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">panels</span><span class="op">$</span><span class="va">inclusion</span>, <span class="va">few</span><span class="op">$</span><span class="va">inclusion</span>, <span class="va">equal</span><span class="op">$</span><span class="va">inclusion</span><span class="op">)</span>,</span>
+<span>  se <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">panels</span><span class="op">$</span><span class="va">inclusion_se</span>, <span class="va">few</span><span class="op">$</span><span class="va">inclusion_se</span>, <span class="va">equal</span><span class="op">$</span><span class="va">inclusion_se</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">shown</span> <span class="op">&lt;-</span> <span class="va">benchmark</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"K"</span>, <span class="st">"n_replications"</span>, <span class="st">"coverage"</span>, <span class="st">"coverage_se"</span>,</span>
-<span>                       <span class="st">"max_rhat"</span>, <span class="st">"n_rhat_above_1.05"</span>, <span class="st">"min_ess_bulk"</span>,</span>
-<span>                       <span class="st">"total_divergences"</span>, <span class="st">"total_treedepth_hits"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="va">shown</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"coverage"</span>, <span class="st">"coverage_se"</span>, <span class="st">"max_rhat"</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">shown</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"coverage"</span>, <span class="st">"coverage_se"</span>, <span class="st">"max_rhat"</span><span class="op">)</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span></span>
-<span><span class="va">shown</span><span class="op">$</span><span class="va">min_ess_bulk</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">shown</span><span class="op">$</span><span class="va">min_ess_bulk</span><span class="op">)</span></span>
-<span><span class="va">shown</span></span>
-<span><span class="co">#&gt;      K n_replications coverage coverage_se max_rhat n_rhat_above_1.05</span></span>
-<span><span class="co">#&gt; 1   50             20    0.891       0.010    1.019                 0</span></span>
-<span><span class="co">#&gt; 2  100             20    0.891       0.007    1.020                 0</span></span>
-<span><span class="co">#&gt; 3  200             20    0.891       0.006    1.008                 0</span></span>
-<span><span class="co">#&gt; 4  500             20    0.891       0.004    1.008                 0</span></span>
-<span><span class="co">#&gt; 5 1500             20    0.876       0.004    2.352                 3</span></span>
-<span><span class="co">#&gt;   min_ess_bulk total_divergences total_treedepth_hits</span></span>
-<span><span class="co">#&gt; 1          362                 0                    5</span></span>
-<span><span class="co">#&gt; 2          229                 0                 2235</span></span>
-<span><span class="co">#&gt; 3          400                 0                 9147</span></span>
-<span><span class="co">#&gt; 4         1006                 0                36411</span></span>
-<span><span class="co">#&gt; 5            5                 0               167442</span></span></code></pre></div>
-<p>The table was computed on 2026-10-01 with CmdStan 2.38.0.
-<code>coverage_se</code> is the standard deviation of the coverage
-between data sets divided by the square root of their number. It
-measures the variation between the 20 data sets of one size and nothing
-more: the data sets of up to 500 sites are samples of the sites of one
-simulated panel, and those of 1,500 sites share one set of true effects,
-so the variation that another panel or another set of true effects would
-bring is not in it. The last five columns describe convergence: the
-largest R-hat and the smallest bulk effective sample size over the fits,
-the number of fits with an R-hat above 1.05, and the total numbers of
-divergent transitions and of iterations that reached the maximum tree
-depth.</p>
-<p>With up to 500 sites the coverage is about 0.89 at every size, a
-little below the nominal 0.90. For the same sizes <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>)</span>
-report 88.7% to 89.6% with the variational approximation. None of the 80
-fits has an R-hat above 1.05, although at 50 and 100 sites the largest
-R-hat exceeds 1.01 or the smallest bulk effective sample size is below
-400, so some of those fits would have drawn a warning from
-<code><a href="../reference/diagnose.html">diagnose()</a></code>.</p>
-<p>For 1,500 sites the coverage is 0.876, but 3 of the 20 fits did not
-converge with the default settings: the largest R-hat is 2.35, the
-smallest bulk effective sample size is 5, and 167,442 of the 240,000
-iterations reached the maximum tree depth. The row therefore describes
-what the default settings give at that size and is not evidence about
-the coverage of a converged fit.</p>
-<p>We refitted the data sets of the fits that did not converge in two
-ways, with a narrower grid and with a larger maximum tree depth.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">remedies</span> <span class="op">&lt;-</span> <span class="fu">utils</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"verification"</span>, <span class="st">"benchmark-remedies.csv"</span>, package <span class="op">=</span> <span class="st">"bayesEfron"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">shown</span> <span class="op">&lt;-</span> <span class="va">remedies</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"replication"</span>, <span class="st">"setting"</span>, <span class="st">"max_rhat"</span>, <span class="st">"min_ess_bulk"</span>,</span>
-<span>                      <span class="st">"treedepth_hits"</span>, <span class="st">"coverage"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="va">shown</span><span class="op">$</span><span class="va">max_rhat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">shown</span><span class="op">$</span><span class="va">max_rhat</span>, <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">shown</span><span class="op">$</span><span class="va">min_ess_bulk</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">shown</span><span class="op">$</span><span class="va">min_ess_bulk</span><span class="op">)</span></span>
-<span><span class="va">shown</span><span class="op">$</span><span class="va">coverage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">shown</span><span class="op">$</span><span class="va">coverage</span>, <span class="fl">3</span><span class="op">)</span></span>
-<span><span class="va">shown</span></span>
-<span><span class="co">#&gt;   replication            setting max_rhat min_ess_bulk treedepth_hits coverage</span></span>
-<span><span class="co">#&gt; 1          10            default     1.14           20          10166    0.896</span></span>
-<span><span class="co">#&gt; 2          10   expansion = 0.05     1.00         1628           3088    0.897</span></span>
-<span><span class="co">#&gt; 3          10 max_treedepth = 12     1.00          829           5554    0.897</span></span>
-<span><span class="co">#&gt; 4          13            default     2.35            5          10509    0.859</span></span>
-<span><span class="co">#&gt; 5          13   expansion = 0.05     1.04          149           9849    0.878</span></span>
-<span><span class="co">#&gt; 6          13 max_treedepth = 12     1.25           12          10055    0.861</span></span>
-<span><span class="co">#&gt; 7          16            default     1.18           19          10393    0.845</span></span>
-<span><span class="co">#&gt; 8          16   expansion = 0.05     1.02          201           7989    0.857</span></span>
-<span><span class="co">#&gt; 9          16 max_treedepth = 12     1.02          122           9329    0.839</span></span></code></pre></div>
-<p>With a grid that ends just beyond the estimates
-(<code>expansion = 0.05</code> in place of 0.5), R-hat was at most 1.04
-and no fit failed the check, although 2 of the 3 still had an effective
-sample size below 400. With the default grid and a maximum tree depth of
-12, 1 of the 3 fits still had an R-hat above 1.05, and each took several
-times as long.</p>
-<p>In these data many of the standard errors are large, so the estimates
-spread over a much wider range than the true effects, and the default
-grid, which extends beyond the estimates by half their range on each
-side, is wider than it needs to be. This cannot be made a general rule,
-however. When the standard errors are small, the estimates spread little
-more than the true effects, and room beyond them is needed
-(<code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code>).</p>
-<p>The benchmark covers one shape of <span class="math inline">\(g\)</span> and one pattern of standard errors. It
-says nothing about data whose standard errors are much larger relative
-to the spread of the effects, or about fewer than 50 sites. The scripts
-and the data are in <code>data-raw/benchmark/</code> in the source
-repository.</p>
+<span><span class="va">checked</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"inclusion"</span>, <span class="st">"se"</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">checked</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"inclusion"</span>, <span class="st">"se"</span><span class="op">)</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="va">checked</span></span>
+<span><span class="co">#&gt;                             effects sites data_sets inclusion    se</span></span>
+<span><span class="co">#&gt; 1                        two groups   100       100     0.901 0.004</span></span>
+<span><span class="co">#&gt; 2                        two groups  1500        20     0.900 0.003</span></span>
+<span><span class="co">#&gt; 3       19 studies, normal, SD 0.14    19       200     0.904 0.006</span></span>
+<span><span class="co">#&gt; 4       19 studies, normal, SD 0.31    19       200     0.899 0.005</span></span>
+<span><span class="co">#&gt; 5              19 studies, fitted g    19       200     0.907 0.006</span></span>
+<span><span class="co">#&gt; 6 two groups, equal standard errors  1500        20     0.876 0.007</span></span></code></pre></div>
+<p>In this table, <code>inclusion</code> is the proportion of the true
+effects that lie inside the 90% intervals of
+<code><a href="../reference/site_summary.html">site_summary()</a></code>, averaged over the data sets. It estimates
+the coverage of those intervals, and <code>se</code> is its Monte Carlo
+standard error. There are three simulation designs.</p>
+<ul>
+<li>In rows 1 and 2, every data set has its own true effects, which we
+simulated from two separate groups: a third of the sites between <span class="math inline">\(-1.7\)</span> and <span class="math inline">\(-0.7\)</span>, and two thirds between <span class="math inline">\(0.7\)</span> and <span class="math inline">\(2.7\)</span>. These are the populations of the
+simulation study of <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025</a>)</span>. The standard errors are unequal,
+and the largest is 9 times the smallest.</li>
+<li>Rows 3 to 5 are the data sets from
+<code><a href="../articles/teacher-expectancy.html">vignette("teacher-expectancy")</a></code>, which have the standard
+errors of the 19 studies and true effects from three distributions.</li>
+<li>In row 6, the true effects of the 20 large data sets in row 2 are
+each estimated with a standard error of 1.</li>
+</ul>
+<p>In the five rows with unequal standard errors the coverage is between
+0.899 and 0.907, which is within two standard errors of 0.90 in each
+row. When every standard error is equal to 1, however, it is 0.876. The
+fits in that row converged, and we have not isolated the cause of the
+shortfall. See <code><a href="../articles/empirical-bayes.html">vignette("empirical-bayes")</a></code> for what is
+known about it and what it means in practice.</p>
+<p>We also fitted the 20 large data sets in row 2 with 8 spline
+functions and with <code>settings = "0.3.0"</code>. The next table
+compares the three settings.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">convergence</span> <span class="op">&lt;-</span> <span class="fu">verification</span><span class="op">(</span><span class="st">"panels-convergence.csv"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>setting <span class="op">=</span> <span class="va">convergence</span><span class="op">$</span><span class="va">setting</span>, valid <span class="op">=</span> <span class="va">convergence</span><span class="op">$</span><span class="va">valid</span>,</span>
+<span>           rhat_max <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">convergence</span><span class="op">$</span><span class="va">rhat_max</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>           ess_bulk_min <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">convergence</span><span class="op">$</span><span class="va">ess_bulk_min</span><span class="op">)</span>,</span>
+<span>           treedepth_share_max <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">convergence</span><span class="op">$</span><span class="va">treedepth_share_max</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>           seconds <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">convergence</span><span class="op">$</span><span class="va">sampling_seconds_median</span><span class="op">)</span>,</span>
+<span>           inclusion <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">convergence</span><span class="op">$</span><span class="va">inclusion</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;              setting valid rhat_max ess_bulk_min treedepth_share_max seconds</span></span>
+<span><span class="co">#&gt; 1           defaults    20    1.009          679               0.131      36</span></span>
+<span><span class="co">#&gt; 2              M = 8    20    1.004         1538               0.000      15</span></span>
+<span><span class="co">#&gt; 3 settings = "0.3.0"     5    1.084           55               0.823     145</span></span>
+<span><span class="co">#&gt;   inclusion</span></span>
+<span><span class="co">#&gt; 1     0.900</span></span>
+<span><span class="co">#&gt; 2     0.893</span></span>
+<span><span class="co">#&gt; 3     0.900</span></span></code></pre></div>
+<p>Here <code>valid</code> counts the fits that meet three conditions:
+the largest R-hat over <code>alpha</code>, <code>lambda</code> and the
+mean and standard deviation of <span class="math inline">\(g\)</span> is
+below 1.01, the smallest bulk effective sample size is at least 400, and
+there is no divergent transition. The next three columns give the worst
+case among the 20 fits, and <code>seconds</code> is the median sampling
+time.</p>
+<p>All 20 fits with the defaults meet the three conditions. Sampling
+takes a median of 36 seconds, after 32 seconds for the pilot fit that
+sets the range. With <code>settings = "0.3.0"</code>, 5 of the 20 fits
+meet them, and sampling takes 145 seconds. Sampling is fastest with 8
+spline functions, but the intervals from those fits have a coverage of
+0.893, more than two standard errors below 0.90.
+<code><a href="../articles/diagnostics.html">vignette("diagnostics")</a></code> uses the same table to discuss what
+the diagnostics do and do not measure.</p>
+<p>These simulations cover one shape of <span class="math inline">\(g\)</span> with many sites and three shapes with
+few sites, two patterns of unequal standard errors, and normal errors
+with known standard errors. They do not cover numbers of sites other
+than 19, 100 and 1,500, standard errors that are themselves poorly
+estimated, or effects that are related to their standard errors. You can
+find the scripts in <code>data-raw/benchmark/</code> in the source
+repository, and <code>inst/verification/README.md</code> describes the
+columns of the tables.</p>
 </div>
 <div class="section level2">
 <h2 id="relation-to-the-paper">Relation to the paper<a class="anchor" aria-label="anchor" href="#relation-to-the-paper"></a>
 </h2>
-<p>The package implements the fully Bayesian model of <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025, sec.
-4</a>)</span>. It writes the quantities of the paper as follows.</p>
+<p>bayesEfron implements the fully Bayesian model of <span class="citation">Lee and Sui (<a href="#ref-lee2025">2025, sec.
+4</a>)</span>. The table shows how the paper’s quantities are written in
+the package.</p>
 <table class="table">
 <colgroup>
 <col width="33%">
@@ -349,23 +525,70 @@ matrix</td>
 </tr>
 </tbody>
 </table>
-<p>The grid methods <code>"paper_realdata"</code>,
-<code>"paper_simulation"</code> and <code>"paper_sensitivity"</code> are
-the rules of the code that accompanies the paper, <a href="https://github.com/joonho112/fully-bayes-efron-prior" class="external-link uri">https://github.com/joonho112/fully-bayes-efron-prior</a>,
-for the application, the simulation study and the sensitivity analysis.
-Where the text of the paper and its code differ in a detail, the package
-follows the code. The Stan appendix of the paper, for example, shows a
-grid that extends 0.5 beyond the estimates, whereas the simulation code
-builds it from the true effects.</p>
-<p>Not in the paper are the effective number of parameters, the log
-likelihood of each site with the cross-validation built on it,
-<code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> and the experimental grid method. The table of
-site effects follows the definitions of the paper <span class="citation">(<a href="#ref-lee2025">Lee and Sui 2025, sec. 4.3</a>
+<p>In three places the package’s defaults differ from the paper, and
+each can be changed back to the paper’s choice.</p>
+<ol style="list-style-type: decimal">
+<li>In the code of the paper’s application, the grid covers the range of
+the estimates extended by half its width on each side, which is
+<code>grid_method = "paper_realdata"</code>. The default method,
+<code>"pilot"</code>, starts from that range and narrows it where the
+pilot fit shows that <span class="math inline">\(g\)</span> occupies
+only a part of it, but it never widens it. See
+<code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code> for details.</li>
+<li>The number of grid points is 101 unless the smallest standard error
+or the spread of the estimates is small compared with the grid spacing,
+in which case more points are used. Set <code>L = 101</code> to keep 101
+points.</li>
+<li>The paper obtains the site intervals as quantiles of posterior draws
+of the effects (its Appendix B.4), and so did version 0.3.0 of the
+package. We now compute them from the posterior distribution itself,
+with the probability of each grid point spread over its grid cell. In
+<code><a href="../reference/site_summary.html">site_summary()</a></code>, <code>reading = "step"</code> leaves the
+probabilities on the points, and a fit made with
+<code>site_draws = TRUE</code> gives the intervals from draws with
+<code>confint(method = "draws")</code>.</li>
+</ol>
+<p>To restore the first two at once, use
+<code>settings = "0.3.0"</code>, which also stores the site-level draws.
+The other two grid methods, <code>"paper_simulation"</code> and
+<code>"paper_sensitivity"</code>, are the methods that the code
+accompanying the paper, <a href="https://github.com/joonho112/fully-bayes-efron-prior" class="external-link uri">https://github.com/joonho112/fully-bayes-efron-prior</a>,
+uses for its simulation study and its sensitivity analysis. Where the
+paper’s text and its code differ in a detail, the package follows the
+code. For example, the paper’s Stan appendix shows a grid that extends
+0.5 units beyond the estimates on each side, whereas the simulation code
+builds the grid from the true effects.</p>
+<p><code><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint()</a></code> can also return the shortest interval with
+posterior probability <code>level</code>
+(<code>interval = "hpd"</code>). For point masses it is the shortest
+interval after the probability of each grid point has been spread evenly
+over one grid spacing around it, and where a range of intervals is
+equally short, the middle one is returned. For normal components the
+limits are moved until no nearby interval with that probability is
+shorter, and the length of the result is within one hundredth of the
+length of the shortest interval. In both cases the interval has
+probability <code>level</code> exactly. With
+<code>method = "draws"</code>, and always for <code>type = "g"</code>,
+it is the shortest interval that contains at least that proportion of
+the draws.</p>
+<p>The package also has features that are not in the paper:</p>
+<ul>
+<li>the normal components</li>
+<li>the <code>"pilot"</code> method for the range, and what
+<code><a href="../reference/diagnose.html">diagnose()</a></code> reports about the grid</li>
+<li>the effective number of parameters</li>
+<li>the log likelihood of each site and the cross-validation built on
+it</li>
+<li><code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code></li>
+<li>the plots</li>
+</ul>
+<p>The table of site effects follows the paper’s definitions <span class="citation">(<a href="#ref-lee2025">Lee and Sui 2025, sec. 4.3</a>
 and Appendix A)</span>: the posterior mean, the posterior standard
 deviation with both parts of the variance, the posterior mode on the
-grid and an equal-tailed interval.</p>
-<p>To cite the package, cite the paper;
-<code>citation("bayesEfron")</code> gives the reference.</p>
+grid, and an interval of the stated probability, which the package takes
+with equal tails.</p>
+<p>To cite the package, please cite the paper. You can get the reference
+with <code>citation("bayesEfron")</code>.</p>
 </div>
 <div class="section level2 unnumbered">
 <h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -374,6 +597,17 @@ grid and an equal-tailed interval.</p>
 <div id="ref-efron2016" class="csl-entry">
 Efron, Bradley. 2016. <span>“Empirical <span>B</span>ayes Deconvolution
 Estimates.”</span> <em>Biometrika</em> 103 (1): 1–20. <a href="https://doi.org/10.1093/biomet/asv068" class="external-link">https://doi.org/10.1093/biomet/asv068</a>.
+</div>
+<div id="ref-kline2022" class="csl-entry">
+Kline, Patrick, Evan K. Rose, and Christopher R. Walters. 2022.
+<span>“Systemic Discrimination Among Large <span>U.S.</span>
+Employers.”</span> <em>The Quarterly Journal of Economics</em> 137 (4):
+1963–2036. <a href="https://doi.org/10.1093/qje/qjac024" class="external-link">https://doi.org/10.1093/qje/qjac024</a>.
+</div>
+<div id="ref-kline2024" class="csl-entry">
+Kline, Patrick, Evan K. Rose, and Christopher R. Walters. 2024. <span>“A
+Discrimination Report Card.”</span> <em>American Economic Review</em>
+114 (8): 2472–525. <a href="https://doi.org/10.1257/aer.20230700" class="external-link">https://doi.org/10.1257/aer.20230700</a>.
 </div>
 <div id="ref-lee2025" class="csl-entry">
 Lee, JoonHo, and Daihe Sui. 2025. <span>“Fully <span>B</span>ayesian
@@ -384,6 +618,16 @@ Log-Spline Prior.”</span> <em>Mathematics</em> 13 (16): 2639. <a href="https:/
 Narasimhan, Balasubramanian, and Bradley Efron. 2020. <span>“<span class="nocase">deconvolveR</span>: A <span>G</span>-Modeling Program for
 Deconvolution and Empirical <span>B</span>ayes Estimation.”</span>
 <em>Journal of Statistical Software</em> 94 (11): 1–20. <a href="https://doi.org/10.18637/jss.v094.i11" class="external-link">https://doi.org/10.18637/jss.v094.i11</a>.
+</div>
+<div id="ref-raudenbush1985" class="csl-entry">
+Raudenbush, Stephen W., and Anthony S. Bryk. 1985. <span>“Empirical
+<span>B</span>ayes Meta-Analysis.”</span> <em>Journal of Educational
+Statistics</em> 10 (2): 75–98. <a href="https://doi.org/10.3102/10769986010002075" class="external-link">https://doi.org/10.3102/10769986010002075</a>.
+</div>
+<div id="ref-walters2024" class="csl-entry">
+Walters, Christopher R. 2024. <span>“Empirical <span>B</span>ayes
+Methods in Labor Economics.”</span> In <em>Handbook of Labor
+Economics</em>, vol. 5. Elsevier. <a href="https://doi.org/10.1016/bs.heslab.2024.11.001" class="external-link">https://doi.org/10.1016/bs.heslab.2024.11.001</a>.
 </div>
 </div>
 </div>

@@ -1,11 +1,15 @@
 # Model fitted to the teacher expectancy studies
 
-The object returned by
+A fitted model for the 19 studies in
+[raudenbush1985](https://joonho112.github.io/bayesEfron/reference/raudenbush1985.md),
+as returned by
 [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
-for the
-[raudenbush1985](https://joonho112.github.io/bayesEfron/reference/raudenbush1985.md)
-data with the default settings. The examples and the vignettes use it,
-so that they run without CmdStan.
+with the default settings. It is thinned to 800 posterior draws, is used
+in
+[`vignette("teacher-expectancy")`](https://joonho112.github.io/bayesEfron/articles/teacher-expectancy.md),
+and was created with
+
+    bayes_efron_fit(raudenbush1985, seed = 1985, thin = 15)
 
 ## Usage
 
@@ -17,33 +21,29 @@ raudenbush_fit
 
 An object of class `bef_fit_re`; see
 [bef_fit](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
-for its components.
+for its components and methods.
 
 ## Source
 
-Fitted with CmdStan 2.38.0 on 2026-10-02. The script is
-`data-raw/raudenbush.R` in the source repository.
+Fitted with CmdStan 2.38.0 on 2026-10-10. The script is
+`data-raw/example-fits.R` in the source repository.
 
 ## Details
 
-The model was fitted with
-`bayes_efron_fit(raudenbush1985$yi, raudenbush1985$sei, seed = 1985)`,
-that is, with four chains of 1,000 warmup and 3,000 sampling iterations
-each. To keep the package small, one draw in fifteen is stored, so the
-object holds 800 of the 12,000 draws, and its posterior summaries are
-computed from those 800. The convergence diagnostics that
+Each of the 4 chains ran 1,000 warmup and 3,000 sampling iterations, and
+one draw out of every 15 was stored. Summaries are computed from the 800
+stored draws, whereas the sampler diagnostics reported by
 [`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
-returns are those of the full run. One of the 12,000 iterations reached
-the maximum tree depth, which
-[`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
-reports as a warning;
-[`vignette("diagnostics")`](https://joonho112.github.io/bayesEfron/articles/diagnostics.md)
-explains how to read it.
+are computed from all 12,000. For these 19 studies the `"pilot"` method
+does not narrow the range, so the grid is the same as with
+`grid_method = "paper_realdata"`. The object contains the draws of \\g\\
+but no site-level draws, and it can be used without CmdStan.
 
 ## See also
 
 [raudenbush1985](https://joonho112.github.io/bayesEfron/reference/raudenbush1985.md),
-[`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+[`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md),
+[`vignette("teacher-expectancy")`](https://joonho112.github.io/bayesEfron/articles/teacher-expectancy.md)
 
 ## Examples
 
@@ -52,43 +52,46 @@ raudenbush_fit
 #> <bayesEfron fit>
 #> Model family: RE
 #> Sites: 19
-#> Grid method: paper_realdata
-#> Runtime: 1.351 sec
-#> Diagnostics: Rhat 1.007; ESS bulk 676.6; ESS tail 888.8; divergences 0; treedepth hits 1
-#> Warnings: max_treedepth
-#> Use summary() for posterior summaries.
+#> Grid method: pilot
+#> Runtime: 0.6065 sec
+#> Draws: 800 (4 chains, one iteration in 15 kept); site-level draws not kept
+#> Diagnostics: Rhat 1.003; ESS bulk 994.5; ESS tail 1185; divergences 0; treedepth hits 0
+#> Standard errors: 0.09381 to 0.373 (largest / smallest 3.976)
+#> Grid: 101 points from -1.07 to 1.93; smallest standard error 3.127 grid spacings
+#> Grid range: rule "pilot", not narrowed (the range of "paper_realdata"); point masses; 6 spline functions
+#> Next: summary() and site_summary() for the sites, g_summary() for the distribution of effects, plot().
 summary(raudenbush_fit)
 #> <summary.bef_fit>
 #> 
 #> Prior g:
-#>   mean: 0.1145
-#>   var:  0.1094
-#>   sd:   0.3009
+#>   mean: 0.1167
+#>   var:  0.1159
+#>   sd:   0.3123
+#>   (each is a posterior mean, so sd squared is not var)
 #> 
 #> Diagnostics:
-#>   Rhat (max):        1.007
-#>   ESS bulk (min):    676.6
-#>   ESS tail (min):    888.8
+#>   Rhat (max):        1.003
+#>   ESS bulk (min):    994.5
+#>   ESS tail (min):    1185
 #>   Divergences:       0
-#>   Treedepth hits:    1
-#>   Effective params:  mean 10.29, sd 2.84
-#>   Log marginal lik.: mean -4.047, sd 1.439
-#>   Runtime:           1.351 sec
-#>   Warnings:          max_treedepth
+#>   Treedepth hits:    0
+#>   Effective params:  mean 10.62, sd 2.655
+#>   Log marginal lik.: mean -4.168, sd 1.524
+#>   Runtime:           0.6065 sec
 #> 
-#> Theta summary:
-#>   site      mean        sd     lower     upper       map
-#>   1      0.03805   0.09832     -0.11      0.19      0.04
-#>   2       0.0874    0.1121     -0.08      0.28      0.07
-#>   3     -0.03442    0.1188     -0.23      0.16     -0.02
-#>   4        0.635    0.4979      0.04      1.48      0.19
-#>   5       0.1063     0.186     -0.14    0.4015      0.07
-#>   6     -0.02282   0.08604     -0.17       0.1     -0.02
-#>   14      0.1073    0.1658     -0.11       0.4      0.07
-#>   15    -0.05756    0.1177     -0.29    0.1015     -0.05
-#>   16    0.001513    0.1169      -0.2      0.19      0.01
-#>   17      0.1979    0.1221      0.01       0.4      0.19
-#>   18       0.063   0.08101     -0.08      0.19      0.07
-#>   19   -0.0006152    0.1197      -0.2      0.19      0.01
+#> Site effects (posterior summaries, 90% intervals):
+#>   site      mean        sd     lower     upper      mode
+#>   1      0.03778    0.0993   -0.1227    0.2033      0.04
+#>   2       0.0883    0.1134  -0.09111    0.2822      0.07
+#>   3      -0.0366    0.1198   -0.2388    0.1556     -0.02
+#>   4       0.6578    0.5102   0.02838     1.611      0.19
+#>   5       0.1079    0.1881   -0.1574    0.4363      0.07
+#>   6     -0.02424   0.08638   -0.1686    0.1163     -0.02
 #>   ... 7 sites omitted ...
+#>   14      0.1091    0.1681   -0.1377    0.4036      0.07
+#>   15    -0.06035    0.1184   -0.2631     0.127     -0.05
+#>   16   0.0003407    0.1182   -0.1948    0.1949      0.01
+#>   17      0.2009    0.1229  0.008355     0.412      0.19
+#>   18     0.06311   0.08166  -0.06939    0.1999      0.07
+#>   19    -0.00186     0.121   -0.2022    0.1968      0.01
 ```

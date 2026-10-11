@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Using metafor and data frames as input • bayesEfron</title>
+<title>Estimates, standard errors and site labels • bayesEfron</title>
 <!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
@@ -21,9 +21,9 @@
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Using metafor and data frames as input">
-<meta name="description" content="Getting estimates and standard errors into the model from a data frame, a list or metafor, and labeling the results.">
-<meta property="og:description" content="Getting estimates and standard errors into the model from a data frame, a list or metafor, and labeling the results.">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Estimates, standard errors and site labels">
+<meta name="description" content="Getting estimates and standard errors into a fit from a data frame, two vectors or metafor, and keeping the names of the sites through to the tables and plots.">
+<meta property="og:description" content="Getting estimates and standard errors into a fit from a data frame, two vectors or metafor, and keeping the names of the sites through to the tables and plots.">
 <meta property="og:image" content="https://joonho112.github.io/bayesEfron/reference/figures/logo.png">
 <meta property="og:image:alt" content="bayesEfron hex sticker">
 </head>
@@ -35,7 +35,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesEfron</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,11 +49,16 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/data-input.html">Using metafor and data frames as input</a></li>
-    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and comparing models</a></li>
-    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking convergence and plotting</a></li>
-    <li><a class="dropdown-item" href="../articles/model.html">The model</a></li>
-    <li><a class="dropdown-item" href="../articles/implementation.html">Implementation and checks</a></li>
+<li><a class="dropdown-item" href="../articles/twin-towers.html">Twin Towers: recovering a distribution hidden by noise</a></li>
+    <li><a class="dropdown-item" href="../articles/teacher-expectancy.html">Nineteen studies of teacher expectancy</a></li>
+    <li><a class="dropdown-item" href="../articles/class-size.html">Small classes in 79 schools</a></li>
+    <li><a class="dropdown-item" href="../articles/empirical-bayes.html">bayesEfron and empirical Bayes methods compared</a></li>
+    <li><a class="dropdown-item" href="../articles/data-input.html">Estimates, standard errors and site labels</a></li>
+    <li><a class="dropdown-item" href="../articles/plots.html">Plots of a fitted model</a></li>
+    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and checking sensitivity to it</a></li>
+    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking a fit</a></li>
+    <li><a class="dropdown-item" href="../articles/model.html">The model and the posterior distribution of a site effect</a></li>
+    <li><a class="dropdown-item" href="../articles/implementation.html">Reproducibility and interval coverage</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -75,7 +80,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-      <img src="../logo.png" class="logo" alt=""><h1>Using metafor and data frames as input</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>Estimates, standard errors and site labels</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/joonho112/bayesEfron/blob/main/vignettes/data-input.Rmd" class="external-link"><code>vignettes/data-input.Rmd</code></a></small>
@@ -84,86 +89,112 @@
 
     
     
-<p>The model needs two numbers for each site: an estimate of the effect
-and the standard error of that estimate. Data seldom arrive in that
-form. A table may hold variances where standard errors are wanted, or
-the estimates may still have to be computed from the means, standard
-deviations and sample sizes of two groups. The sites usually have names
-as well, which you will want to see again next to the results.
-<code><a href="../reference/as_bef_data.html">as_bef_data()</a></code> deals with the first two points and keeps the
-names.</p>
-<div class="section level2">
-<h2 id="estimates-already-in-a-data-frame">Estimates already in a data frame<a class="anchor" aria-label="anchor" href="#estimates-already-in-a-data-frame"></a>
-</h2>
-<p>The teacher expectancy studies of <span class="citation">Raudenbush
-and Bryk (<a href="#ref-raudenbush1985">1985</a>)</span> come as a data
-frame with one row for each study.</p>
+<p>This vignette shows how to pass estimates and standard errors to
+<code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> from a data frame, from metafor or as two
+vectors. It also shows where the site labels appear in the results, and
+how to compare a fit with the normal random-effects model from
+metafor.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">studies</span> <span class="op">&lt;-</span> <span class="va">raudenbush1985</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"author"</span>, <span class="st">"yi"</span>, <span class="st">"vi"</span>, <span class="st">"sei"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="va">studies</span><span class="op">$</span><span class="va">sei</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">studies</span><span class="op">$</span><span class="va">sei</span>, <span class="fl">4</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">studies</span>, <span class="fl">4</span><span class="op">)</span></span>
-<span><span class="co">#&gt;               author    yi     vi    sei</span></span>
-<span><span class="co">#&gt; 1   Rosenthal et al.  0.03 0.0156 0.1249</span></span>
-<span><span class="co">#&gt; 2        Conn et al.  0.12 0.0216 0.1470</span></span>
-<span><span class="co">#&gt; 3        Jose &amp; Cody -0.14 0.0279 0.1670</span></span>
-<span><span class="co">#&gt; 4 Pellegrini &amp; Hicks  1.18 0.1391 0.3730</span></span></code></pre></div>
-<p><code>yi</code> is the estimate, a standardized mean difference,
-<code>vi</code> is its sampling variance and <code>sei</code> its
-standard error. <code><a href="../reference/as_bef_data.html">as_bef_data()</a></code> finds the two columns it
-needs by their names.</p>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/joonho112/bayesEfron" class="external-link">bayesEfron</a></span><span class="op">)</span></span></code></pre></div>
+<p>The model needs two numbers for each site: an estimate of the effect
+and the standard error of that estimate. Data rarely arrive in that
+form. A table may have variances where standard errors are wanted, or
+the estimates may still have to be computed from the means, standard
+deviations and sample sizes of two groups. The sites (studies, firms,
+schools) usually have names as well, which you will want to see again
+beside the results. <code><a href="../reference/as_bef_data.html">as_bef_data()</a></code> handles the first case
+and, together with <code><a href="https://wviechtb.github.io/metafor/reference/escalc.html" class="external-link">metafor::escalc()</a></code>, the second, and a fit
+keeps the names.</p>
+<div class="section level2">
+<h2 id="estimates-in-a-data-frame">Estimates in a data frame<a class="anchor" aria-label="anchor" href="#estimates-in-a-data-frame"></a>
+</h2>
+<p>We start with the callback data from
+<code><a href="../articles/bayesEfron.html">vignette("bayesEfron")</a></code>, which have one row for each of 97
+firms.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="va">raudenbush1985</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">krw_discrimination</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"firm_name"</span>, <span class="st">"yi"</span>, <span class="st">"vi"</span>, <span class="st">"sei"</span><span class="op">)</span><span class="op">]</span>, <span class="fl">4</span><span class="op">)</span></span>
+<span><span class="co">#&gt;           firm_name          yi           vi        sei</span></span>
+<span><span class="co">#&gt; 1          Rite Aid 0.046957123 0.0002622320 0.01619358</span></span>
+<span><span class="co">#&gt; 2               KFC 0.022000000 0.0002342345 0.01530472</span></span>
+<span><span class="co">#&gt; 3 Victoria's Secret 0.042161613 0.0005271759 0.02296031</span></span>
+<span><span class="co">#&gt; 4    United Rentals 0.005708306 0.0002264274 0.01504751</span></span></code></pre></div>
+<p><code>yi</code> is the difference between the callback probabilities
+of applications with distinctively white and distinctively Black names
+at the firm, <code>vi</code> its sampling variance and <code>sei</code>
+its standard error. The function <code><a href="../reference/as_bef_data.html">as_bef_data()</a></code> finds the
+two columns that it needs by their names, and its <code>site</code>
+argument names the column that contains the labels:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="va">krw_discrimination</span>, site <span class="op">=</span> <span class="st">"firm_name"</span><span class="op">)</span></span>
 <span><span class="va">dat</span></span>
 <span><span class="co">#&gt; &lt;bef_data&gt;</span></span>
-<span><span class="co">#&gt; Sites: 19</span></span>
+<span><span class="co">#&gt; Sites: 97</span></span>
 <span><span class="co">#&gt; Source: data.frame</span></span>
-<span><span class="co">#&gt; theta_hat: min -0.32; median 0.07; max 1.18</span></span>
-<span><span class="co">#&gt; sigma: min 0.09381; median 0.167; max 0.373</span></span></code></pre></div>
-<p>For the estimates it takes the first of the names
-<code>theta_hat</code>, <code>yi</code>, <code>estimate</code>,
-<code>effect</code> and <code>y</code> that the data frame has, and for
-the standard errors the first of <code>sigma</code>, <code>se</code>,
-<code>std_error</code>, <code>stderr</code> and <code>sei</code>.
-Columns with other names are given in the arguments
-<code>theta_hat</code> and <code>sigma</code>. If your second column
-holds variances, as <code>vi</code> does, set
+<span><span class="co">#&gt; theta_hat: min -0.02254; median 0.01781; max 0.09817</span></span>
+<span><span class="co">#&gt; sigma: min 0.005344; median 0.01581; max 0.0392</span></span>
+<span><span class="co">#&gt; Names: Rite Aid, KFC, Victoria's Secret, ...</span></span></code></pre></div>
+<p>It takes the first of these names that the data frame has, here
+<code>yi</code> and <code>sei</code>:</p>
+<ul>
+<li>estimates: <code>theta_hat</code>, <code>yi</code>,
+<code>estimate</code>, <code>effect</code>, <code>y</code>;</li>
+<li>standard errors: <code>sigma</code>, <code>se</code>,
+<code>std_error</code>, <code>stderr</code>, <code>sei</code>.</li>
+</ul>
+<p>If your columns have other names, give them in the arguments
+<code>theta_hat</code> and <code>sigma</code>. If the second column
+contains variances, as <code>vi</code> does, set
 <code>variance = TRUE</code> and the function takes the square
 roots.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">dat_v</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="va">raudenbush1985</span>, theta_hat <span class="op">=</span> <span class="st">"yi"</span>, sigma <span class="op">=</span> <span class="st">"vi"</span>,</span>
-<span>                     variance <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/all.equal.html" class="external-link">all.equal</a></span><span class="op">(</span><span class="va">dat_v</span><span class="op">$</span><span class="va">sigma</span>, <span class="va">dat</span><span class="op">$</span><span class="va">sigma</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
-<p>The function stops if a value is missing, if a standard error is not
-positive or if there are fewer than five sites. It does not drop
-incomplete rows, because the number of sites would then change without
-notice.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">incomplete</span> <span class="op">&lt;-</span> <span class="va">raudenbush1985</span></span>
+<code class="sourceCode R"><span><span class="va">from_variances</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="va">krw_discrimination</span>, sigma <span class="op">=</span> <span class="st">"vi"</span>,</span>
+<span>                              variance <span class="op">=</span> <span class="cn">TRUE</span>, site <span class="op">=</span> <span class="st">"firm_name"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/all.equal.html" class="external-link">all.equal</a></span><span class="op">(</span><span class="va">from_variances</span><span class="op">$</span><span class="va">sigma</span>, <span class="va">dat</span><span class="op">$</span><span class="va">sigma</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<p><code><a href="../reference/as_bef_data.html">as_bef_data()</a></code> warns when a column with a name that
+begins with <code>vi</code> or <code>var</code> is given as the standard
+errors without <code>variance = TRUE</code>. It cannot detect variances
+under another name, because both are positive numbers, so check the
+range of <code>sigma</code> in the printed object.</p>
+<p>The function throws an error if a value is missing, if a standard
+error is not positive, if a label occurs twice or if there are fewer
+than 5 sites. It does not drop incomplete rows, because the number of
+sites would then change without notice. For example, a missing standard
+error gives this error:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">incomplete</span> <span class="op">&lt;-</span> <span class="va">krw_discrimination</span></span>
 <span><span class="va">incomplete</span><span class="op">$</span><span class="va">sei</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="cn">NA</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/try.html" class="external-link">try</a></span><span class="op">(</span><span class="fu"><a href="../reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="va">incomplete</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Error in as_bef_data(incomplete) : </span></span>
 <span><span class="co">#&gt;   Columns `yi` and `sei` must not contain missing values (found 0 and 1).</span></span></code></pre></div>
+<p>We can pass <code>dat</code> to <code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> as it
+is.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span><span class="va">dat</span>, seed <span class="op">=</span> <span class="fl">20250807</span><span class="op">)</span></span></code></pre></div>
+<p>You can also pass the data frame itself when its columns have the
+names listed above. Its row names, if they have been set, are then the
+labels.</p>
 </div>
 <div class="section level2">
-<h2 id="from-group-summaries-to-estimates">From group summaries to estimates<a class="anchor" aria-label="anchor" href="#from-group-summaries-to-estimates"></a>
+<h2 id="group-summaries-and-metafor">Group summaries and metafor<a class="anchor" aria-label="anchor" href="#group-summaries-and-metafor"></a>
 </h2>
-<p>Often the data are one step further back, and each study reports the
-mean, the standard deviation and the size of two groups.
-<code><a href="https://wviechtb.github.io/metafor/reference/escalc.html" class="external-link">metafor::escalc()</a></code> computes an estimate and its sampling
-variance from such summaries <span class="citation">(<a href="#ref-viechtbauer2010">Viechtbauer 2010</a>)</span>, and
-<code><a href="../reference/as_bef_data.html">as_bef_data()</a></code> accepts its result. The example is the nine
-studies of the length of hospital stay of stroke patients under
-specialized and under routine care that <span class="citation">Normand
-(<a href="#ref-normand1999">1999</a>)</span> analyzed. The data are in
-the metadat package, which metafor loads.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<p>Often the estimates have not been computed yet, and each study
+reports the mean, the standard deviation and the size of two groups.
+From such summaries, <code><a href="https://wviechtb.github.io/metafor/reference/escalc.html" class="external-link">metafor::escalc()</a></code> computes an estimate
+and its sampling variance <span class="citation">(<a href="#ref-viechtbauer2010">Viechtbauer 2010</a>)</span>, and
+<code><a href="../reference/as_bef_data.html">as_bef_data()</a></code> accepts its result.</p>
+<p>As an example we apply <code><a href="https://wviechtb.github.io/metafor/reference/escalc.html" class="external-link">escalc()</a></code> to the 9 studies that
+<span class="citation">Normand (<a href="#ref-normand1999">1999</a>)</span> analyzed, which compare the
+length of hospital stay of stroke patients under specialized and under
+routine care. The data are in the metadat package, which metafor
+loads.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://www.metafor-project.org" class="external-link">metafor</a></span><span class="op">)</span></span>
 <span><span class="va">stroke</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://wviechtb.github.io/metafor/reference/escalc.html" class="external-link">escalc</a></span><span class="op">(</span></span>
 <span>  measure <span class="op">=</span> <span class="st">"MD"</span>,</span>
 <span>  m1i <span class="op">=</span> <span class="va">m1i</span>, sd1i <span class="op">=</span> <span class="va">sd1i</span>, n1i <span class="op">=</span> <span class="va">n1i</span>,</span>
 <span>  m2i <span class="op">=</span> <span class="va">m2i</span>, sd2i <span class="op">=</span> <span class="va">sd2i</span>, n2i <span class="op">=</span> <span class="va">n2i</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">dat.normand1999</span></span>
+<span>  data <span class="op">=</span> <span class="va">dat.normand1999</span>, slab <span class="op">=</span> <span class="va">source</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">stroke</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"source"</span>, <span class="st">"m1i"</span>, <span class="st">"m2i"</span>, <span class="st">"yi"</span>, <span class="st">"vi"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -177,148 +208,143 @@ the metadat package, which metafor loads.</p>
 <span><span class="co">#&gt; 7          Newcastle  52  41  11.0000  94.5891 </span></span>
 <span><span class="co">#&gt; 8               Umea  21  31 -10.0000   6.3109 </span></span>
 <span><span class="co">#&gt; 9            Uppsala  30  23   7.0000  19.8423</span></span></code></pre></div>
-<p>With <code>measure = "MD"</code> the estimate <code>yi</code> is the
-difference between the two means, here in days, and <code>vi</code> is
-the sum of the two squared standard errors of the means, <span class="math inline">\(s_1^2 / n_1 + s_2^2 / n_2\)</span>. A difference
-in the original units is the natural choice when every study measures
-the outcome in the same way, as these do. When the studies use different
-instruments, as the teacher expectancy studies did with their IQ tests,
-the standardized mean difference (<code>measure = "SMD"</code>) puts the
+<p>We set <code>measure = "MD"</code>, so the estimate <code>yi</code>
+is the difference between the two means, here in days, and
+<code>vi</code> is the sum of the two squared standard errors of the
+means, <span class="math inline">\(s_1^2 / n_1 + s_2^2 / n_2\)</span>. A
+difference in the original units is the natural choice when every study
+measures the outcome in the same way, as these do. When the studies use
+different instruments, as the teacher expectancy studies in
+<code><a href="../articles/teacher-expectancy.html">vignette("teacher-expectancy")</a></code> did with their IQ tests, the
+standardized mean difference (<code>measure = "SMD"</code>) puts the
 estimates on a common scale.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">stroke</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">stroke</span><span class="op">$</span><span class="va">source</span></span>
-<span><span class="va">stroke_dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="va">stroke</span><span class="op">)</span></span>
-<span><span class="va">stroke_dat</span></span>
-<span><span class="co">#&gt; &lt;bef_data&gt;</span></span>
-<span><span class="co">#&gt; Sites: 9</span></span>
-<span><span class="co">#&gt; Source: metafor::escalc</span></span>
-<span><span class="co">#&gt; theta_hat: min -71; median -4; max 11</span></span>
-<span><span class="co">#&gt; sigma: min 1.08; median 4.16; max 12.26</span></span>
-<span><span class="co">#&gt; Names: Edinburgh, Orpington-Mild, Orpington-Moderate, ...</span></span></code></pre></div>
-<p>For an <code>escalc</code> object the estimates are the column
-<code>yi</code> and the standard errors are the square roots of
-<code>vi</code>. The site labels are taken from the row names, which is
-why the row names were set first; labels given to <code><a href="https://wviechtb.github.io/metafor/reference/escalc.html" class="external-link">escalc()</a></code>
-in its argument <code>slab</code> are not used.</p>
-<p>Nine studies are enough for the function to run, but they can say
-little about the shape of the distribution of effects, and with so few
-the results depend more on the choices that
-<code><a href="../articles/choosing-a-grid.html">vignette("choosing-a-grid")</a></code> describes. The check of the
-intervals that <code><a href="../articles/implementation.html">vignette("implementation")</a></code> reports starts at
-50 sites; we have no evidence on how they perform with fewer.</p>
+<p>From an <code>escalc</code> object, <code><a href="../reference/as_bef_data.html">as_bef_data()</a></code> takes
+the column <code>yi</code> as the estimates and the square roots of
+<code>vi</code> as the standard errors.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">stroke_dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="va">stroke</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">stroke_dat</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   site              label estimate        se</span></span>
+<span><span class="co">#&gt; 1    1          Edinburgh      -20  6.364591</span></span>
+<span><span class="co">#&gt; 2    2     Orpington-Mild       -2  1.442444</span></span>
+<span><span class="co">#&gt; 3    3 Orpington-Moderate      -55  3.962121</span></span>
+<span><span class="co">#&gt; 4    4   Orpington-Severe      -71 12.256518</span></span>
+<span><span class="co">#&gt; 5    5      Montreal-Home       -4  4.160251</span></span>
+<span><span class="co">#&gt; 6    6  Montreal-Transfer        1  1.080436</span></span>
+<span><span class="co">#&gt; 7    7          Newcastle       11  9.725694</span></span>
+<span><span class="co">#&gt; 8    8               Umea      -10  2.512146</span></span>
+<span><span class="co">#&gt; 9    9            Uppsala        7  4.454471</span></span></code></pre></div>
+<p>The labels are the ones given to <code><a href="https://wviechtb.github.io/metafor/reference/escalc.html" class="external-link">escalc()</a></code> in its
+<code>slab</code> argument. Without <code>slab</code>, row names that
+have been set are used.</p>
+<p>Although 9 studies are enough for the function to run, we can learn
+little from them about the shape of the distribution of effects. With so
+few sites, the result depends strongly on the range of the grid, as
+<code><a href="../articles/teacher-expectancy.html">vignette("teacher-expectancy")</a></code> shows for 19 studies.</p>
 </div>
 <div class="section level2">
-<h2 id="a-list">A list<a class="anchor" aria-label="anchor" href="#a-list"></a>
+<h2 id="two-vectors">Two vectors<a class="anchor" aria-label="anchor" href="#two-vectors"></a>
 </h2>
-<p>When the estimates and standard errors are two vectors, they can be
-passed to <code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> directly.
-<code><a href="../reference/as_bef_data.html">as_bef_data()</a></code> accepts them as a list as well, which is a
-way to have them checked beforehand.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<p>If your estimates and standard errors are two vectors, pass them to
+<code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> as its first two arguments. The names of
+the estimates, if they have any, become the labels. To have the two
+vectors checked before running a fit, give them to
+<code><a href="../reference/as_bef_data.html">as_bef_data()</a></code> as a list, in which an element
+<code>names</code> can supply the labels:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>  theta_hat <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.03</span>, <span class="fl">0.12</span>, <span class="op">-</span><span class="fl">0.14</span>, <span class="fl">1.18</span>, <span class="fl">0.26</span><span class="op">)</span>,</span>
-<span>  sigma <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.125</span>, <span class="fl">0.147</span>, <span class="fl">0.167</span>, <span class="fl">0.373</span>, <span class="fl">0.369</span><span class="op">)</span>,</span>
-<span>  names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Rosenthal"</span>, <span class="st">"Conn"</span>, <span class="st">"Jose"</span>, <span class="st">"Pellegrini 1"</span>, <span class="st">"Pellegrini 2"</span><span class="op">)</span></span>
+<span>  theta_hat <span class="op">=</span> <span class="va">krw_discrimination</span><span class="op">$</span><span class="va">yi</span>,</span>
+<span>  sigma <span class="op">=</span> <span class="va">krw_discrimination</span><span class="op">$</span><span class="va">sei</span>,</span>
+<span>  names <span class="op">=</span> <span class="va">krw_discrimination</span><span class="op">$</span><span class="va">firm_name</span></span>
 <span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;bef_data&gt;</span></span>
-<span><span class="co">#&gt; Sites: 5</span></span>
+<span><span class="co">#&gt; Sites: 97</span></span>
 <span><span class="co">#&gt; Source: list</span></span>
-<span><span class="co">#&gt; theta_hat: min -0.14; median 0.12; max 1.18</span></span>
-<span><span class="co">#&gt; sigma: min 0.125; median 0.167; max 0.373</span></span>
-<span><span class="co">#&gt; Names: Rosenthal, Conn, Jose, ...</span></span></code></pre></div>
+<span><span class="co">#&gt; theta_hat: min -0.02254; median 0.01781; max 0.09817</span></span>
+<span><span class="co">#&gt; sigma: min 0.005344; median 0.01581; max 0.0392</span></span>
+<span><span class="co">#&gt; Names: Rite Aid, KFC, Victoria's Secret, ...</span></span></code></pre></div>
+<p>Whatever the form, the estimates should be the original ones.
+Estimates that have already been shrunk, such as the posterior means
+from another model, are not independent noisy observations of the
+effects, and passing them as if they were changes the model.</p>
 </div>
 <div class="section level2">
-<h2 id="fitting-and-putting-the-names-back">Fitting, and putting the names back<a class="anchor" aria-label="anchor" href="#fitting-and-putting-the-names-back"></a>
+<h2 id="site-labels-in-the-results">Site labels in the results<a class="anchor" aria-label="anchor" href="#site-labels-in-the-results"></a>
 </h2>
-<p>The elements <code>theta_hat</code> and <code>sigma</code> of the
-result are the two arguments of <code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code>.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="va">raudenbush1985</span>, site <span class="op">=</span> <span class="st">"author"</span><span class="op">)</span></span>
-<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bayes_efron_fit.html">bayes_efron_fit</a></span><span class="op">(</span><span class="va">dat</span><span class="op">$</span><span class="va">theta_hat</span>, <span class="va">dat</span><span class="op">$</span><span class="va">sigma</span>, seed <span class="op">=</span> <span class="fl">1985</span><span class="op">)</span></span></code></pre></div>
-<p>The fitted object numbers the sites in the order of the data and does
-not keep their labels, so the labels have to be put back by hand. The
-object <code>raudenbush_fit</code> in the package holds the result of
-this fit and keeps one posterior draw in fifteen.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_bef_data.html">as_bef_data</a></span><span class="op">(</span><span class="va">raudenbush1985</span>, site <span class="op">=</span> <span class="st">"author"</span><span class="op">)</span></span>
-<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="va">raudenbush_fit</span></span>
-<span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span>study <span class="op">=</span> <span class="va">dat</span><span class="op">$</span><span class="va">names</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">results</span><span class="op">$</span><span class="va">mean</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">results</span><span class="op">$</span><span class="va">mean</span>, <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"study"</span>, <span class="st">"mean"</span>, <span class="st">"hpdi_lower"</span>, <span class="st">"hpdi_upper"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                study  mean hpdi_lower hpdi_upper</span></span>
-<span><span class="co">#&gt; 1   Rosenthal et al.  0.04      -0.11     0.1900</span></span>
-<span><span class="co">#&gt; 2        Conn et al.  0.09      -0.08     0.2800</span></span>
-<span><span class="co">#&gt; 3        Jose &amp; Cody -0.03      -0.23     0.1600</span></span>
-<span><span class="co">#&gt; 4 Pellegrini &amp; Hicks  0.63       0.04     1.4800</span></span>
-<span><span class="co">#&gt; 5 Pellegrini &amp; Hicks  0.11      -0.14     0.4015</span></span>
-<span><span class="co">#&gt; 6  Evans &amp; Rosenthal -0.02      -0.17     0.1000</span></span></code></pre></div>
-<p><code>mean</code> is the posterior mean of the effect.
-<code>hpdi_lower</code> and <code>hpdi_upper</code> are the 5% and 95%
-posterior quantiles, the limits of a 90% interval; in spite of their
-names the interval is equal-tailed.
-<code>confint(fit, level = 0.95)</code> gives 95% intervals, the level
-that metafor uses by default for its confidence intervals, and
-<code><a href="../reference/bef_fit.html">?bef_fit</a></code> describes all the columns.</p>
-</div>
-<div class="section level2">
-<h2 id="what-differs-from-a-random-effects-model">What differs from a random-effects model<a class="anchor" aria-label="anchor" href="#what-differs-from-a-random-effects-model"></a>
-</h2>
-<p>metafor fits the random-effects model to the same two columns. The
-difference between the two analyses lies in what is assumed about the
-distribution of true effects. The random-effects model takes it to be
-normal, with a mean and a standard deviation that are estimated.
-bayesEfron estimates the distribution itself, <span class="math inline">\(g\)</span>, and reports its mean and standard
-deviation as summaries.</p>
+<p>A fit stores the site labels. To show this we use
+<code>krw_fit</code>, the fit of the callback data that comes with the
+package, made with the <code><a href="../reference/bayes_efron_fit.html">bayes_efron_fit()</a></code> call above and
+<code>thin = 15</code>. Its table of site effects has the labels in the
+column <code>label</code>.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">normal_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://wviechtb.github.io/metafor/reference/rma.uni.html" class="external-link">rma</a></span><span class="op">(</span><span class="va">yi</span>, <span class="va">vi</span>, data <span class="op">=</span> <span class="va">raudenbush1985</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/unname.html" class="external-link">unname</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">normal_fit</span><span class="op">)</span><span class="op">)</span>, sd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="va">normal_fit</span><span class="op">$</span><span class="va">tau2</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt;       mean         sd </span></span>
-<span><span class="co">#&gt; 0.08370824 0.13720914</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"g"</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span><span class="op">)</span>, <span class="op">]</span></span>
-<span><span class="co">#&gt;     site       lower     upper     point</span></span>
-<span><span class="co">#&gt; 1 mean_g 0.003896369 0.2499901 0.1144608</span></span>
-<span><span class="co">#&gt; 3   sd_g 0.104426290 0.5515191 0.3008526</span></span></code></pre></div>
-<p>The two means are close, whereas the standard deviation of <span class="math inline">\(g\)</span> is about twice that of the normal
-model. Both numbers describe how much the true effects vary between
-studies, and they differ because the two models allow different shapes
-for that variation. Part of the difference is the long right tail of the
-estimated <span class="math inline">\(g\)</span> (it is shown in
-<code><a href="../articles/bayesEfron.html">vignette("bayesEfron")</a></code>), which a normal distribution cannot
-have. The other part is that <span class="math inline">\(g\)</span>
-keeps a little probability beyond the smallest and the largest estimate,
-where the data hardly bear on it: 0.06 in all, which accounts for 59% of
-the variance of the estimated distribution, the posterior mean of <span class="math inline">\(g\)</span>. A standard deviation is sensitive to
-such probability, so that of <span class="math inline">\(g\)</span> says
-as much about the tails that the model allows as about the bulk of the
-effects.</p>
-<p>The site effects differ too. <code><a href="https://wviechtb.github.io/metafor/reference/blup.html" class="external-link">blup()</a></code> gives the prediction
-of the normal model for each study, which is drawn toward the overall
-mean by a factor that depends only on the standard error. With
-bayesEfron, how far an estimate is drawn in depends on the shape of
-<span class="math inline">\(g\)</span> as well.</p>
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="va">krw_fit</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="../reference/site_summary.html">site_summary</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"site"</span>, <span class="st">"label"</span>, <span class="st">"estimate"</span>, <span class="st">"mean"</span>, <span class="st">"lower"</span>,</span>
+<span>                           <span class="st">"upper"</span><span class="op">)</span><span class="op">]</span>, <span class="fl">4</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   site             label    estimate       mean        lower      upper</span></span>
+<span><span class="co">#&gt; 1    1          Rite Aid 0.046957123 0.03048175  0.010775168 0.05349968</span></span>
+<span><span class="co">#&gt; 2    2               KFC 0.022000000 0.01786494  0.001227187 0.03581179</span></span>
+<span><span class="co">#&gt; 3    3 Victoria's Secret 0.042161613 0.02334782  0.002864899 0.04801767</span></span>
+<span><span class="co">#&gt; 4    4    United Rentals 0.005708306 0.01071991 -0.005107269 0.02719213</span></span></code></pre></div>
+<p>You can choose a site by its label wherever a function takes
+<code>sites</code>, and the returned vectors are named by label. Here we
+pick four firms and print, for each, the probability of a positive gap
+and the posterior mean in percentage points:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">compare</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  study <span class="op">=</span> <span class="va">raudenbush1985</span><span class="op">$</span><span class="va">author</span>,</span>
-<span>  estimate <span class="op">=</span> <span class="va">raudenbush1985</span><span class="op">$</span><span class="va">yi</span>,</span>
-<span>  normal <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://wviechtb.github.io/metafor/reference/blup.html" class="external-link">blup</a></span><span class="op">(</span><span class="va">normal_fit</span><span class="op">)</span><span class="op">$</span><span class="va">pred</span>, <span class="fl">2</span><span class="op">)</span>,</span>
-<span>  bayesEfron <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">compare</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="op">-</span><span class="va">compare</span><span class="op">$</span><span class="va">estimate</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">6</span><span class="op">]</span>, <span class="op">]</span></span>
-<span><span class="co">#&gt;                   study estimate normal bayesEfron</span></span>
-<span><span class="co">#&gt; 4    Pellegrini &amp; Hicks     1.18   0.21       0.63</span></span>
-<span><span class="co">#&gt; 10              Maxwell     0.80   0.25       0.47</span></span>
-<span><span class="co">#&gt; 11               Carter     0.54   0.16       0.22</span></span>
-<span><span class="co">#&gt; 17 Rosenthal &amp; Jacobson     0.30   0.19       0.20</span></span>
-<span><span class="co">#&gt; 9                Kester     0.27   0.16       0.16</span></span>
-<span><span class="co">#&gt; 5    Pellegrini &amp; Hicks     0.26   0.11       0.11</span></span></code></pre></div>
-<p>For most of the studies the two columns are close, but they part for
-the largest estimates. Under the normal model the largest estimate,
-which has a large standard error, is taken to be mostly noise and is
-drawn most of the way to the mean. Under the estimated <span class="math inline">\(g\)</span>, with its long right tail, a true
-effect of that size is less surprising, and the estimate is drawn in
-less far. Which of the two is nearer the truth cannot be read from 19
-studies. The comparison shows that the answer for the extreme studies
-depends on what is assumed about the distribution.</p>
+<code class="sourceCode R"><span><span class="va">chosen</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Rite Aid"</span>, <span class="st">"KFC"</span>, <span class="st">"Safeway"</span>, <span class="st">"Genuine Parts (Napa Auto)"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="../reference/site_summary.html">exceedance_prob</a></span><span class="op">(</span><span class="va">fit</span>, sites <span class="op">=</span> <span class="va">chosen</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="co">#&gt;                  Rite Aid                       KFC                   Safeway </span></span>
+<span><span class="co">#&gt;                     0.997                     0.962                     0.835 </span></span>
+<span><span class="co">#&gt; Genuine Parts (Napa Auto) </span></span>
+<span><span class="co">#&gt;                     1.000</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">[</span><span class="va">chosen</span><span class="op">]</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="co">#&gt;                  Rite Aid                       KFC                   Safeway </span></span>
+<span><span class="co">#&gt;                      3.05                      1.79                      1.14 </span></span>
+<span><span class="co">#&gt; Genuine Parts (Napa Auto) </span></span>
+<span><span class="co">#&gt;                      6.41</span></span></code></pre></div>
+<p>The plots show the labels as well, here for the same four firms.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_sites.html">plot_sites</a></span><span class="op">(</span><span class="va">fit</span>, sites <span class="op">=</span> <span class="va">chosen</span>, scale <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></code></pre></div>
+<p><img src="data-input_files/figure-html/label-plot-1.png" class="r-plt" alt="Posterior means and intervals of the callback gaps of four firms chosen by name, each row labeled with the name of the firm." width="700"></p>
+<p>Without labels a site is identified by its number, which is its
+position in the input, so keep the rows of your data in the order in
+which they were fitted. If the sites have labels, that order no longer
+matters for finding a site.</p>
+</div>
+<div class="section level2">
+<h2 id="comparison-with-the-normal-model-from-metafor">Comparison with the normal model from metafor<a class="anchor" aria-label="anchor" href="#comparison-with-the-normal-model-from-metafor"></a>
+</h2>
+<p>A metafor user will want to see the result next to the normal
+random-effects model. We plot the estimated distribution of effects with
+<code><a href="../reference/plot_g.html">plot_g()</a></code>, and <code>normal = TRUE</code> adds that model: a
+normal distribution with its mean and standard deviation estimated from
+the same estimates by restricted maximum likelihood (REML).</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_g.html">plot_g</a></span><span class="op">(</span><span class="va">fit</span>, normal <span class="op">=</span> <span class="cn">TRUE</span>, scale <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></code></pre></div>
+<p><img src="data-input_files/figure-html/normal-plot-1.png" class="r-plt" alt="The estimated density of the callback gaps in percentage points with its 90 percent band, and the dashed curve of a normal distribution fitted by REML." width="700"></p>
+<p>The dashed curve leaves out the uncertainty of its two parameters,
+whereas the band around the solid curve is a posterior interval. See
+<code><a href="../articles/bayesEfron.html">vignette("bayesEfron")</a></code> for what we can conclude about the
+callback gaps from the two curves.</p>
+<p>The same two numbers come from <code><a href="https://wviechtb.github.io/metafor/reference/rma.uni.html" class="external-link">metafor::rma()</a></code> once its
+iteration is allowed to run to convergence, here with a smaller
+<code>threshold</code>:</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">loose</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://wviechtb.github.io/metafor/reference/rma.uni.html" class="external-link">rma</a></span><span class="op">(</span><span class="va">yi</span>, <span class="va">vi</span>, data <span class="op">=</span> <span class="va">krw_discrimination</span>, method <span class="op">=</span> <span class="st">"REML"</span><span class="op">)</span></span>
+<span><span class="va">tight</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://wviechtb.github.io/metafor/reference/rma.uni.html" class="external-link">rma</a></span><span class="op">(</span><span class="va">yi</span>, <span class="va">vi</span>, data <span class="op">=</span> <span class="va">krw_discrimination</span>, method <span class="op">=</span> <span class="st">"REML"</span>,</span>
+<span>             control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">1e-10</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>default <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">loose</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, sd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="va">loose</span><span class="op">$</span><span class="va">tau2</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>      tightened <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">tight</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, sd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="va">tight</span><span class="op">$</span><span class="va">tau2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;                 mean         sd</span></span>
+<span><span class="co">#&gt; default   0.01655591 0.01464373</span></span>
+<span><span class="co">#&gt; tightened 0.01654070 0.01458854</span></span></code></pre></div>
+<p>By default <code><a href="https://wviechtb.github.io/metafor/reference/rma.uni.html" class="external-link">rma()</a></code> stops when its estimate of the variance
+of the effects changes by less than <span class="math inline">\(10^{-5}\)</span> from one step to the next. That
+is early for estimates on a small scale. The variance of these gaps is
+about 0.0002, and the default leaves the standard deviation 0.4% away
+from the value at convergence, which is the value that
+<code><a href="../reference/plot_g.html">plot_g()</a></code> shows. To plot a normal model fitted in another
+way, give its two numbers as
+<code>normal = c(mean = ..., sd = ...)</code>.</p>
 </div>
 <div class="section level2 unnumbered">
 <h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -328,11 +354,6 @@ depends on what is assumed about the distribution.</p>
 Normand, Sharon-Lise T. 1999. <span>“Meta-Analysis: Formulating,
 Evaluating, Combining, and Reporting.”</span> <em>Statistics in
 Medicine</em> 18 (3): 321–59. <a href="https://doi.org/10.1002/(SICI)1097-0258(19990215)18:3%3C321::AID-SIM28%3E3.0.CO;2-P" class="external-link">https://doi.org/10.1002/(SICI)1097-0258(19990215)18:3&lt;321::AID-SIM28&gt;3.0.CO;2-P</a>.
-</div>
-<div id="ref-raudenbush1985" class="csl-entry">
-Raudenbush, Stephen W., and Anthony S. Bryk. 1985. <span>“Empirical
-<span>B</span>ayes Meta-Analysis.”</span> <em>Journal of Educational
-Statistics</em> 10 (2): 75–98. <a href="https://doi.org/10.3102/10769986010002075" class="external-link">https://doi.org/10.3102/10769986010002075</a>.
 </div>
 <div id="ref-viechtbauer2010" class="csl-entry">
 Viechtbauer, Wolfgang. 2010. <span>“Conducting Meta-Analyses in

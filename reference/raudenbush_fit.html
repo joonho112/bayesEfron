@@ -5,11 +5,17 @@
       fontURL: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/output/chtml/fonts/woff-v2"
     }
   };
-</script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet"><script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet"><link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet"><script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Model fitted to the teacher expectancy studies — raudenbush_fit"><meta name="description" content="The object returned by bayes_efron_fit() for the raudenbush1985 data
-with the default settings. The examples and the vignettes use it, so
-that they run without CmdStan."><meta property="og:description" content="The object returned by bayes_efron_fit() for the raudenbush1985 data
-with the default settings. The examples and the vignettes use it, so
-that they run without CmdStan."><meta property="og:image" content="https://joonho112.github.io/bayesEfron/reference/figures/logo.png"><meta property="og:image:alt" content="bayesEfron hex sticker"></head><body>
+</script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet"><script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet"><link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet"><script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Model fitted to the teacher expectancy studies — raudenbush_fit"><meta name="description" content='A fitted model for the 19 studies in raudenbush1985, as returned by
+bayes_efron_fit() with the default settings. It is thinned to 800
+posterior draws, is used in vignette("teacher-expectancy"), and was
+created with
+bayes_efron_fit(raudenbush1985, seed = 1985, thin = 15)
+'><meta property="og:description" content='A fitted model for the 19 studies in raudenbush1985, as returned by
+bayes_efron_fit() with the default settings. It is thinned to 800
+posterior draws, is used in vignette("teacher-expectancy"), and was
+created with
+bayes_efron_fit(raudenbush1985, seed = 1985, thin = 15)
+'><meta property="og:image" content="https://joonho112.github.io/bayesEfron/reference/figures/logo.png"><meta property="og:image:alt" content="bayesEfron hex sticker"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -17,7 +23,7 @@ that they run without CmdStan."><meta property="og:image" content="https://joonh
 
     <a class="navbar-brand me-2" href="../index.html">bayesEfron</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -29,11 +35,16 @@ that they run without CmdStan."><meta property="og:image" content="https://joonh
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/data-input.html">Using metafor and data frames as input</a></li>
-    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and comparing models</a></li>
-    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking convergence and plotting</a></li>
-    <li><a class="dropdown-item" href="../articles/model.html">The model</a></li>
-    <li><a class="dropdown-item" href="../articles/implementation.html">Implementation and checks</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/twin-towers.html">Twin Towers: recovering a distribution hidden by noise</a></li>
+    <li><a class="dropdown-item" href="../articles/teacher-expectancy.html">Nineteen studies of teacher expectancy</a></li>
+    <li><a class="dropdown-item" href="../articles/class-size.html">Small classes in 79 schools</a></li>
+    <li><a class="dropdown-item" href="../articles/empirical-bayes.html">bayesEfron and empirical Bayes methods compared</a></li>
+    <li><a class="dropdown-item" href="../articles/data-input.html">Estimates, standard errors and site labels</a></li>
+    <li><a class="dropdown-item" href="../articles/plots.html">Plots of a fitted model</a></li>
+    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and checking sensitivity to it</a></li>
+    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking a fit</a></li>
+    <li><a class="dropdown-item" href="../articles/model.html">The model and the posterior distribution of a site effect</a></li>
+    <li><a class="dropdown-item" href="../articles/implementation.html">Reproducibility and interval coverage</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -52,9 +63,11 @@ that they run without CmdStan."><meta property="og:image" content="https://joonh
     </div>
 
     <div class="ref-description section level2">
-    <p>The object returned by <code><a href="bayes_efron_fit.html">bayes_efron_fit()</a></code> for the <a href="raudenbush1985.html">raudenbush1985</a> data
-with the default settings. The examples and the vignettes use it, so
-that they run without CmdStan.</p>
+    <p>A fitted model for the 19 studies in <a href="raudenbush1985.html">raudenbush1985</a>, as returned by
+<code><a href="bayes_efron_fit.html">bayes_efron_fit()</a></code> with the default settings. It is thinned to 800
+posterior draws, is used in <code><a href="../articles/teacher-expectancy.html">vignette("teacher-expectancy")</a></code>, and was
+created with</p>
+<p></p><div class="sourceCode"><pre><code><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">bayes_efron_fit</span>(raudenbush1985, <span class="at">seed =</span> <span class="dv">1985</span>, <span class="at">thin =</span> <span class="dv">15</span>)</span></code></pre><p></p></div>
     </div>
 
     <div class="section level2">
@@ -65,28 +78,27 @@ that they run without CmdStan.</p>
     <div class="section level2">
     <h2 id="format">Format<a class="anchor" aria-label="anchor" href="#format"></a></h2>
     <p>An object of class <code>bef_fit_re</code>; see <a href="bef_fit.html">bef_fit</a> for its
-components.</p>
+components and methods.</p>
     </div>
     <div class="section level2">
     <h2 id="source">Source<a class="anchor" aria-label="anchor" href="#source"></a></h2>
-    <p>Fitted with CmdStan 2.38.0 on 2026-10-02. The script is
-<code>data-raw/raudenbush.R</code> in the source repository.</p>
+    <p>Fitted with CmdStan 2.38.0 on 2026-10-10. The script is
+<code>data-raw/example-fits.R</code> in the source repository.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The model was fitted with
-<code>bayes_efron_fit(raudenbush1985$yi, raudenbush1985$sei, seed = 1985)</code>,
-that is, with four chains of 1,000 warmup and 3,000 sampling iterations
-each. To keep the package small, one draw in fifteen is stored, so the
-object holds 800 of the 12,000 draws, and its posterior summaries are
-computed from those 800. The convergence diagnostics that <code><a href="diagnose.html">diagnose()</a></code>
-returns are those of the full run. One of the 12,000 iterations reached
-the maximum tree depth, which <code><a href="diagnose.html">diagnose()</a></code> reports as a warning;
-<code><a href="../articles/diagnostics.html">vignette("diagnostics")</a></code> explains how to read it.</p>
+    <p>Each of the 4 chains ran 1,000 warmup and 3,000 sampling iterations,
+and one draw out of every 15 was stored. Summaries are computed from
+the 800 stored draws, whereas the sampler diagnostics reported by
+<code><a href="diagnose.html">diagnose()</a></code> are computed from all 12,000. For these 19 studies the
+<code>"pilot"</code> method does not narrow the range, so the grid is the same as
+with <code>grid_method = "paper_realdata"</code>. The object contains the draws of
+\(g\) but no site-level draws, and it can be used without CmdStan.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><a href="raudenbush1985.html">raudenbush1985</a>, <code><a href="bayes_efron_fit.html">bayes_efron_fit()</a></code></p></div>
+    <div class="dont-index"><p><a href="raudenbush1985.html">raudenbush1985</a>, <code><a href="bayes_efron_fit.html">bayes_efron_fit()</a></code>,
+<code><a href="../articles/teacher-expectancy.html">vignette("teacher-expectancy")</a></code></p></div>
     </div>
 
     <div class="section level2">
@@ -95,45 +107,48 @@ the maximum tree depth, which <code><a href="diagnose.html">diagnose()</a></code
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">&lt;bayesEfron fit&gt;</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Model family: RE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Sites: 19</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Grid method: paper_realdata</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Runtime: 1.351 sec</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Diagnostics: Rhat 1.007; ESS bulk 676.6; ESS tail 888.8; divergences 0; treedepth hits 1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Warnings: max_treedepth</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for posterior summaries.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Grid method: pilot</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Runtime: 0.6065 sec</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Draws: 800 (4 chains, one iteration in 15 kept); site-level draws not kept</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Diagnostics: Rhat 1.003; ESS bulk 994.5; ESS tail 1185; divergences 0; treedepth hits 0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Standard errors: 0.09381 to 0.373 (largest / smallest 3.976)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Grid: 101 points from -1.07 to 1.93; smallest standard error 3.127 grid spacings</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Grid range: rule "pilot", not narrowed (the range of "paper_realdata"); point masses; 6 spline functions</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Next: summary() and site_summary() for the sites, g_summary() for the distribution of effects, plot().</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">raudenbush_fit</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">&lt;summary.bef_fit&gt;</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">Prior g:</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   mean: 0.1145</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   var:  0.1094</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   sd:   0.3009</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   mean: 0.1167</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   var:  0.1159</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   sd:   0.3123</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   (each is a posterior mean, so sd squared is not var)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">Diagnostics:</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Rhat (max):        1.007</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   ESS bulk (min):    676.6</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   ESS tail (min):    888.8</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Rhat (max):        1.003</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   ESS bulk (min):    994.5</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   ESS tail (min):    1185</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Divergences:       0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Treedepth hits:    1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Effective params:  mean 10.29, sd 2.84</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Log marginal lik.: mean -4.047, sd 1.439</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Runtime:           1.351 sec</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Warnings:          max_treedepth</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Treedepth hits:    0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Effective params:  mean 10.62, sd 2.655</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Log marginal lik.: mean -4.168, sd 1.524</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Runtime:           0.6065 sec</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">Theta summary:</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   site      mean        sd     lower     upper       map</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   1      0.03805   0.09832     -0.11      0.19      0.04</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   2       0.0874    0.1121     -0.08      0.28      0.07</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   3     -0.03442    0.1188     -0.23      0.16     -0.02</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   4        0.635    0.4979      0.04      1.48      0.19</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   5       0.1063     0.186     -0.14    0.4015      0.07</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   6     -0.02282   0.08604     -0.17       0.1     -0.02</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   14      0.1073    0.1658     -0.11       0.4      0.07</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   15    -0.05756    0.1177     -0.29    0.1015     -0.05</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   16    0.001513    0.1169      -0.2      0.19      0.01</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   17      0.1979    0.1221      0.01       0.4      0.19</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   18       0.063   0.08101     -0.08      0.19      0.07</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   19   -0.0006152    0.1197      -0.2      0.19      0.01</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">Site effects (posterior summaries, 90% intervals):</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   site      mean        sd     lower     upper      mode</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   1      0.03778    0.0993   -0.1227    0.2033      0.04</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   2       0.0883    0.1134  -0.09111    0.2822      0.07</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   3      -0.0366    0.1198   -0.2388    0.1556     -0.02</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   4       0.6578    0.5102   0.02838     1.611      0.19</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   5       0.1079    0.1881   -0.1574    0.4363      0.07</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   6     -0.02424   0.08638   -0.1686    0.1163     -0.02</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   ... 7 sites omitted ...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   14      0.1091    0.1681   -0.1377    0.4036      0.07</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   15    -0.06035    0.1184   -0.2631     0.127     -0.05</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   16   0.0003407    0.1182   -0.1948    0.1949      0.01</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   17      0.2009    0.1229  0.008355     0.412      0.19</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   18     0.06311   0.08166  -0.06939    0.1999      0.07</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   19    -0.00186     0.121   -0.2022    0.1968      0.01</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

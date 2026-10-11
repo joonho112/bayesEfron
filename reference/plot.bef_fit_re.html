@@ -5,13 +5,13 @@
       fontURL: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/output/chtml/fonts/woff-v2"
     }
   };
-</script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet"><script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet"><link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet"><script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Plot a fitted model — plot.bef_fit_re"><meta name="description" content="plot() draws one of four plots of a fitted model: the site effects
-with their intervals, the estimated distribution of effects, the
-convergence diagnostics, or the Pareto k values of leave-one-out
-cross-validation."><meta property="og:description" content="plot() draws one of four plots of a fitted model: the site effects
-with their intervals, the estimated distribution of effects, the
-convergence diagnostics, or the Pareto k values of leave-one-out
-cross-validation."><meta property="og:image" content="https://joonho112.github.io/bayesEfron/reference/figures/logo.png"><meta property="og:image:alt" content="bayesEfron hex sticker"></head><body>
+</script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet"><script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet"><link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet"><script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Plot a fitted model — plot.bef_fit_re"><meta name="description" content="The plot() method for a fitted model shows the plot selected by
+type. Each type is produced by one of the package's plot functions,
+e.g., &quot;sites&quot; by plot_sites() and &quot;g&quot; by plot_g(), and further
+arguments are passed on to that function. See Details for all types."><meta property="og:description" content="The plot() method for a fitted model shows the plot selected by
+type. Each type is produced by one of the package's plot functions,
+e.g., &quot;sites&quot; by plot_sites() and &quot;g&quot; by plot_g(), and further
+arguments are passed on to that function. See Details for all types."><meta property="og:image" content="https://joonho112.github.io/bayesEfron/reference/figures/logo.png"><meta property="og:image:alt" content="bayesEfron hex sticker"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -19,7 +19,7 @@ cross-validation."><meta property="og:image" content="https://joonho112.github.i
 
     <a class="navbar-brand me-2" href="../index.html">bayesEfron</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -31,11 +31,16 @@ cross-validation."><meta property="og:image" content="https://joonho112.github.i
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/data-input.html">Using metafor and data frames as input</a></li>
-    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and comparing models</a></li>
-    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking convergence and plotting</a></li>
-    <li><a class="dropdown-item" href="../articles/model.html">The model</a></li>
-    <li><a class="dropdown-item" href="../articles/implementation.html">Implementation and checks</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/twin-towers.html">Twin Towers: recovering a distribution hidden by noise</a></li>
+    <li><a class="dropdown-item" href="../articles/teacher-expectancy.html">Nineteen studies of teacher expectancy</a></li>
+    <li><a class="dropdown-item" href="../articles/class-size.html">Small classes in 79 schools</a></li>
+    <li><a class="dropdown-item" href="../articles/empirical-bayes.html">bayesEfron and empirical Bayes methods compared</a></li>
+    <li><a class="dropdown-item" href="../articles/data-input.html">Estimates, standard errors and site labels</a></li>
+    <li><a class="dropdown-item" href="../articles/plots.html">Plots of a fitted model</a></li>
+    <li><a class="dropdown-item" href="../articles/choosing-a-grid.html">Choosing the grid and checking sensitivity to it</a></li>
+    <li><a class="dropdown-item" href="../articles/diagnostics.html">Checking a fit</a></li>
+    <li><a class="dropdown-item" href="../articles/model.html">The model and the posterior distribution of a site effect</a></li>
+    <li><a class="dropdown-item" href="../articles/implementation.html">Reproducibility and interval coverage</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -54,23 +59,16 @@ cross-validation."><meta property="og:image" content="https://joonho112.github.i
     </div>
 
     <div class="ref-description section level2">
-    <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> draws one of four plots of a fitted model: the site effects
-with their intervals, the estimated distribution of effects, the
-convergence diagnostics, or the Pareto k values of leave-one-out
-cross-validation.</p>
+    <p>The <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> method for a fitted model shows the plot selected by
+<code>type</code>. Each type is produced by one of the package's plot functions,
+e.g., <code>"sites"</code> by <code><a href="plot_sites.html">plot_sites()</a></code> and <code>"g"</code> by <code><a href="plot_g.html">plot_g()</a></code>, and further
+arguments are passed on to that function. See Details for all types.</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="co"># S3 method for class 'bef_fit_re'</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span></span>
-<span>  <span class="va">x</span>,</span>
-<span>  type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"caterpillar"</span>, <span class="st">"g"</span>, <span class="st">"diagnostic"</span>, <span class="st">"loo"</span><span class="op">)</span>,</span>
-<span>  level <span class="op">=</span> <span class="fl">0.9</span>,</span>
-<span>  sort_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"mean"</span>, <span class="st">"sigma"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
-<span>  <span class="va">...</span>,</span>
-<span>  backend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ggplot2"</span>, <span class="st">"base"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">x</span>, type <span class="op">=</span> <span class="st">"sites"</span>, <span class="va">...</span>, backend <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -78,76 +76,80 @@ cross-validation.</p>
 
 
 <dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
-<dd><p>A <code>bef_fit_re</code> object from <code><a href="bayes_efron_fit.html">bayes_efron_fit()</a></code>.</p></dd>
+<dd><p>A <code>bef_fit</code> object created by <code><a href="bayes_efron_fit.html">bayes_efron_fit()</a></code>.</p></dd>
 
 
 <dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
-<dd><p>Character string, the plot to draw. <code>"caterpillar"</code>
-(the default) shows for each site the posterior mean of
-\(\theta_i\), an interval of probability <code>level</code> as a thin line and
-the central 50% interval as a thick line; a dashed vertical line marks
-the posterior mean of the mean of \(g\). <code>"g"</code> shows the posterior
-mean of the probability that \(g\) gives to each grid point, with a
-pointwise band of probability <code>level</code>. <code>"diagnostic"</code> shows the
-largest R-hat, the smallest bulk and tail effective sample sizes and
-the numbers of divergent transitions and of iterations at the maximum
-tree depth, as <code><a href="diagnose.html">diagnose()</a></code> reports them; E-BFMI is not drawn.
-<code>"loo"</code> shows the Pareto k value of each site from <code><a href="loo.bef_fit.html">loo.bef_fit()</a></code>,
-with reference lines at 0.5 and 0.7; it needs the loo package.</p></dd>
-
-
-<dt id="arg-level">level<a class="anchor" aria-label="anchor" href="#arg-level"></a></dt>
-<dd><p>Number between 0 and 1, the probability content of the
-intervals and of the band. Defaults to <code>0.9</code>.</p></dd>
-
-
-<dt id="arg-sort-by">sort_by<a class="anchor" aria-label="anchor" href="#arg-sort-by"></a></dt>
-<dd><p>Character string, the order of the sites in the
-caterpillar plot: <code>"mean"</code> (the default) for the order of the
-posterior means, <code>"sigma"</code> for the order of the standard errors, or
-<code>"none"</code> for the order of the data.</p></dd>
+<dd><p>The plot to show, e.g., <code>"sites"</code> (the default), <code>"g"</code> or
+<code>"shrinkage"</code>. See Details for all types.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Not used.</p></dd>
+<dd><p>Further arguments passed to the plot function for <code>type</code>,
+such as <code>level</code>, <code>sort_by</code> or <code>scale</code>.</p></dd>
 
 
 <dt id="arg-backend">backend<a class="anchor" aria-label="anchor" href="#arg-backend"></a></dt>
-<dd><p>Character string, <code>"ggplot2"</code> or <code>"base"</code>. If it is not
-given, ggplot2 is used when it is installed and base graphics
-otherwise.</p></dd>
+<dd><p>Deprecated. <code>backend = "base"</code> plots the types
+<code>"caterpillar"</code>, <code>"g"</code>, <code>"diagnostic"</code> and <code>"loo"</code> with base graphics
+instead of ggplot2 and issues a warning. This option will be removed.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>With ggplot2, a <code>ggplot</code> object, to which layers can be added.
-With base graphics the plot is drawn and <code>NULL</code> is returned invisibly.</p>
+    <p>A <code>ggplot</code> object, which can be modified with ggplot2 functions,
+e.g., by adding layers. For <code>type = "mcmc"</code>, the value returned by
+<code><a href="plot_mcmc.html">plot_mcmc()</a></code>. With <code>backend = "base"</code>, the plot is shown on the
+current graphics device and <code>NULL</code> is returned invisibly.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p><code>type</code> can be one of the following. The help page of each function
+describes the plot and its arguments.</p><ul><li><p><code>"sites"</code> (the default): <code><a href="plot_sites.html">plot_sites()</a></code>, a caterpillar plot of the
+site effects with their posterior intervals</p></li>
+<li><p><code>"g"</code>: <code><a href="plot_g.html">plot_g()</a></code>, the estimated distribution of effects</p></li>
+<li><p><code>"shrinkage"</code>: <code><a href="plot_shrinkage.html">plot_shrinkage()</a></code>, a shrinkage plot of posterior means
+against estimates</p></li>
+<li><p><code>"exceedance"</code>: <code><a href="plot_exceedance.html">plot_exceedance()</a></code>, the probability that each effect
+exceeds a threshold</p></li>
+<li><p><code>"site_posterior"</code>: <code><a href="plot_site_posterior.html">plot_site_posterior()</a></code>, the posterior
+distribution of the effect of each site specified in <code>sites</code></p></li>
+<li><p><code>"diagnostics"</code>: <code><a href="plot_diagnostics.html">plot_diagnostics()</a></code>, sampler and grid diagnostics</p></li>
+<li><p><code>"loo"</code>: <code><a href="plot_loo.html">plot_loo()</a></code>, the Pareto k values of the sites from
+leave-one-out cross-validation</p></li>
+<li><p><code>"ppc"</code>: <code><a href="plot_ppc.html">plot_ppc()</a></code>, a posterior predictive check of the model
+against the estimates</p></li>
+<li><p><code>"mcmc"</code>: <code><a href="plot_mcmc.html">plot_mcmc()</a></code>, trace plots and other plots of the posterior
+draws</p></li>
+<li><p><code>"grid"</code>: <code><a href="plot.bef_grid.html">plot.bef_grid()</a></code>, the grid in relation to the estimates</p></li>
+<li><p><code>"recovery"</code>: <code><a href="plot_recovery.html">plot_recovery()</a></code>, a comparison of the fit with the
+known true effects specified in <code>truth</code></p></li>
+</ul><p><code>"caterpillar"</code> and <code>"diagnostic"</code> are accepted as aliases for <code>"sites"</code>
+and <code>"diagnostics"</code>.</p>
+<p><code>type = "g"</code> shows the density of \(g\). To plot the probabilities of
+the grid points instead, call <code>plot_g(x, type = "mass")</code>. Note that
+their heights depend on the number of grid points.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><a href="bef_fit.html">bef_fit</a>, <code><a href="diagnose.html">diagnose()</a></code>, <code><a href="loo.bef_fit.html">loo.bef_fit()</a></code></p></div>
+    <div class="dont-index"><p><code><a href="plot_sites.html">plot_sites()</a></code>, <code><a href="plot_g.html">plot_g()</a></code>, <a href="bef_fit.html">bef_fit</a>, <code><a href="diagnose.html">diagnose()</a></code>,
+<code><a href="../articles/plots.html">vignette("plots")</a></code></p></div>
     </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">raudenbush_fit</span><span class="op">)</span></span></span>
-<span class="r-plt img"><img src="plot.bef_fit_re-1.png" alt="The posterior mean of the effect of each study with its 90% interval and its central 50% interval, in the order of the posterior means. A dashed line marks the mean of the distribution of effects." width="700" height="433"></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">raudenbush_fit</span>, sort_by <span class="op">=</span> <span class="st">"sigma"</span>, level <span class="op">=</span> <span class="fl">0.95</span><span class="op">)</span></span></span>
-<span class="r-plt img"><img src="plot.bef_fit_re-2.png" alt="The same plot with 95% intervals and the studies in the order of their standard errors." width="700" height="433"></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">raudenbush_fit</span>, type <span class="op">=</span> <span class="st">"g"</span><span class="op">)</span></span></span>
-<span class="r-plt img"><img src="plot.bef_fit_re-3.png" alt="The posterior mean of the probability that the distribution of effects gives to each grid point, with a pointwise 90% band." width="700" height="433"></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">raudenbush_fit</span>, type <span class="op">=</span> <span class="st">"diagnostic"</span>, backend <span class="op">=</span> <span class="st">"base"</span><span class="op">)</span></span></span>
-<span class="r-plt img"><img src="plot.bef_fit_re-4.png" alt="Four panels with the largest R-hat, the smallest bulk and tail effective sample sizes, the number of divergent transitions and the number of iterations at the maximum tree depth." width="700" height="433"></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">krw_fit</span>, n_extreme <span class="op">=</span> <span class="fl">10</span>, scale <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></span>
+<span class="r-plt img"><img src="plot.bef_fit_re-1.png" alt="Two panels with the ten firms with the highest and the ten with the lowest posterior mean callback gaps, in percentage points: posterior means, 50% and 90% intervals, the estimates as open circles, and a dashed line at the mean of the distribution of effects." width="700" height="433"></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">krw_fit</span>, type <span class="op">=</span> <span class="st">"g"</span>, scale <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></span>
+<span class="r-plt img"><img src="plot.bef_fit_re-2.png" alt="The estimated density of the callback gaps in percentage points, with a pointwise 90% band." width="700" height="433"></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">krw_fit</span>, type <span class="op">=</span> <span class="st">"diagnostics"</span><span class="op">)</span></span></span>
+<span class="r-plt img"><img src="plot.bef_fit_re-3.png" alt="Five panels for the fit of the callback data: R-hat and the bulk and tail effective sample sizes of the monitored quantities in blocks, against their thresholds; the largest mass that a site has at each end of the grid; and the standard deviation of the distribution of effects under the prior and under the posterior." width="700" height="433"></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># With ggplot2 the result can be extended.</span></span></span>
-<span class="r-in"><span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">raudenbush_fit</span>, type <span class="op">=</span> <span class="st">"g"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">p</span>, <span class="st">"ggplot"</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
-<span class="r-in"><span>  <span class="va">p</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Teacher expectancy effects"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span></span></span>
-<span class="r-plt img"><img src="plot.bef_fit_re-5.png" alt="The plot of the distribution of effects with the title Teacher expectancy effects." width="700" height="433"></span>
+<span class="r-in"><span><span class="co"># The result is a ggplot object, so labels and layers can be added.</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">krw_fit</span>, type <span class="op">=</span> <span class="st">"shrinkage"</span>, scale <span class="op">=</span> <span class="fl">100</span><span class="op">)</span> <span class="op">+</span></span></span>
+<span class="r-in"><span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Estimated gap (percentage points)"</span><span class="op">)</span></span></span>
+<span class="r-plt img"><img src="plot.bef_fit_re-4.png" alt="The posterior mean of the gap of each firm against its estimate, in percentage points, colored by the standard error, with a dashed diagonal. The horizontal axis is labeled Estimated gap (percentage points)." width="700" height="433"></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">raudenbush_fit</span>, type <span class="op">=</span> <span class="st">"loo"</span><span class="op">)</span></span></span>
-<span class="r-plt img"><img src="plot.bef_fit_re-6.png" alt="The Pareto k value of each study from leave-one-out cross-validation, with reference lines at 0.5 and 0.7." width="700" height="433"></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

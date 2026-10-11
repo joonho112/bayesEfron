@@ -1,113 +1,110 @@
 # Getting started with bayesEfron
 
-Raudenbush and Bryk ([1985](#ref-raudenbush1985)) analyzed 19 studies of
-the effect of teachers’ expectations on their pupils’ IQ scores. In each
-study teachers were led to expect that certain pupils, in fact chosen at
-random, would show unusual intellectual growth. Each study gives an
-estimate of the effect of that expectation, as a standardized mean
-difference, and a standard error. The studies differ a great deal in
-size, so their standard errors differ too.
-
-A meta-analysis of such studies usually asks first what the average
-effect is. Often a second question is of more interest: how the true
-effects are distributed over studies, and what the effect in each study
-is once the other studies are taken into account. The random-effects
-model answers the second question by assuming that the true effects
-follow a normal distribution ([Raudenbush and Bryk
-1985](#ref-raudenbush1985)). For these studies, however, there is reason
-to doubt that assumption. Raudenbush ([1984](#ref-raudenbush1984))
-argued that an expectation that the experimenter tries to induce carries
-less conviction with a teacher who already knows the pupils, and that
-the effect should therefore be found mainly in the studies where teacher
-and pupils had met only recently. If a minority of the studies have
-sizable effects and the others have effects near zero, the distribution
-of true effects is skewed.
-
-bayesEfron fits the same two-level model as a random-effects
-meta-analysis, but it does not take the distribution of true effects,
-called \\g\\ below, to be normal: \\g\\ may have any smooth shape that a
-small number of spline functions can describe ([Efron
-2016](#ref-efron2016); [Lee and Sui 2025](#ref-lee2025)). This vignette
-fits the model to the 19 studies and interprets the two things that the
-fit returns: the estimated \\g\\, and the effect of each study.
-
-## The studies
-
-The data are in the package as `raudenbush1985`.
+This vignette walks through a complete analysis with bayesEfron:
+preparing the data, fitting the model, checking the fit, and summarizing
+both the distribution of effects across sites and the effect at each
+site.
 
 ``` r
 
-transform(
-  raudenbush1985[, c("author", "year", "weeks", "yi", "sei")],
-  sei = round(sei, 3)
-)
-#>                  author year weeks    yi   sei
-#> 1      Rosenthal et al. 1974     2  0.03 0.125
-#> 2           Conn et al. 1968    21  0.12 0.147
-#> 3           Jose & Cody 1971    19 -0.14 0.167
-#> 4    Pellegrini & Hicks 1972     0  1.18 0.373
-#> 5    Pellegrini & Hicks 1972     0  0.26 0.369
-#> 6     Evans & Rosenthal 1969     3 -0.06 0.103
-#> 7        Fielder et al. 1971    17 -0.02 0.103
-#> 8              Claiborn 1969    24 -0.32 0.220
-#> 9                Kester 1969     0  0.27 0.164
-#> 10              Maxwell 1970     1  0.80 0.251
-#> 11               Carter 1970     0  0.54 0.302
-#> 12              Flowers 1966     0  0.18 0.223
-#> 13              Keshock 1970     1 -0.02 0.289
-#> 14            Henrikson 1970     2  0.23 0.290
-#> 15                 Fine 1972    17 -0.18 0.159
-#> 16              Grieger 1970     5 -0.06 0.167
-#> 17 Rosenthal & Jacobson 1968     1  0.30 0.139
-#> 18   Fleming & Anttonen 1971     2  0.07 0.094
-#> 19             Ginsburg 1970     7 -0.07 0.174
+library(bayesEfron)
 ```
 
-`yi` is the standardized mean difference and `sei` its standard error.
-`weeks` is the number of weeks for which the teacher had known the
-pupils when the expectation was induced.
+Our example is a correspondence experiment. Such an experiment sends
+fictitious job applications that differ only in a signal of race and
+records which of them are called back. Kline et al.
+([2022](#ref-kline2022)) did this at large employers in the United
+States. For each of the 97 firms that we analyze, the experiment gives
+an estimate of the gap in callback rates between applications with
+distinctively white and distinctively Black names, together with a
+standard error.
+
+The estimates vary a lot from firm to firm, but they cannot be taken at
+face value as the firms’ true gaps. Part of the variation is sampling
+error, and some estimates are far noisier than others: the largest
+standard error is more than 7 times the smallest. We want to answer two
+questions.
+
+1.  How are the true gaps distributed across firms? How large is a
+    typical gap, and how many firms have a gap near zero, or a large
+    one?
+2.  What can we say about the gap at one firm once we read its noisy
+    estimate in light of the other 96?
+
+bayesEfron answers both questions with one model ([Lee and Sui
+2025](#ref-lee2025)). We assume that each estimate is normally
+distributed around the true gap of its firm, with the reported standard
+error, and that the true gaps are draws from a distribution \\g\\. A
+random-effects meta-analysis assumes that \\g\\ is normal. Here \\g\\
+can be any smooth distribution on a grid of values, in the form proposed
+by Efron ([2016](#ref-efron2016)). The model is fitted by Markov chain
+Monte Carlo, so the result is a posterior distribution for \\g\\ and for
+the gap at every firm.
+
+## The data
+
+The data set `krw_discrimination` has one row for each of the 97 firms.
+The sample follows Kline et al. ([2024](#ref-kline2024)) and the
+replication code that accompanies Walters ([2024](#ref-walters2024)):
+firms with at least 40 sampled vacancies and a callback rate of at least
+3%. The estimates are based on 78,910 applications to 10,453 vacancies.
+See
+[`?krw_discrimination`](https://joonho112.github.io/bayesEfron/reference/krw_discrimination.md)
+for the sources and the estimator.
 
 ``` r
 
-recent <- raudenbush1985$weeks <= 1
-contact <- ifelse(recent, "at most 1 week", "2 weeks or more")
-tapply(raudenbush1985$yi, contact, mean)
-#> 2 weeks or more  at most 1 week 
-#>     -0.03636364      0.43875000
+head(krw_discrimination[, c("firm_name", "yi", "sei", "n_jobs", "n_obs")])
+#>            firm_name           yi        sei n_jobs n_obs
+#> 1           Rite Aid  0.046957123 0.01619358    128   962
+#> 2                KFC  0.022000000 0.01530472    125  1000
+#> 3  Victoria's Secret  0.042161613 0.02296031    125   931
+#> 4     United Rentals  0.005708306 0.01504751    125   917
+#> 5    Cardinal Health  0.034077110 0.02145421    125   974
+#> 6 Charter / Spectrum -0.010182468 0.01209059    125   960
 ```
 
-The estimates average 0.44 in the 8 studies with at most a week of prior
-contact and -0.04 in the other 11, which is the pattern that Raudenbush
-expected. The model below has no covariates and does not use `weeks`. It
-is given only the estimates and their standard errors, and the question
-is what it makes of the distribution of effects from those alone.
+Each row is a firm. bayesEfron calls the units of analysis sites, so
+here each site is a firm. The estimates are in two columns:
 
-[`as_bef_data()`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
-takes the two columns out of the data frame and checks them. The package
-calls the units sites, since they may equally be the sites of a
-multisite trial; here each site is one study. There must be at least
-five of them, with no missing values and with positive standard errors.
-Other forms of input are described in
-[`vignette("data-input")`](https://joonho112.github.io/bayesEfron/articles/data-input.md).
+- `yi` is the difference between the callback probabilities of the two
+  groups of applications at the firm, white minus Black. A positive
+  value favors applications with white names.
+- `sei` is the standard error of `yi`, clustered by vacancy.
+
+These are the estimates as they come from the experiment, and no
+shrinkage has been applied to them. They are differences in
+probabilities, so 0.02 is a gap of 2 percentage points. We fit the model
+in these units, and later pass `scale = 100` to the summary and plot
+functions to report the results in percentage points.
+
+Before fitting we pass the data frame to
+[`as_bef_data()`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md),
+which finds the columns with the estimates and the standard errors by
+their names and checks them. The `site` argument names a column of
+labels. The labels are carried through the fit, so the tables and plots
+below show the names of the firms.
 
 ``` r
 
-dat <- as_bef_data(raudenbush1985)
+dat <- as_bef_data(krw_discrimination, site = "firm_name")
 dat
 #> <bef_data>
-#> Sites: 19
+#> Sites: 97
 #> Source: data.frame
-#> theta_hat: min -0.32; median 0.07; max 1.18
-#> sigma: min 0.09381; median 0.167; max 0.373
+#> theta_hat: min -0.02254; median 0.01781; max 0.09817
+#> sigma: min 0.005344; median 0.01581; max 0.0392
+#> Names: Rite Aid, KFC, Victoria's Secret, ...
 ```
 
-In the printed object and in what follows, `theta_hat` holds the
-estimates and `sigma` their standard errors.
+Estimates can be supplied in other forms as well, which
+[`vignette("data-input")`](https://joonho112.github.io/bayesEfron/articles/data-input.md)
+describes.
 
 ## Fitting the model
 
-Fitting needs the cmdstanr package, which is not on CRAN, and CmdStan,
-which needs a C++ compiler. Both are installed once.
+bayesEfron fits the model with CmdStan, which you can install through
+the cmdstanr package:
 
 ``` r
 
@@ -116,295 +113,418 @@ install.packages("cmdstanr",
 cmdstanr::install_cmdstan()
 ```
 
-The model is then fitted with one call.
+With the data prepared, fitting the model takes one call. We set `seed`
+so that the fit can be reproduced.
 
 ``` r
 
-fit <- bayes_efron_fit(theta_hat = dat$theta_hat, sigma = dat$sigma,
-                       seed = 1985)
+fit <- bayes_efron_fit(dat, seed = 20250807)
 ```
 
-The model is fitted by Markov chain Monte Carlo, which produces a sample
-of values, called draws, from the posterior distribution of every
-quantity in the model; the estimates and intervals below are computed
-from the draws. By default four chains are run, each with 1,000 warmup
-iterations, which are discarded, and 3,000 sampling iterations, which
-are kept. The first call compiles the Stan model, which can take up to a
-minute. For these data the sampling then took 1.4 seconds.
-
-The model represents \\g\\ by the probabilities that it gives to 101
-equally spaced values of the effect, called the grid. The default grid
-was used here;
-[`vignette("choosing-a-grid")`](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.md)
-discusses it, and
-[`vignette("model")`](https://joonho112.github.io/bayesEfron/articles/model.md)
-sets out the model.
-
-So that this vignette can be built without CmdStan, the result of the
-call above is stored in the package as `raudenbush_fit`, which keeps one
-posterior draw in fifteen.
+So that this vignette can be built without CmdStan, we load the result
+from the package, where it is stored as `krw_fit`. To keep the package
+small, `krw_fit` was thinned to 800 of the 12,000 posterior draws
+(`thin = 15`).
 
 ``` r
 
-fit <- raudenbush_fit
+fit <- krw_fit
 fit
 #> <bayesEfron fit>
 #> Model family: RE
-#> Sites: 19
-#> Grid method: paper_realdata
-#> Runtime: 1.351 sec
-#> Diagnostics: Rhat 1.007; ESS bulk 676.6; ESS tail 888.8; divergences 0; treedepth hits 1
-#> Warnings: max_treedepth
-#> Use summary() for posterior summaries.
+#> Sites: 97
+#> Grid method: pilot
+#> Runtime: 0.7197 sec
+#> Draws: 800 (4 chains, one iteration in 15 kept); site-level draws not kept
+#> Diagnostics: Rhat 1.002; ESS bulk 1731; ESS tail 1780; divergences 0; treedepth hits 0
+#> Standard errors: 0.005344 to 0.0392 (largest / smallest 7.335)
+#> Grid: 101 points from -0.0829 to 0.1585; smallest standard error 2.213 grid spacings
+#> Grid range: rule "pilot", not narrowed (the range of "paper_realdata"); point masses; 6 spline functions
+#> Next: summary() and site_summary() for the sites, g_summary() for the distribution of effects, plot().
 ```
 
-The line of diagnostics gives the worst value of each convergence
-diagnostic over all the quantities in the model. R-hat and the effective
-sample sizes are satisfactory and there is no divergent transition. The
-warning says that an iteration reached the maximum tree depth, which
-concerns the efficiency of the sampler and not the validity of the
-draws.
-[`vignette("diagnostics")`](https://joonho112.github.io/bayesEfron/articles/diagnostics.md)
-explains the diagnostics and what to do when one of them fails.
+The printed fit describes the data, the sampler and the grid. The call
+used the default settings:
 
-## The distribution of effects
+- \\g\\ is defined on a grid of 101 equally spaced values, and 6 spline
+  functions (smooth curves) determine its shape on the grid.
+- The range of the grid is chosen in two steps. First a short
+  preliminary fit, which we call the pilot fit, is run on a wide range:
+  the range of the estimates extended by half its width on each side. If
+  the pilot fit shows that \\g\\ occupies a narrower region, the grid is
+  narrowed to that region plus a margin.
+- Four chains are run, each with 1,000 warmup and 3,000 sampling
+  iterations.
+
+For these data the pilot fit did not narrow the range, so the grid runs
+from -8.29 to 15.85 percentage points, as the `Grid range` line shows
+(the output says “rule” for the method that chooses the range).
+`Model family: RE` is the model described above, the only one in the
+package. Sampling took 0.7 seconds on the computer that produced
+`krw_fit`. The grid can affect the results, and
+[`vignette("choosing-a-grid")`](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.md)
+shows how to check this and how to set the grid yourself. For the model
+in full, see
+[`vignette("model")`](https://joonho112.github.io/bayesEfron/articles/model.md).
+
+## Checking the fit
+
+Before reading any results we check that the sampler has converged.
+[`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+collects the sampler diagnostics and adds checks of the grid.
+
+``` r
+
+diagnose(fit)
+#> <bef_diagnostic>
+#> Model family: RE
+#> Rhat max: 1.002 (log_g[97])
+#> ESS bulk min: 1731 (lp__)
+#> ESS tail min: 1780 (log_g[2])
+#> Divergences: 0
+#> Max treedepth hits: 0
+#> E-BFMI min: 0.5682
+#> Runtime: 0.7197 sec
+#> Grid:
+#>   lower end -0.0829: at most 0% of a site's posterior in the outer 2% (site "Safeway")
+#>   upper end 0.1585: at most 0.1% of a site's posterior in the outer 2% (site "Genuine Parts (Napa Auto)")
+#>   sd of g: posterior 0.01716 (0.01183 to 0.02396); prior 0.06991 (0.05814 to 0.07644)
+#>   the central 99.9% of g spans 98% of the grid
+#> Effective params: mean 46.67; sd 6.378
+```
+
+The sampler diagnostics are computed from the whole run of 12,000 draws,
+so thinning does not affect them. All of the checks pass here: R-hat is
+below 1.01 for every quantity that the sampler records, the effective
+sample sizes are above 400, and there are no divergent transitions.
+
+The first two `Grid` lines show, for each end of the grid, the largest
+posterior probability that any one firm has in the outer 2% of the
+range. Here it is at most 0.1%, far below the 5% that
+[`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+allows, so no firm has much of its posterior probability at an end of
+the grid. The other two `Grid` lines have no threshold. They compare the
+posterior of the standard deviation of \\g\\ with its prior on this
+grid, and give the part of the grid that the central 99.9% of \\g\\
+spans.
+[`vignette("diagnostics")`](https://joonho112.github.io/bayesEfron/articles/diagnostics.md)
+explains how to read each line and what to do when a check fails.
+
+## The distribution of gaps across firms
+
+We start with the first question.
+[`confint()`](https://rdrr.io/r/stats/confint.html) with `type = "g"`
+returns the posterior mean and a 90% posterior interval for the mean,
+the variance and the standard deviation of \\g\\. (The columns `site`
+and `point` repeat `parameter` and `mean`.)
 
 ``` r
 
 confint(fit, type = "g")
-#>     site       lower     upper     point
-#> 1 mean_g 0.003896369 0.2499901 0.1144608
-#> 2  var_g 0.010904857 0.3041748 0.1093714
-#> 3   sd_g 0.104426290 0.5515191 0.3008526
+#> 90% posterior intervals (equal-tailed)
+#>   parameter         mean        lower        upper   site        point
+#> 1    mean_g 0.0166017761 0.0130811925 0.0206491286 mean_g 0.0166017761
+#> 2     var_g 0.0003076948 0.0001399332 0.0005738865  var_g 0.0003076948
+#> 3      sd_g 0.0171621568 0.0118293270 0.0239559271   sd_g 0.0171621568
 ```
 
-The rows are the mean, the variance and the standard deviation of \\g\\,
-each with its posterior mean (`point`) and a 90% posterior interval,
-which runs from the 5% to the 95% quantile of the draws. Such an
-interval is often called a credible interval; `level = 0.95` gives a 95%
-interval, the level that metafor uses by default for its confidence
-intervals. The mean of \\g\\ is the average effect over studies of this
-kind. It is estimated as 0.11, with an interval from 0.00 to 0.25. The
-standard deviation of \\g\\ is estimated as 0.30, with an interval from
-0.10 to 0.55.
+We estimate the mean gap across firms to be 1.66 percentage points (90%
+interval 1.31 to 2.06), and the standard deviation of the gaps to be
+1.72 points (1.18 to 2.40). This standard deviation lies between two
+other numbers that are sometimes mistaken for it:
+
+- The standard deviation of the 97 estimates is 2.43 points. It is
+  larger because the estimates include sampling error.
+- The standard deviation of the firms’ posterior means, which are shown
+  in the next section, is 1.08 points. It is smaller because each
+  posterior mean is pulled toward the center.
+
+To see the shape of \\g\\ we plot it with
+[`plot_g()`](https://joonho112.github.io/bayesEfron/reference/plot_g.md).
+We add a histogram of the estimates and, for comparison, the normal
+distribution of a random-effects model.
 
 ``` r
 
-plot(fit, type = "g")
+plot_g(fit, observed = "histogram", normal = TRUE, scale = 100) +
+  ggplot2::labs(x = "Callback gap (percentage points)")
 ```
 
-![The estimated distribution of effects on the grid, with a 90 percent
-band.](bayesEfron_files/figure-html/g-plot-1.png)
+![The estimated density of the callback gaps with its band, over a
+histogram of the 97 estimates, and the normal distribution of a
+random-effects model as a dashed
+curve.](bayesEfron_files/figure-html/g-plot-1.png)
 
-The line is the posterior mean of the probability that \\g\\ gives to
-each point of the grid, and the band is a pointwise 90% interval. The
-estimated distribution is concentrated near zero and has a long tail to
-the right. About 68% of its probability lies between \\-0.2\\ and
-\\0.2\\, and about 7% lies above \\0.5\\. It is not symmetric about its
-peak at 0.04: 9% of the probability lies more than 0.4 above the peak
-and 2% more than 0.4 below it.
+The solid curve is the posterior mean of the density of \\g\\. The band
+around it is pointwise: at each value it contains the density with
+posterior probability 0.9, but it is not a band for the whole curve at
+once. The histogram shows the estimates, which are more spread out than
+the gaps. The dashed curve is the normal distribution of a
+random-effects model fitted to the same estimates by restricted maximum
+likelihood (REML). It has no band because it treats the estimated mean
+and variance as known.
 
-The model was not told which studies had recent contact. The posterior
-mean of \\g\\ nevertheless puts most effects near zero and a few well
-above it, although the band shows how little 19 studies say about the
-right tail. The curve also turns up slightly at the two ends of the
-grid, where there are no estimates. The data hardly bear on \\g\\ there,
-so the band is wide and the shape of the curve reflects the prior and
-the spline functions.
+The two curves agree about the center but differ in shape. The estimate
+of \\g\\ is more peaked and has a longer right tail. For example, it
+puts a probability of 0.034 on gaps above 5 percentage points, whereas
+the normal curve puts 0.011 there. However, with 97 firms the band is
+wide in that tail, and the 90% interval for this probability goes down
+to 0.004. So the plot is not evidence that the gaps are non-normal. It
+shows what the data allow when normality is not assumed.
 
-[`predict()`](https://rdrr.io/r/stats/predict.html) turns the estimated
-\\g\\ into statements about a study that has not been done. It draws the
-effect of a new study from \\g\\, with a different posterior draw of
-\\g\\ each time, so that the uncertainty about \\g\\ is part of the
-result.
+Statements about proportions of firms also come from \\g\\, and
+[`g_summary()`](https://joonho112.github.io/bayesEfron/reference/g_summary.md)
+computes them with posterior intervals. With `type = "prob"` it returns
+the probability that a firm’s gap lies in a given range, and with
+`type = "quantile"` it returns quantiles of \\g\\.
+
+``` r
+
+g_summary(fit, type = "prob", lower = 0.02)
+#>   from  to      mean     lower     upper
+#> 1 0.02 Inf 0.3641116 0.2582442 0.4805717
+g_summary(fit, type = "prob", upper = 0)
+#>   from to      mean      lower     upper
+#> 1 -Inf  0 0.1245112 0.06335606 0.1916327
+g_summary(fit, type = "quantile", probs = c(0.1, 0.5, 0.9), scale = 100)
+#>   prob       mean      lower     upper
+#> 1  0.1 -0.1602722 -0.6278007 0.2739055
+#> 2  0.5  1.5080321  1.1318371 1.9253976
+#> 3  0.9  3.6474761  2.9043495 4.7937459
+```
+
+The probability that a firm’s gap exceeds 2 percentage points is 0.36
+(90% interval 0.26 to 0.48). The probability that a firm’s gap is below
+zero, so that the firm favors applications with Black names, is 0.12
+(0.06 to 0.19). The quantiles are in percentage points because we set
+`scale = 100`. We estimate that 10% of the firms have gaps below -0.16
+points, half have gaps below 1.51, and 10% have gaps above 3.65.
+
+## The gap at each firm
+
+We now turn to the second question.
+[`site_summary()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+returns a data frame with one row for each firm. It contains the
+estimate and its standard error as they were supplied, and the mean, the
+standard deviation and a 90% posterior interval for the gap. With
+`threshold = 0` it adds a column, `prob_above`, with the posterior
+probability that the gap is above zero, which we come back to below.
+Here we print three firms chosen by their standard errors alone: the
+smallest, the median and the largest.
+
+``` r
+
+sites <- site_summary(fit, threshold = 0, scale = 100)
+by_precision <- order(sites$se)[c(1, 49, 97)]
+sites[by_precision, c("label", "estimate", "se", "mean", "sd", "lower", "upper")]
+#>                label   estimate       se       mean        sd       lower
+#> 29 Quest Diagnostics -0.8616163 0.534379 -0.4794688 0.4968573 -1.32080742
+#> 11       J.C. Penney  3.0181087 1.581008  2.1602438 1.1208334  0.40936330
+#> 65           Walmart  7.0000000 3.919826  2.3868227 1.7444759  0.04493205
+#>        upper
+#> 29 0.3356499
+#> 11 4.0891073
+#> 65 5.5232668
+```
+
+All columns are in percentage points. Quest Diagnostics has the most
+precise estimate, and its posterior mean is 0.38 points from that
+estimate. At the other extreme, Walmart has an estimate of 7.00 points
+with a standard error of 3.92, and its posterior mean is 2.39. An
+estimate this noisy carries little information, so the posterior mean is
+determined largely by the other firms.
+
+A plot of the posterior means and intervals of all 97 firms would be
+long, so we ask
+[`plot_sites()`](https://joonho112.github.io/bayesEfron/reference/plot_sites.md)
+for the 10 firms with the largest and the 10 with the smallest posterior
+means (`n_extreme = 10`).
+
+``` r
+
+plot_sites(fit, n_extreme = 10, scale = 100)
+```
+
+![Two panels with the ten firms with the highest and the ten with the
+lowest posterior mean gaps, by name: posterior means, 50 and 90 percent
+intervals, and the estimates as open
+circles.](bayesEfron_files/figure-html/sites-plot-1.png)
+
+The open circles are the estimates, so the distance from a circle to its
+point is the shrinkage for that firm. The firm with the largest
+posterior mean is Genuine Parts (Napa Auto), at 6.41 points compared
+with an estimate of 9.82.
+
+To look at the shrinkage of all 97 firms at once we use
+[`plot_shrinkage()`](https://joonho112.github.io/bayesEfron/reference/plot_shrinkage.md),
+which plots each posterior mean (vertical axis) against its estimate
+(horizontal axis).
+
+``` r
+
+plot_shrinkage(fit, scale = 100)
+```
+
+![The posterior mean of each firm against its estimate, colored by the
+standard error, with a dashed
+diagonal.](bayesEfron_files/figure-html/shrinkage-1.png)
+
+A firm on the dashed diagonal would have a posterior mean equal to its
+estimate. The points farthest from the diagonal have large standard
+errors, which are shown in the lighter colors. In a normal model, every
+estimate is shrunk toward a common mean by a fraction that depends only
+on its standard error. Here the amount of shrinkage also depends on
+where the estimate lies relative to \\g\\.
+
+The posterior standard deviation of each firm reflects two sources of
+uncertainty, and
+[`site_summary()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+returns a column for each. `sd_given_g` is what the standard deviation
+would be if \\g\\ were known, and `sd_about_g` is what the uncertainty
+about \\g\\ adds. In these data the second source accounts for a median
+of 2.3% of a firm’s posterior variance.
+
+## Probability of a positive gap
+
+A common question about a single firm is whether its gap is above zero.
+[`exceedance_prob()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+returns the posterior probability of this for every firm (the
+`prob_above` column of the table above has the same numbers). Below we
+print the four largest probabilities and count the firms with a
+probability of at least 0.95.
+
+``` r
+
+p_positive <- exceedance_prob(fit)
+round(head(sort(p_positive, decreasing = TRUE), 4), 3)
+#> Genuine Parts (Napa Auto)                AutoNation        Advance Auto Parts 
+#>                     1.000                     0.999                     0.997 
+#>                  Rite Aid 
+#>                     0.997
+sum(p_positive >= 0.95)
+#> [1] 45
+```
+
+[`plot_exceedance()`](https://joonho112.github.io/bayesEfron/reference/plot_exceedance.md)
+shows every firm’s probability, sorted from the largest to the smallest.
+
+``` r
+
+plot_exceedance(fit, cutoff = 0.95)
+```
+
+![The probability that the callback gap of each of the 97 firms is
+positive, the largest at the top, with a dashed line at
+0.95.](bayesEfron_files/figure-html/exceedance-plot-1.png)
+
+For 45 of the 97 firms the probability of a positive gap is at least
+0.95. A count like this needs three caveats.
+
+1.  Each probability is a statement about one firm. The 45 firms are not
+    a list with a controlled false discovery rate.
+2.  The probability is about a gap above zero and not about the size of
+    the gap. To ask about gaps above some other value, set `threshold`,
+    for example `exceedance_prob(fit, threshold = 0.02)`.
+3.  The count depends on the grid. In fits of the same data with all
+    12,000 draws, the count is 45 with the default grid, 53 with a range
+    that extends a quarter of the width beyond the estimates, and 51
+    with 8 spline functions. See
+    [`vignette("choosing-a-grid")`](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.md)
+    for how to check this for your own data.
+
+## Predicting the gap at a new firm
+
+The estimate of \\g\\ also tells us about a firm that was not in the
+experiment, provided that the firm can be regarded as one more draw from
+the same population of large firms.
+[`predict()`](https://rdrr.io/r/stats/predict.html) draws the gap of
+such a firm from \\g\\, and the draws include the uncertainty about
+\\g\\.
 
 ``` r
 
 theta_new <- predict(fit, seed = 1)
-quantile(theta_new, c(0.05, 0.25, 0.5, 0.75, 0.95))
-#>    5%   25%   50%   75%   95% 
-#> -0.23 -0.05  0.07  0.22  0.73
-mean(theta_new > 0.2)
-#> [1] 0.2525
+quantile(100 * theta_new, c(0.05, 0.5, 0.95))
+#>         5%        50%        95% 
+#> -0.8055305  1.3672701  4.5057598
 ```
 
-The last number estimates the probability that the true effect in a new
-study of this kind exceeds 0.2.
+The middle 90% of the draws runs from -0.8 to 4.5 percentage points.
 
-## The effect in each study
-
-[`coef()`](https://rdrr.io/r/stats/coef.html) returns the posterior mean
-of each study’s effect, and
-[`confint()`](https://rdrr.io/r/stats/confint.html) returns a 90%
-interval for it.
+If the new firm has been studied, we can supply its estimate and
+standard error as `newdata`, and
+[`predict()`](https://rdrr.io/r/stats/predict.html) then returns
+posterior summaries of its gap. Here we give the same estimate of 5
+percentage points with two different standard errors.
 
 ``` r
 
-sites <- cbind(
-  raudenbush1985[, c("author", "weeks", "yi", "sei")],
-  posterior_mean = coef(fit),
-  confint(fit)[, c("lower", "upper")]
-)
-sites$sei <- round(sites$sei, 3)
-sites[c("posterior_mean", "lower", "upper")] <-
-  round(sites[c("posterior_mean", "lower", "upper")], 2)
-sites
-#>                  author weeks    yi   sei posterior_mean lower upper
-#> 1      Rosenthal et al.     2  0.03 0.125           0.04 -0.11  0.19
-#> 2           Conn et al.    21  0.12 0.147           0.09 -0.08  0.28
-#> 3           Jose & Cody    19 -0.14 0.167          -0.03 -0.23  0.16
-#> 4    Pellegrini & Hicks     0  1.18 0.373           0.63  0.04  1.48
-#> 5    Pellegrini & Hicks     0  0.26 0.369           0.11 -0.14  0.40
-#> 6     Evans & Rosenthal     3 -0.06 0.103          -0.02 -0.17  0.10
-#> 7        Fielder et al.    17 -0.02 0.103           0.00 -0.14  0.13
-#> 8              Claiborn    24 -0.32 0.220          -0.07 -0.35  0.13
-#> 9                Kester     0  0.27 0.164           0.16 -0.02  0.40
-#> 10              Maxwell     1  0.80 0.251           0.47  0.07  1.03
-#> 11               Carter     0  0.54 0.302           0.22 -0.05  0.64
-#> 12              Flowers     0  0.18 0.223           0.10 -0.11  0.34
-#> 13              Keshock     1 -0.02 0.289           0.04 -0.20  0.28
-#> 14            Henrikson     2  0.23 0.290           0.11 -0.11  0.40
-#> 15                 Fine    17 -0.18 0.159          -0.06 -0.29  0.10
-#> 16              Grieger     5 -0.06 0.167           0.00 -0.20  0.19
-#> 17 Rosenthal & Jacobson     1  0.30 0.139           0.20  0.01  0.40
-#> 18   Fleming & Anttonen     2  0.07 0.094           0.06 -0.08  0.19
-#> 19             Ginsburg     7 -0.07 0.174           0.00 -0.20  0.19
+predict(fit, newdata = data.frame(estimate = c(0.05, 0.05), se = c(0.01, 0.03)))
+#>   estimate   se       mean          sd       lower      upper       mode
+#> 1     0.05 0.01 0.04157138 0.009837535 0.025773501 0.05821434 0.04022915
+#> 2     0.05 0.03 0.02291722 0.015207284 0.001026362 0.05025402 0.01850115
 ```
 
-Each posterior mean is drawn from the study’s own estimate toward the
-values where \\g\\ puts most of its probability, here the peak just
-above zero. How far depends on the standard error. Studies 5 and 17 have
-similar estimates, 0.26 and 0.30, but standard errors of 0.369 and
-0.139, and their posterior means are 0.11 and 0.20.
+The same estimate leads to different conclusions at the two levels of
+precision. Each row treats its firm as a single new firm: the summaries
+are those that the firm would have if it were added to the 97 and the
+model were fitted again.
 
-Because \\g\\ has a long right tail, a large positive estimate is not
-drawn all the way back, and the interval excludes zero for 3 studies
-(Pellegrini & Hicks; Maxwell; Rosenthal & Jacobson). All of them had at
-most a week of prior contact.
+Both uses of [`predict()`](https://rdrr.io/r/stats/predict.html)
+describe firms like those in the sample, which were selected for their
+size and their number of vacancies. Neither is a forecast for employers
+in general.
 
-For study 4, which has the largest estimate, the interval runs from 0.04
-to 1.48 and is wider than the one that its estimate and standard error
-give by themselves, 0.57 to 1.79. With a normal \\g\\ of known mean and
-variance that cannot happen. Here the model is undecided between a large
-true effect and a small one that was overestimated: it gives probability
-0.34 to an effect below 0.3 and 0.33 to one above 0.8. The result for
-this study is also the one that depends most on the choice of the grid:
-over the nine specifications compared in
-[`vignette("choosing-a-grid")`](https://joonho112.github.io/bayesEfron/articles/choosing-a-grid.md)
-its posterior mean ranges from 0.44 to 0.85, and cross-validation does
-not tell those specifications apart. A conclusion about a study as
-extreme as this one should be checked against that comparison before it
-is reported.
+## More about the fitted object
 
-The limits of the intervals are quantiles of posterior draws of the
-effect. The draws take values on the grid, whose spacing here is 0.03,
-so the limits should be read to no finer a resolution than that. A limit
-that lies between two grid points is an interpolation between two draws.
+`summary(fit)` prints the posterior means of the three summaries of
+\\g\\, the diagnostics, and the first and last rows of the table of site
+effects. To get that table for all the firms as a data frame, use
+[`as.data.frame()`](https://rdrr.io/r/base/as.data.frame.html):
 
 ``` r
 
-plot(fit, type = "caterpillar")
+as.data.frame(fit)[1:3, c("site", "label", "mean", "sd", "lower", "upper")]
+#>   site             label       mean         sd       lower      upper
+#> 1    1          Rite Aid 0.03048175 0.01296795 0.010775168 0.05349968
+#> 2    2               KFC 0.01786494 0.01052594 0.001227187 0.03581179
+#> 3    3 Victoria's Secret 0.02334782 0.01384900 0.002864899 0.04801767
 ```
 
-![Posterior means and intervals of the 19 study
-effects.](bayesEfron_files/figure-html/caterpillar-1.png)
-
-The points are the posterior means, the thin lines are the 90% intervals
-and the thick lines are the central 50% intervals. The studies are
-numbered as in the data, and the dashed line marks the mean of \\g\\.
-
-## What the fitted object holds
-
-`fit` is a list with three elements. `fit$draws` holds the posterior
-draws of every quantity in the model, in the format of the posterior
-package. `fit$posterior` holds the draws of the mean, variance and
-standard deviation of \\g\\ and of two summaries of the fit, and
-`fit$metadata` holds the data, the settings and summaries of the draws.
+The fit is a list that contains the draws, the data, the grid and the
+settings. See
 [`?bef_fit`](https://joonho112.github.io/bayesEfron/reference/bef_fit.md)
-describes them and lists the methods.
-[`summary()`](https://rdrr.io/r/base/summary.html) prints the summaries
-that are used most.
+for its components and the available methods.
 
-``` r
+## Where to go next
 
-summary(fit)
-#> <summary.bef_fit>
-#> 
-#> Prior g:
-#>   mean: 0.1145
-#>   var:  0.1094
-#>   sd:   0.3009
-#> 
-#> Diagnostics:
-#>   Rhat (max):        1.007
-#>   ESS bulk (min):    676.6
-#>   ESS tail (min):    888.8
-#>   Divergences:       0
-#>   Treedepth hits:    1
-#>   Effective params:  mean 10.29, sd 2.84
-#>   Log marginal lik.: mean -4.047, sd 1.439
-#>   Runtime:           1.351 sec
-#>   Warnings:          max_treedepth
-#> 
-#> Theta summary:
-#>   site      mean        sd     lower     upper       map
-#>   1      0.03805   0.09832     -0.11      0.19      0.04
-#>   2       0.0874    0.1121     -0.08      0.28      0.07
-#>   3     -0.03442    0.1188     -0.23      0.16     -0.02
-#>   4        0.635    0.4979      0.04      1.48      0.19
-#>   5       0.1063     0.186     -0.14    0.4015      0.07
-#>   6     -0.02282   0.08604     -0.17       0.1     -0.02
-#>   14      0.1073    0.1658     -0.11       0.4      0.07
-#>   15    -0.05756    0.1177     -0.29    0.1015     -0.05
-#>   16    0.001513    0.1169      -0.2      0.19      0.01
-#>   17      0.1979    0.1221      0.01       0.4      0.19
-#>   18       0.063   0.08101     -0.08      0.19      0.07
-#>   19   -0.0006152    0.1197      -0.2      0.19      0.01
-#>   ... 7 sites omitted ...
-```
-
-`Prior g` is the distribution of true effects, which is the prior
-distribution of each study’s effect. `Effective params` and
-`Log marginal lik.` are explained in
-[`vignette("model")`](https://joonho112.github.io/bayesEfron/articles/model.md).
-In the table of study effects, `sd` is the posterior standard deviation,
-`lower` and `upper` are the limits of the 90% interval and `map` is the
-posterior mode, the point of the grid with the largest posterior
-probability. Where the posterior distribution is skewed the mode and the
-mean are far apart. For study 4 the mode is 0.19 and the mean 0.63,
-which is one more sign that the model is undecided about that study.
-
-Any quantity in the model can be summarized from the draws with the
-functions of the posterior package.
-
-``` r
-
-posterior::summarize_draws(
-  posterior::subset_draws(posterior::as_draws(fit),
-                          variable = c("mean_g", "sd_g", "lambda"))
-)
-#> # A tibble: 3 × 10
-#>   variable  mean median     sd    mad      q5   q95  rhat ess_bulk ess_tail
-#>   <chr>    <dbl>  <dbl>  <dbl>  <dbl>   <dbl> <dbl> <dbl>    <dbl>    <dbl>
-#> 1 mean_g   0.114 0.106  0.0786 0.0699 0.00390 0.250 0.999     740.     692.
-#> 2 sd_g     0.301 0.286  0.137  0.142  0.104   0.552 1.00      665.     640.
-#> 3 lambda   0.102 0.0592 0.155  0.0638 0.00397 0.332 1.01      504.     520.
-```
+- [`vignette("plots")`](https://joonho112.github.io/bayesEfron/articles/plots.md)
+  shows all the plots in the package, including the ones used here.
+- [`vignette("twin-towers")`](https://joonho112.github.io/bayesEfron/articles/twin-towers.md)
+  repeats these steps on simulated data, for which the true effects are
+  known.
+- [`vignette("empirical-bayes")`](https://joonho112.github.io/bayesEfron/articles/empirical-bayes.md)
+  compares the results for these 97 firms with those from empirical
+  Bayes methods.
 
 ## References
 
 Efron, Bradley. 2016. “Empirical Bayes Deconvolution Estimates.”
 *Biometrika* 103 (1): 1–20. <https://doi.org/10.1093/biomet/asv068>.
 
+Kline, Patrick, Evan K. Rose, and Christopher R. Walters. 2022.
+“Systemic Discrimination Among Large U.S. Employers.” *The Quarterly
+Journal of Economics* 137 (4): 1963–2036.
+<https://doi.org/10.1093/qje/qjac024>.
+
+Kline, Patrick, Evan K. Rose, and Christopher R. Walters. 2024. “A
+Discrimination Report Card.” *American Economic Review* 114 (8):
+2472–525. <https://doi.org/10.1257/aer.20230700>.
+
 Lee, JoonHo, and Daihe Sui. 2025. “Fully Bayesian Inference for
 Meta-Analytic Deconvolution Using Efron’s Log-Spline Prior.”
 *Mathematics* 13 (16): 2639. <https://doi.org/10.3390/math13162639>.
 
-Raudenbush, Stephen W. 1984. “Magnitude of Teacher Expectancy Effects on
-Pupil IQ as a Function of the Credibility of Expectancy Induction: A
-Synthesis of Findings from 18 Experiments.” *Journal of Educational
-Psychology* 76 (1): 85–97. <https://doi.org/10.1037/0022-0663.76.1.85>.
-
-Raudenbush, Stephen W., and Anthony S. Bryk. 1985. “Empirical Bayes
-Meta-Analysis.” *Journal of Educational Statistics* 10 (2): 75–98.
-<https://doi.org/10.3102/10769986010002075>.
+Walters, Christopher R. 2024. “Empirical Bayes Methods in Labor
+Economics.” In *Handbook of Labor Economics*, vol. 5. Elsevier.
+<https://doi.org/10.1016/bs.heslab.2024.11.001>.

@@ -1,5 +1,335 @@
 # Changelog
 
+## bayesEfron 0.4.0
+
+The defaults of
+[`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+have changed, so the same data and seed no longer give the posterior
+draws of 0.3.0. By default, a short preliminary fit (the pilot fit) now
+chooses the range of the grid, a new Stan program samples the model, and
+a fit stores the draws of the distribution of effects but no draws for
+each site. Use `settings = "0.3.0"` to fit the model as 0.3.0 did, with
+the same draws if the version of CmdStan and the machine are the same. A
+fit saved by an earlier version can still be used: its summaries are
+computed again from its draws with the definitions of this version, and
+a warning names what was recomputed.
+
+### Breaking changes
+
+- [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  and
+  [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  have a new default grid method, `grid_method = "pilot"`: a pilot fit
+  on the range of 0.3.0 narrows that range to where the distribution of
+  effects lies (see
+  [`?make_efron_grid`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)).
+  With this default,
+  [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  needs CmdStan. Use `grid_method = "paper_realdata"` for the range of
+  0.3.0 without a fit. The first fit of a session that relies on the
+  default says in a message that the defaults have changed.
+- With the default `L = NULL`,
+  [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  and
+  [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  now choose the number of grid points from the data: 101, or more (up
+  to
+  401. when 101 are too few for the smallest standard error or for the
+       spread of the effects. The default was 101 points for every data
+       set. The largest `L` that can be given is now 401 (was 300).
+- [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  runs a new Stan program by default. For the same seed its draws differ
+  from the draws of 0.3.0.
+- A fit no longer stores five variables per site (`theta_mean`,
+  `theta_sd`, `theta_map`, `theta_rep` and `log_lik`);
+  `site_draws = TRUE` stores them. The methods of a fit, `loo()` and
+  `waic()` included, compute what they need from the draws of the
+  distribution of effects.
+- [`summary()`](https://rdrr.io/r/base/summary.html),
+  [`confint()`](https://rdrr.io/r/stats/confint.html) and
+  [`as.data.frame()`](https://rdrr.io/r/base/as.data.frame.html) now
+  compute the limits of a site’s interval as quantiles of the posterior
+  distribution of its effect, which averages over the draws of the
+  distribution of effects. The limits were sample quantiles of the
+  `theta_rep` draws. Those draws take values on grid points, although
+  R’s interpolation can put their sample quantiles between points.
+  `confint(method = "draws")` gives those limits for a fit made with
+  `site_draws = TRUE`.
+- With point masses on the grid, quantiles and tail probabilities are
+  now computed with the probability of each grid point spread evenly
+  over one grid spacing around it (`reading = "interpolated"`).
+  [`g_summary()`](https://joonho112.github.io/bayesEfron/reference/g_summary.md),
+  [`site_summary()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md),
+  [`exceedance_prob()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+  and [`quantile()`](https://rdrr.io/r/stats/quantile.html) have a
+  `reading` argument, and `reading = "step"` leaves the probability on
+  the grid point.
+- In the table of site effects, the columns `hpdi_lower`, `hpdi_upper`
+  and `map` are now `lower`, `upper` and `mode`, and the table gains the
+  columns `label`, `estimate` and `se`.
+  [`confint()`](https://rdrr.io/r/stats/confint.html) returns `mean` in
+  place of `point` and, for `type = "g"`, `parameter` in place of
+  `site`. The earlier columns remain with the same values and will be
+  removed in 0.5.
+- [`coef()`](https://rdrr.io/r/stats/coef.html),
+  [`confint()`](https://rdrr.io/r/stats/confint.html) and the tables now
+  name the sites by their labels when the data had labels (the sites
+  were numbered before). In the `parm` argument of
+  [`confint()`](https://rdrr.io/r/stats/confint.html), numbers are
+  positions and character strings are labels; `parm = "3"` was read as
+  the third site.
+  [`as_bef_data()`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
+  and
+  [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  now throw an error for duplicated site labels.
+- The plots use ggplot2, which the package now imports. They carry a
+  caption in place of a title, name the sites by their labels and list
+  them from the top. `plot(type = "g")` now shows the density of the
+  distribution of effects in place of the probabilities of the grid
+  points, which `plot_g(type = "mass")` shows.
+- `plot(backend = "base")` is deprecated and will be removed in 0.5.
+  Until then it plots the four types of 0.3.0 with base graphics and
+  issues a warning once per session.
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) also no
+  longer attaches the plotted numbers to its result (the undocumented
+  attribute `bef_plot_payload`);
+  [`g_summary()`](https://joonho112.github.io/bayesEfron/reference/g_summary.md),
+  [`site_summary()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md),
+  [`exceedance_prob()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+  and
+  [`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  return them.
+- [`summary()`](https://rdrr.io/r/base/summary.html) and
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) now throw an
+  error for an argument that they do not have (it was ignored).
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) still accepts
+  `level` and `sort_by` for the four types of 0.3.0.
+- [`AIC()`](https://rdrr.io/r/stats/AIC.html) and
+  [`BIC()`](https://rdrr.io/r/stats/AIC.html) now throw an error that
+  points to `loo()`. The numbers that they returned were computed from a
+  posterior mean of the log likelihood and are not information criteria.
+- [`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  now warns about an E-BFMI below 0.3, the value below which CmdStan
+  warns (the threshold was 0.2). An infinite R-hat now fails the check
+  instead of putting R-hat among the diagnostics that could not be
+  computed. A quantity has an infinite R-hat when it stays at one value
+  in each chain and the values differ between chains.
+- [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  now shows the output of CmdStan and the cmdstanr messages about the
+  sampler in an interactive session only. Use `show_messages = TRUE` to
+  see them elsewhere.
+- In
+  [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md),
+  the arguments after `theta_hat` and `sigma` must now be named. The
+  grid method `"kl_target_experimental"` and the `kappa` argument are
+  removed, and a grid no longer has a `kappa` element.
+- A result of [`summary()`](https://rdrr.io/r/base/summary.html) that
+  was saved by an earlier version can no longer be printed. Call
+  [`summary()`](https://rdrr.io/r/base/summary.html) again on the fit.
+
+### New features
+
+- [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  has a new `settings` argument: `settings = "0.3.0"` runs the Stan
+  program of 0.3.0 with the range, the 101 grid points and the
+  site-level draws of that version. An argument given with it keeps its
+  value.
+  [`bayes_efron_compile()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_compile.md)
+  compiles both Stan programs, and
+  [`bayes_efron_clear_cache()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_compile.md)
+  deletes both compiled models.
+- Three new functions summarize a fit.
+  [`g_summary()`](https://joonho112.github.io/bayesEfron/reference/g_summary.md)
+  returns the density, the distribution function, quantiles and tail
+  probabilities of the distribution of effects, with intervals.
+  [`site_summary()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+  returns the table of site effects at any level, and
+  [`exceedance_prob()`](https://joonho112.github.io/bayesEfron/reference/site_summary.md)
+  the probability that a site effect exceeds a threshold.
+- Ten new functions plot a fit:
+  [`plot_g()`](https://joonho112.github.io/bayesEfron/reference/plot_g.md),
+  [`plot_sites()`](https://joonho112.github.io/bayesEfron/reference/plot_sites.md),
+  [`plot_shrinkage()`](https://joonho112.github.io/bayesEfron/reference/plot_shrinkage.md),
+  [`plot_exceedance()`](https://joonho112.github.io/bayesEfron/reference/plot_exceedance.md),
+  [`plot_site_posterior()`](https://joonho112.github.io/bayesEfron/reference/plot_site_posterior.md),
+  [`plot_diagnostics()`](https://joonho112.github.io/bayesEfron/reference/plot_diagnostics.md),
+  [`plot_loo()`](https://joonho112.github.io/bayesEfron/reference/plot_loo.md),
+  [`plot_ppc()`](https://joonho112.github.io/bayesEfron/reference/plot_ppc.md),
+  [`plot_recovery()`](https://joonho112.github.io/bayesEfron/reference/plot_recovery.md)
+  and
+  [`plot_mcmc()`](https://joonho112.github.io/bayesEfron/reference/plot_mcmc.md).
+  They return ggplot objects, except that `plot_mcmc(type = "pairs")`
+  returns a grid of plots.
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) of a fit
+  calls them through `type`, where `"sites"` and `"diagnostics"` replace
+  `"caterpillar"` and `"diagnostic"`; the earlier names are still
+  accepted.
+- [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md),
+  [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  and
+  [`compare_efron_grids()`](https://joonho112.github.io/bayesEfron/reference/compare_efron_grids.md)
+  accept a data frame or a `bef_data` object as their first argument.
+- [`as_bef_data()`](https://joonho112.github.io/bayesEfron/reference/as_bef_data.md)
+  takes the labels of a metafor `escalc` object from its `slab`, and its
+  result has an
+  [`as.data.frame()`](https://rdrr.io/r/base/as.data.frame.html) method.
+  For a data frame with variances and no standard errors it takes the
+  square roots, with a message. It warns when a column with a name that
+  begins with `vi` or `var` is given as the standard errors.
+- [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  and
+  [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  have a new `margin` argument for the `"pilot"` method, which sets how
+  far the region found by the pilot fit is extended on each side, as a
+  fraction of its width.
+  [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  also has a `seed` argument for the pilot fit.
+- [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  and
+  [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  gain a `support` argument, which gives the two limits of the grid
+  directly, and a `knots` argument, for which `"grid"` is the only value
+  so far.
+  [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  also takes a grid made by
+  [`make_efron_grid()`](https://joonho112.github.io/bayesEfron/reference/make_efron_grid.md)
+  as `grid`. A grid has the class `bef_grid`, with
+  [`print()`](https://rdrr.io/r/base/print.html) and
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods.
+- `component = "normal"` puts a normal distribution with a standard
+  deviation of `width` grid spacings at each grid point, in place of a
+  point mass, as in the penalized Gaussian mixture of Sui and Tipton
+  (2026).
+- A warning of class `bef_warn_grid_resolution` reports a grid that is
+  too coarse for the smallest standard error or for the spread of the
+  effects, or narrower than the median standard error.
+- [`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  reports, for each end of the grid, the largest posterior probability
+  that a site has in the outer 2% of the range, and the posterior
+  distribution of the standard deviation of the effects together with
+  its prior.
+  [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  issues a warning of class `bef_warn_grid_ends` when that probability
+  exceeds 0.05 at an end that was specified in `support` or that follows
+  from the estimates alone. The result of
+  [`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
+  has an [`as.data.frame()`](https://rdrr.io/r/base/as.data.frame.html)
+  method.
+- [`confint()`](https://rdrr.io/r/stats/confint.html) has the new
+  arguments `method` and `interval`, with `interval = "hpd"` for the
+  shortest interval, and its result prints the level and the kind of
+  interval.
+- A fit has the new methods
+  [`quantile()`](https://rdrr.io/r/stats/quantile.html),
+  [`simulate()`](https://rdrr.io/r/stats/simulate.html) for joint draws
+  of the site effects,
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html),
+  [`posterior::ndraws()`](https://mc-stan.org/posterior/reference/draws-index.html)
+  and
+  [`posterior::variables()`](https://mc-stan.org/posterior/reference/variables.html).
+  `vcov(full = TRUE)` returns the covariances between the site effects,
+  and `coef(type = "mode")` is the new name of `type = "map"`, which is
+  still accepted.
+- [`print()`](https://rdrr.io/r/base/print.html) of a fit shows the
+  number of draws, the range of the standard errors, the grid with the
+  method that chose its range, and the functions to call next.
+- [`predict()`](https://rdrr.io/r/stats/predict.html) accepts a data
+  frame of estimates and standard errors as `newdata`. It then returns
+  the posterior summaries of new sites with known estimates, with
+  intervals at `level`: for each row, the summaries that the site would
+  have in a fit of the data with that site added.
+- [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  gains the sampler arguments `refresh`, `init`, `thin` and
+  `show_messages`. `thin` reduces what is stored; the sampler
+  diagnostics still describe the whole run.
+- [`compare_efron_grids()`](https://joonho112.github.io/bayesEfron/reference/compare_efron_grids.md)
+  accepts several grid methods, ranges given in `support` and both kinds
+  of component, and `keep_fits = TRUE` returns the fits as well. For
+  each specification it also returns the range, the mean and the
+  standard deviation of the distribution of effects, the posterior means
+  of the sites named in `sites`, the posterior probability at the ends
+  of the grid (as in
+  [`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)),
+  and whether the grid is fine enough. It reports which fit is running,
+  and its result has a
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) method. A
+  comparison saved by 0.3.0 cannot be plotted and has to be run again.
+- New
+  [`as_normalmix()`](https://joonho112.github.io/bayesEfron/reference/as_normalmix.md)
+  returns the posterior mean of the distribution of effects as a
+  `normalmix` object, which the ebnm package accepts as a fixed prior.
+  With the bayesplot package installed, `nuts_params()`,
+  `log_posterior()`, `rhat()` and `neff_ratio()` work on a fit. Both
+  packages are suggested: bayesplot for the plots of the sampler, and
+  ebnm for the comparison with empirical Bayes methods.
+- `krw_discrimination` and `twin_towers` are new data sets.
+  `krw_discrimination` contains the firm-level callback gaps of Kline,
+  Rose and Walters, from the public replication files of Walters (2024),
+  as analyzed by Lee and Sui (2025). Both data sets record where they
+  come from in the attribute `source`, and the scripts that rebuild them
+  from the public files are in `data-raw/` in the source repository.
+- `star_schools` is a new data set from a multisite trial in education:
+  the estimated effect of small classes in each of the 79 kindergarten
+  schools of Tennessee’s Project STAR. The estimates are built from the
+  public student file with a model that has a random intercept for each
+  class. The data set also has the estimates and standard errors that
+  take the students of a school as independent.
+- The stored fits `krw_fit` and `twin_towers_fit` are new. Like
+  `raudenbush_fit`, they are made with the grid method, the Stan program
+  and the storage of this version (`twin_towers_fit` with 8 spline
+  functions) and are thinned to 800 of 12,000 draws (`thin = 15`), so
+  that the examples run without CmdStan. `raudenbush_fit` has the range
+  that it had in 0.3.0 but different draws.
+
+### Bug fixes
+
+- `predict(type = "theta_hat")` with several standard errors now gives
+  each new site an effect of its own, drawn from the same posterior draw
+  of the distribution of effects. All the new sites of a draw had the
+  same true effect, so that their estimates differed by sampling error
+  alone.
+- [`compare_efron_grids()`](https://joonho112.github.io/bayesEfron/reference/compare_efron_grids.md)
+  no longer fails with an internal error when one of its fits fails. It
+  issues a warning that names the specification and returns a row of
+  missing values for it, as documented.
+- The errors of
+  [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md)
+  and
+  [`compare_efron_grids()`](https://joonho112.github.io/bayesEfron/reference/compare_efron_grids.md)
+  about the data now state in one sentence what is wrong: a missing
+  value, an infinite value, a length or a sign. A missing value was
+  reported inside a sentence about the type and the length of the
+  vector.
+- `make_efron_grid(grid = )` no longer throws an error about
+  `grid_method`, the argument that the name was matched to. Its error
+  now points to `support` and `L`, and `compare_efron_grids(grid = )`
+  reports that a grid cannot be given.
+- In the posterior standard deviation of a site, the variance between
+  draws is now divided by the number of draws, as its definition
+  requires (was the number of draws minus one).
+
+### Documentation
+
+- The help pages and the vignettes are rewritten in plainer language.
+  All ten vignettes are built around the data sets and stored fits
+  listed above, with the callback gaps (`krw_discrimination`) as the
+  main example. Four are new: `twin-towers`, on the recovery of a
+  distribution with two groups; `empirical-bayes`, a comparison with the
+  ebnm and deconvolveR packages; `plots`, a gallery of the plot
+  functions; and `teacher-expectancy`, which keeps the 19 studies that
+  were the main example of 0.3.0 as a second case, with a simulation of
+  what the model can and cannot do with so few.
+- The article “Small classes in 79 schools” on the package website
+  analyzes `star_schools`: how the effect varies across schools
+  according to the fit, how much of that rests on the standard errors,
+  and what simulated data sets with known effects show. The article and
+  the fit that it uses are not installed with the package.
+- The installed files `benchmark-coverage.csv` and
+  `benchmark-remedies.csv` (in `verification/`) and
+  `grid_comparison_example.rds` (in `examples/`) are replaced by the
+  tables and the stored comparisons that the vignettes of this version
+  use.
+
 ## bayesEfron 0.3.0
 
 This is the first public release since 0.1.0. It includes the changes of

@@ -1,17 +1,18 @@
-# Leave-one-out cross-validation for a fitted model
+# Leave-one-out cross-validation and WAIC for a fitted model
 
 `loo()` estimates how well the fitted model predicts the estimate of a
 site that is left out. It applies Pareto smoothed importance sampling
 (Vehtari, Gelman and Gabry, 2017) to the log likelihood of each site,
-which is stored with the draws. The result serves to compare fits of the
-same data that differ in the grid or in the number of spline functions;
+which is computed from the draws of \\g\\. Use the result to compare
+fits of the same data that differ in the grid or in the number of spline
+functions;
 [`compare_efron_grids()`](https://joonho112.github.io/bayesEfron/reference/compare_efron_grids.md)
 makes that comparison in one call.
 
 `waic()` computes the widely applicable information criterion from the
 same log likelihood. We recommend `loo()`, because its Pareto k values
 show for each site whether the approximation can be relied on, whereas
-`waic()` gives only a general warning when some of its terms are large.
+`waic()` issues only a general warning when some of its terms are large.
 
 ## Usage
 
@@ -27,7 +28,7 @@ waic(x, ...)
 
 - x:
 
-  A `bef_fit` object from
+  A `bef_fit` object created by
   [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md).
 
 - ...:
@@ -37,9 +38,10 @@ waic(x, ...)
 
 ## Value
 
-The object that
-[`loo::loo()`](https://mc-stan.org/loo/reference/loo.html) or
-[`loo::waic()`](https://mc-stan.org/loo/reference/waic.html) returns.
+An object of class `psis_loo` from
+[`loo::loo()`](https://mc-stan.org/loo/reference/loo.html), or of class
+`waic` from
+[`loo::waic()`](https://mc-stan.org/loo/reference/waic.html).
 
 ## Details
 
@@ -58,27 +60,26 @@ and Computing*, 27(5), 1413-1432.
 ## See also
 
 [`compare_efron_grids()`](https://joonho112.github.io/bayesEfron/reference/compare_efron_grids.md),
-[`plot.bef_fit_re()`](https://joonho112.github.io/bayesEfron/reference/plot.bef_fit_re.md)
-with `type = "loo"`
+[`plot_loo()`](https://joonho112.github.io/bayesEfron/reference/plot_loo.md)
 
 ## Examples
 
 ``` r
-fit_loo <- loo::loo(raudenbush_fit)
+fit_loo <- loo::loo(krw_fit)
 fit_loo
 #> 
-#> Computed from 800 by 19 log-likelihood matrix.
+#> Computed from 800 by 97 log-likelihood matrix.
 #> 
-#>          Estimate  SE
-#> elpd_loo     -5.1 4.4
-#> p_loo         2.0 0.6
-#> looic        10.2 8.9
+#>          Estimate   SE
+#> elpd_loo    227.4  7.7
+#> p_loo         2.3  0.7
+#> looic      -454.7 15.4
 #> ------
 #> MCSE of elpd_loo is 0.1.
-#> MCSE and ESS estimates assume MCMC draws (r_eff in [0.8, 1.0]).
+#> MCSE and ESS estimates assume MCMC draws (r_eff in [1.0, 1.1]).
 #> 
 #> All Pareto k estimates are good (k < 0.66).
 #> See help('pareto-k-diagnostic') for details.
 range(fit_loo$diagnostics$pareto_k)
-#> [1] -0.06554773  0.27489480
+#> [1] -0.1887404  0.3386994
 ```

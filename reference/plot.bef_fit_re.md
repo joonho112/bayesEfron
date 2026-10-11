@@ -1,98 +1,130 @@
 # Plot a fitted model
 
-[`plot()`](https://rdrr.io/r/graphics/plot.default.html) draws one of
-four plots of a fitted model: the site effects with their intervals, the
-estimated distribution of effects, the convergence diagnostics, or the
-Pareto k values of leave-one-out cross-validation.
+The [`plot()`](https://rdrr.io/r/graphics/plot.default.html) method for
+a fitted model shows the plot selected by `type`. Each type is produced
+by one of the package's plot functions, e.g., `"sites"` by
+[`plot_sites()`](https://joonho112.github.io/bayesEfron/reference/plot_sites.md)
+and `"g"` by
+[`plot_g()`](https://joonho112.github.io/bayesEfron/reference/plot_g.md),
+and further arguments are passed on to that function. See Details for
+all types.
 
 ## Usage
 
 ``` r
 # S3 method for class 'bef_fit_re'
-plot(
-  x,
-  type = c("caterpillar", "g", "diagnostic", "loo"),
-  level = 0.9,
-  sort_by = c("mean", "sigma", "none"),
-  ...,
-  backend = c("ggplot2", "base")
-)
+plot(x, type = "sites", ..., backend = NULL)
 ```
 
 ## Arguments
 
 - x:
 
-  A `bef_fit_re` object from
+  A `bef_fit` object created by
   [`bayes_efron_fit()`](https://joonho112.github.io/bayesEfron/reference/bayes_efron_fit.md).
 
 - type:
 
-  Character string, the plot to draw. `"caterpillar"` (the default)
-  shows for each site the posterior mean of \\\theta_i\\, an interval of
-  probability `level` as a thin line and the central 50% interval as a
-  thick line; a dashed vertical line marks the posterior mean of the
-  mean of \\g\\. `"g"` shows the posterior mean of the probability that
-  \\g\\ gives to each grid point, with a pointwise band of probability
-  `level`. `"diagnostic"` shows the largest R-hat, the smallest bulk and
-  tail effective sample sizes and the numbers of divergent transitions
-  and of iterations at the maximum tree depth, as
-  [`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md)
-  reports them; E-BFMI is not drawn. `"loo"` shows the Pareto k value of
-  each site from
-  [`loo.bef_fit()`](https://joonho112.github.io/bayesEfron/reference/loo.bef_fit.md),
-  with reference lines at 0.5 and 0.7; it needs the loo package.
-
-- level:
-
-  Number between 0 and 1, the probability content of the intervals and
-  of the band. Defaults to `0.9`.
-
-- sort_by:
-
-  Character string, the order of the sites in the caterpillar plot:
-  `"mean"` (the default) for the order of the posterior means, `"sigma"`
-  for the order of the standard errors, or `"none"` for the order of the
-  data.
+  The plot to show, e.g., `"sites"` (the default), `"g"` or
+  `"shrinkage"`. See Details for all types.
 
 - ...:
 
-  Not used.
+  Further arguments passed to the plot function for `type`, such as
+  `level`, `sort_by` or `scale`.
 
 - backend:
 
-  Character string, `"ggplot2"` or `"base"`. If it is not given, ggplot2
-  is used when it is installed and base graphics otherwise.
+  Deprecated. `backend = "base"` plots the types `"caterpillar"`, `"g"`,
+  `"diagnostic"` and `"loo"` with base graphics instead of ggplot2 and
+  issues a warning. This option will be removed.
 
 ## Value
 
-With ggplot2, a `ggplot` object, to which layers can be added. With base
-graphics the plot is drawn and `NULL` is returned invisibly.
+A `ggplot` object, which can be modified with ggplot2 functions, e.g.,
+by adding layers. For `type = "mcmc"`, the value returned by
+[`plot_mcmc()`](https://joonho112.github.io/bayesEfron/reference/plot_mcmc.md).
+With `backend = "base"`, the plot is shown on the current graphics
+device and `NULL` is returned invisibly.
+
+## Details
+
+`type` can be one of the following. The help page of each function
+describes the plot and its arguments.
+
+- `"sites"` (the default):
+  [`plot_sites()`](https://joonho112.github.io/bayesEfron/reference/plot_sites.md),
+  a caterpillar plot of the site effects with their posterior intervals
+
+- `"g"`:
+  [`plot_g()`](https://joonho112.github.io/bayesEfron/reference/plot_g.md),
+  the estimated distribution of effects
+
+- `"shrinkage"`:
+  [`plot_shrinkage()`](https://joonho112.github.io/bayesEfron/reference/plot_shrinkage.md),
+  a shrinkage plot of posterior means against estimates
+
+- `"exceedance"`:
+  [`plot_exceedance()`](https://joonho112.github.io/bayesEfron/reference/plot_exceedance.md),
+  the probability that each effect exceeds a threshold
+
+- `"site_posterior"`:
+  [`plot_site_posterior()`](https://joonho112.github.io/bayesEfron/reference/plot_site_posterior.md),
+  the posterior distribution of the effect of each site specified in
+  `sites`
+
+- `"diagnostics"`:
+  [`plot_diagnostics()`](https://joonho112.github.io/bayesEfron/reference/plot_diagnostics.md),
+  sampler and grid diagnostics
+
+- `"loo"`:
+  [`plot_loo()`](https://joonho112.github.io/bayesEfron/reference/plot_loo.md),
+  the Pareto k values of the sites from leave-one-out cross-validation
+
+- `"ppc"`:
+  [`plot_ppc()`](https://joonho112.github.io/bayesEfron/reference/plot_ppc.md),
+  a posterior predictive check of the model against the estimates
+
+- `"mcmc"`:
+  [`plot_mcmc()`](https://joonho112.github.io/bayesEfron/reference/plot_mcmc.md),
+  trace plots and other plots of the posterior draws
+
+- `"grid"`:
+  [`plot.bef_grid()`](https://joonho112.github.io/bayesEfron/reference/plot.bef_grid.md),
+  the grid in relation to the estimates
+
+- `"recovery"`:
+  [`plot_recovery()`](https://joonho112.github.io/bayesEfron/reference/plot_recovery.md),
+  a comparison of the fit with the known true effects specified in
+  `truth`
+
+`"caterpillar"` and `"diagnostic"` are accepted as aliases for `"sites"`
+and `"diagnostics"`.
+
+`type = "g"` shows the density of \\g\\. To plot the probabilities of
+the grid points instead, call `plot_g(x, type = "mass")`. Note that
+their heights depend on the number of grid points.
 
 ## See also
 
+[`plot_sites()`](https://joonho112.github.io/bayesEfron/reference/plot_sites.md),
+[`plot_g()`](https://joonho112.github.io/bayesEfron/reference/plot_g.md),
 [bef_fit](https://joonho112.github.io/bayesEfron/reference/bef_fit.md),
 [`diagnose()`](https://joonho112.github.io/bayesEfron/reference/diagnose.md),
-[`loo.bef_fit()`](https://joonho112.github.io/bayesEfron/reference/loo.bef_fit.md)
+[`vignette("plots")`](https://joonho112.github.io/bayesEfron/articles/plots.md)
 
 ## Examples
 
 ``` r
-plot(raudenbush_fit)
+plot(krw_fit, n_extreme = 10, scale = 100)
 
-plot(raudenbush_fit, sort_by = "sigma", level = 0.95)
+plot(krw_fit, type = "g", scale = 100)
 
-plot(raudenbush_fit, type = "g")
-
-plot(raudenbush_fit, type = "diagnostic", backend = "base")
+plot(krw_fit, type = "diagnostics")
 
 
-# With ggplot2 the result can be extended.
-p <- plot(raudenbush_fit, type = "g")
-if (inherits(p, "ggplot")) {
-  p + ggplot2::labs(title = "Teacher expectancy effects")
-}
+# The result is a ggplot object, so labels and layers can be added.
+plot(krw_fit, type = "shrinkage", scale = 100) +
+  ggplot2::labs(x = "Estimated gap (percentage points)")
 
-
-plot(raudenbush_fit, type = "loo")
 ```
