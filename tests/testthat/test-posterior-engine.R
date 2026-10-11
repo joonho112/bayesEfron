@@ -265,11 +265,16 @@ test_that("the engine reproduces the site quantities that Stan wrote", {
   # The reference draws of version 0.3.0 keep two sites. log_g is formed
   # again from alpha and the basis, which the reference identifies.
   ref <- readRDS(test_path("_fixtures", "ref-v030.rds"))
+  # The hash is of the bits of the basis, which can differ in the last place
+  # on another platform than the one of the reference.
+  same_platform <- identical(R.version$platform, ref$conditions$platform)
   for (case in ref$cases) {
     grid <- seq(case$grid_range[1L], case$grid_range[2L], length.out = case$L)
     B <- splines::ns(grid, df = case$M, intercept = FALSE)
-    expect_identical(digest::digest(unname(matrix(as.numeric(B), case$L)), algo = "sha256"),
-                     case$basis_sha256)
+    if (same_platform) {
+      expect_identical(digest::digest(unname(matrix(as.numeric(B), case$L)), algo = "sha256"),
+                       case$basis_sha256)
+    }
     alpha <- case$draws[, sprintf("alpha[%d]", seq_len(case$M)), drop = FALSE]
     eta <- alpha %*% t(matrix(as.numeric(B), case$L))
     top <- apply(eta, 1L, max)

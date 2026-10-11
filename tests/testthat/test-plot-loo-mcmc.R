@@ -79,10 +79,13 @@ test_that("the plots of bayesplot are drawn from a fit", {
   expect_s3_class(plot_mcmc(fit, type = "rank", pars = "lambda"), "ggplot")
   expect_s3_class(plot_mcmc(fit, type = "dens", pars = c("mean_g", "sd_g")), "ggplot")
   expect_s3_class(plot_mcmc(fit, type = "energy"), "ggplot")
-  # The grid of plots is laid out on a device when it is made.
-  grDevices::pdf(withr::local_tempfile(fileext = ".pdf"))
-  withr::defer(grDevices::dev.off())
-  expect_s3_class(plot_mcmc(fit, type = "pairs", pars = c("lambda", "sd_g")), "bayesplot_grid")
+  # The grid of plots is laid out on a device when it is made. bayesplot
+  # needs the gridExtra package for it.
+  if (requireNamespace("gridExtra", quietly = TRUE)) {
+    grDevices::pdf(withr::local_tempfile(fileext = ".pdf"))
+    withr::defer(grDevices::dev.off())
+    expect_s3_class(plot_mcmc(fit, type = "pairs", pars = c("lambda", "sd_g")), "bayesplot_grid")
+  }
 
   # A thinned fit does not hold neighboring iterations, which the energy plot
   # compares; the other plots are drawn from the draws that it keeps.

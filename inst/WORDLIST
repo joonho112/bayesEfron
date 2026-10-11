@@ -50,6 +50,7 @@ et
 exchangeability
 frac
 ggplot
+gridExtra
 ij
 jsonlite
 knitr

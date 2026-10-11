@@ -147,7 +147,9 @@ test_that("a fit made by this version keeps its summaries and gives no warning, 
   result <- legacy_notice(legacy_ns(".bef_prepare_fit")(fit))
   expect_length(result$notices, 0L)
   attr(result$value$metadata, "summary_definition_version") <- NULL
-  expect_identical(result$value, fit)
+  # The summaries are computed again; on another platform than the one that
+  # stored the fit they can differ in the last place.
+  expect_equal(result$value, fit, tolerance = 1e-12)
   expect_warning(summary(fit), NA)
   expect_warning(as.data.frame(fit), NA)
   expect_identical(fit, unchanged)

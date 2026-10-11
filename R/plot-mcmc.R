@@ -13,7 +13,7 @@
 #' `mcmc_dens_overlay()`, `"pairs"` calls `mcmc_pairs()` (which also marks
 #' the divergent transitions), and `"energy"` calls `mcmc_nuts_energy()`.
 #' The bayesplot package must be installed, and the plots use its theme
-#' and colors.
+#' and colors. `type = "pairs"` also needs the gridExtra package.
 #'
 #' Only the draws stored in the fit are plotted. If the fit was thinned
 #' (`thin`), these are a subset of the iterations, whereas [diagnose()]

@@ -99,8 +99,11 @@ expect_stan_quantities <- function(draws, data, tolerance = 1e-7,
 }
 
 stan_quantities_fixed_fit <- function(model, data, alpha) {
+  # Without warmup there is nothing to adapt, and CmdStan 2.34 refuses a
+  # run without warmup unless adaptation is turned off.
   model$sample(data = data, chains = 1L, parallel_chains = 1L,
                iter_warmup = 0L, iter_sampling = 1L, fixed_param = TRUE,
+               adapt_engaged = FALSE,
                init = list(list(alpha = alpha, lambda = 0.5)),
                seed = 1985L, refresh = 0L, sig_figs = 18L)
 }

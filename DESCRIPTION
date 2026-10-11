@@ -41,6 +41,7 @@ Suggests:
     withr (>= 2.5.0),
     spelling,
     bayesplot,
+    gridExtra,
     vdiffr,
     ebnm,
     ragg

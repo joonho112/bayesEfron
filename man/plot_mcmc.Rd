@@ -43,7 +43,7 @@ Each type calls one bayesplot function: \code{"trace"} calls \code{mcmc_trace()}
 \code{mcmc_dens_overlay()}, \code{"pairs"} calls \code{mcmc_pairs()} (which also marks
 the divergent transitions), and \code{"energy"} calls \code{mcmc_nuts_energy()}.
 The bayesplot package must be installed, and the plots use its theme
-and colors.
+and colors. \code{type = "pairs"} also needs the gridExtra package.
 
 Only the draws stored in the fit are plotted. If the fit was thinned
 (\code{thin}), these are a subset of the iterations, whereas \code{\link[=diagnose]{diagnose()}}

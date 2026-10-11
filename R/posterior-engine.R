@@ -420,7 +420,10 @@
   mu <- mixture$mean[keep]
   w <- w[keep] / sum(w[keep])
   x <- seq(mu[1L] - 6.5, mu[length(mu)] + 6.5, length.out = n)
-  cdf <- as.vector(stats::pnorm(outer(x, mu, `-`)) %*% w)
+  # The sum can come out lower than at the value before by one unit in the
+  # last place, depending on how the platform adds; the search below needs a
+  # distribution function that does not decrease.
+  cdf <- cummax(as.vector(stats::pnorm(outer(x, mu, `-`)) %*% w))
   limits <- .bef_shortest_interval(x, cdf, level)
   step <- x[2L] - x[1L]
   found <- list(step = step, steps = diff(limits) / step, span = x[n] - x[1L],

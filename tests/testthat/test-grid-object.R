@@ -11,7 +11,8 @@ test_that("the rules of the paper give the grid and the basis of version 0.3.0",
   d <- ref$data
   same <- function(grid, stored) {
     expect_identical(grid$grid, stored$grid)
-    expect_identical(matrix(as.numeric(grid$B), nrow = grid$L), stored$B)
+    # The spline functions can differ in the last place between platforms.
+    expect_equal(matrix(as.numeric(grid$B), nrow = grid$L), stored$B, tolerance = 1e-12)
     expect_identical(grid$L, stored$L)
     expect_identical(grid$M, stored$M)
     expect_identical(grid$grid_method, stored$grid_method)

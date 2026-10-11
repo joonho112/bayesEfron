@@ -100,12 +100,11 @@ programs_fake_fit <- function(alpha, data, n_chains = 2L) {
     sprintf("log_g[%d]", seq_len(data$L)), "mean_g", "var_g", "sd_g",
     "log_marginal_likelihood"
   )
+  # Iterations by chains by variables: the rows of `values` are the draws of
+  # the first chain and then those of the second.
   array_draws <- posterior::as_draws_array(
-    posterior::as_draws_matrix(values) |> posterior::as_draws_df() |>
-      transform(.chain = rep(seq_len(n_chains), each = n_iter),
-                .iteration = rep(seq_len(n_iter), times = n_chains),
-                .draw = seq_len(n_draws)) |>
-      posterior::as_draws_df()
+    array(values, dim = c(n_iter, n_chains, ncol(values)),
+          dimnames = list(NULL, NULL, colnames(values)))
   )
   list(
     draws = function(variables = NULL, format = "draws_array") array_draws,

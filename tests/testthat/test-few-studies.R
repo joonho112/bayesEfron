@@ -32,9 +32,11 @@ test_that("the table starts from the stored fit of the 19 studies", {
   sd_g <- diagnose(fit)$grid$sd_g[["mean"]]
   reml <- .bef_reml_normal(bayesEfron::raudenbush1985$yi, bayesEfron::raudenbush1985$sei)
   expect_equal(unique(table$observed_own_sd), sd_g, tolerance = 1e-10)
-  expect_equal(unique(table$observed_reml_sd), reml$sd, tolerance = 1e-10)
+  # REML is an iteration, and its result on another platform agrees with the
+  # stored one to about nine digits.
+  expect_equal(unique(table$observed_reml_sd), reml$sd, tolerance = 1e-8)
   truth <- unique(table[, c("scenario", "true_sd")])
-  expect_equal(truth$true_sd[1:2], c(reml$sd, sd_g), tolerance = 1e-10)
+  expect_equal(truth$true_sd[1:2], c(reml$sd, sd_g), tolerance = 1e-8)
   # The third distribution is the posterior mean of g, a grid point moved
   # uniformly within its cell.
   mass <- g_summary(fit, type = "mass")
