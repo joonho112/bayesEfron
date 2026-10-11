@@ -27,46 +27,209 @@ if (!requireNamespace("xml2", quietly = TRUE)) {
   quit(save = "no", status = 0L)
 }
 
+# Texts that several pages share.
+extremes <- paste(
+  "Two panels with the ten firms with the highest and the ten with the",
+  "lowest posterior mean callback gaps, in percentage points: posterior",
+  "means, 50% and 90% intervals, the estimates as open circles, and a",
+  "dashed line at the mean of the distribution of effects."
+)
+five_panels <- paste(
+  "Five panels for the fit of the callback data: R-hat and the bulk and",
+  "tail effective sample sizes of the monitored quantities in blocks,",
+  "against their thresholds; the largest mass that a site has at each end",
+  "of the grid; and the standard deviation of the distribution of effects",
+  "under the prior and under the posterior."
+)
+callback_grid <- paste(
+  "The six spline basis functions and the knots of the grid for the",
+  "callback data, over the 97 estimates in increasing order, each with two",
+  "standard errors on each side, in percentage points."
+)
+three_ranges <- paste(
+  "Three rows, one for each range of the grid for the 19 studies. Each row",
+  "has the estimated density with its band, the mean and the standard",
+  "deviation of the distribution of effects, and the posterior means and",
+  "intervals of studies 4 and 8. The mean of study 4 falls as the range",
+  "widens."
+)
+
 plots <- list(
   "bayes_efron_fit.html" = c(
     "bayes_efron_fit-1.png" = paste(
-      "The posterior mean of the probability that the distribution of",
-      "effects gives to each grid point, with a pointwise 90% band, for the",
-      "teacher expectancy studies."
+      "The estimated density of the callback gaps of the 97 firms, with a",
+      "pointwise 90% band."
     )
   ),
-  "make_efron_grid.html" = c(
-    "make_efron_grid-1.png" = paste(
-      "The six natural cubic spline functions on the default grid for the",
-      "teacher expectancy studies."
-    )
-  ),
+  "make_efron_grid.html" = c("make_efron_grid-1.png" = callback_grid),
   "plot.bef_fit_re.html" = c(
-    "plot.bef_fit_re-1.png" = paste(
-      "The posterior mean of the effect of each study with its 90% interval",
-      "and its central 50% interval, in the order of the posterior means. A",
-      "dashed line marks the mean of the distribution of effects."
-    ),
+    "plot.bef_fit_re-1.png" = extremes,
     "plot.bef_fit_re-2.png" = paste(
-      "The same plot with 95% intervals and the studies in the order of",
-      "their standard errors."
+      "The estimated density of the callback gaps in percentage points, with",
+      "a pointwise 90% band."
     ),
-    "plot.bef_fit_re-3.png" = paste(
-      "The posterior mean of the probability that the distribution of",
-      "effects gives to each grid point, with a pointwise 90% band."
-    ),
+    "plot.bef_fit_re-3.png" = five_panels,
     "plot.bef_fit_re-4.png" = paste(
-      "Four panels with the largest R-hat, the smallest bulk and tail",
-      "effective sample sizes, the number of divergent transitions and the",
-      "number of iterations at the maximum tree depth."
+      "The posterior mean of the gap of each firm against its estimate, in",
+      "percentage points, colored by the standard error, with a dashed",
+      "diagonal. The horizontal axis is labeled Estimated gap (percentage",
+      "points)."
+    )
+  ),
+  "plot_g.html" = c(
+    "plot_g-1.png" = paste(
+      "The estimated density of the callback gaps in percentage points with",
+      "a pointwise 90% band, over a histogram of the 97 estimates, and the",
+      "normal distribution of the random-effects model as a dashed curve."
     ),
-    "plot.bef_fit_re-5.png" = paste(
-      "The plot of the distribution of effects with the title Teacher",
-      "expectancy effects."
+    "plot_g-2.png" = paste(
+      "The estimated distribution function of the callback gaps, with a 50%",
+      "band inside a 90% band."
     ),
-    "plot.bef_fit_re-6.png" = paste(
-      "The Pareto k value of each study from leave-one-out",
-      "cross-validation, with reference lines at 0.5 and 0.7."
+    "plot_g-3.png" = paste(
+      "The estimated density for the 1,500 simulated sites with its band,",
+      "over a histogram of the true effects, which has two groups, and a",
+      "dashed normal curve, which has one."
+    ),
+    "plot_g-4.png" = paste(
+      "The estimated density for the 19 teacher expectancy studies with its",
+      "band, and forty thin curves, each a posterior draw of the",
+      "distribution."
+    )
+  ),
+  "plot_sites.html" = c(
+    "plot_sites-1.png" = extremes,
+    "plot_sites-2.png" = paste(
+      "The 19 studies in the order of their standard errors, the most",
+      "precise at the top: posterior means, 50% and 90% intervals, the",
+      "estimates as open circles, and a dashed line at zero."
+    ),
+    "plot_sites-3.png" = paste(
+      "The 90% posterior intervals of the 1,500 simulated sites as thin",
+      "lines without labels, in the order of the posterior means, with a",
+      "dashed line at the mean of the distribution of effects."
+    )
+  ),
+  "plot_shrinkage.html" = c(
+    "plot_shrinkage-1.png" = paste(
+      "The posterior mean of the callback gap of each firm against its",
+      "estimate, in percentage points, colored by the standard error. The",
+      "points lie closer to the center than the dashed diagonal, those of",
+      "the least precise estimates the most."
+    ),
+    "plot_shrinkage-2.png" = paste(
+      "For each of the 19 studies an arrow from the estimate to the",
+      "posterior mean, at the height of its standard error. The arrows of",
+      "the imprecise studies are the longest."
+    ),
+    "plot_shrinkage-3.png" = paste(
+      "Two panels for the 1,500 simulated sites, this fit and a normal",
+      "model: posterior means against estimates, colored by the true effect.",
+      "The fit moves the estimates toward two groups and the normal model",
+      "toward one mean."
+    )
+  ),
+  "plot_exceedance.html" = c(
+    "plot_exceedance-1.png" = paste(
+      "The probability that the callback gap of each of the 97 firms is",
+      "positive, the largest at the top, with a dashed line at 0.95. The",
+      "firms at or above it are filled points."
+    ),
+    "plot_exceedance-2.png" = paste(
+      "The probability that the gap of each firm exceeds two percentage",
+      "points, the largest at the top."
+    ),
+    "plot_exceedance-3.png" = paste(
+      "The probabilities that the effects of the 1,500 simulated sites are",
+      "positive, in increasing order, as a curve from 0 to 1, with a dashed",
+      "line at 0.9."
+    )
+  ),
+  "plot_site_posterior.html" = c(
+    "plot_site_posterior-1.png" = paste(
+      "Three panels, each with the posterior distribution of the effect of a",
+      "simulated site, the likelihood of its estimate and the distribution",
+      "of effects. For two imprecise estimates between the groups the",
+      "posterior distribution has two modes; for the most precise estimate",
+      "it is a narrow curve at the estimate."
+    ),
+    "plot_site_posterior-2.png" = paste(
+      "Two panels for the sites that lean most on the ends of the grid: the",
+      "posterior distribution of the effect, the likelihood of the estimate",
+      "and the distribution of effects."
+    )
+  ),
+  "plot_diagnostics.html" = c(
+    "plot_diagnostics-1.png" = five_panels,
+    "plot_diagnostics-2.png" = paste(
+      "One panel with the R-hat of all monitored quantities of the fit of",
+      "the simulated sites as a box, against a dashed line at 1.01 and a",
+      "dotted line at 1.05, with the worst quantity named."
+    )
+  ),
+  "plot_loo.html" = c(
+    "plot_loo-1.png" = paste(
+      "The Pareto k value of each of the 97 firms, all below the dashed line",
+      "at 0.656."
+    ),
+    "plot_loo-2.png" = paste(
+      "The Pareto k value of each of the 19 studies, all below the dashed",
+      "line at 0.656."
+    )
+  ),
+  "plot_ppc.html" = c(
+    "plot_ppc-1.png" = paste(
+      "The empirical distribution function of the PIT values of the 97",
+      "estimates less the uniform one, as a step line inside a gray band",
+      "around zero."
+    ),
+    "plot_ppc-2.png" = paste(
+      "A histogram of the PIT values of the 1,500 estimates, with a dashed",
+      "line at the height that a uniform distribution gives every bar and a",
+      "gray band around it."
+    ),
+    "plot_ppc-3.png" = paste(
+      "A histogram of the 97 estimates in percentage points, with the",
+      "density that the fitted model gives to an estimate as a curve."
+    )
+  ),
+  "plot_mcmc.html" = c(
+    "plot_mcmc-1.png" = paste(
+      "Trace plots of lambda and of the mean and the standard deviation of",
+      "the distribution of effects, four chains each."
+    ),
+    "plot_mcmc-2.png" = paste(
+      "Rank plots of the six spline coefficients, one line for each chain."
+    ),
+    "plot_mcmc-3.png" = paste(
+      "Densities of the mean and of the standard deviation of the",
+      "distribution of effects, one line for each chain."
+    )
+  ),
+  "plot.bef_grid.html" = c(
+    "plot.bef_grid-1.png" = callback_grid,
+    "plot.bef_grid-2.png" = paste(
+      "The eight spline basis functions and the knots of the grid of the",
+      "fit of the simulated sites, over a histogram of the 1,500 estimates,",
+      "some of which lie outside the grid."
+    )
+  ),
+  "plot.bef_grid_comparison.html" = c("plot.bef_grid_comparison-1.png" = three_ranges),
+  "compare_efron_grids.html" = c("compare_efron_grids-1.png" = three_ranges),
+  "plot_recovery.html" = c(
+    "plot_recovery-1.png" = paste(
+      "The 90% posterior intervals of 150 of the 1,500 simulated sites in",
+      "the order of their posterior means, with the true effects as crosses,",
+      "and as orange triangles where they lie outside the interval."
+    ),
+    "plot_recovery-2.png" = paste(
+      "The share of the true effects inside the posterior interval against",
+      "the level of the interval, from 5% to 95%, close to the dashed",
+      "diagonal."
+    ),
+    "plot_recovery-3.png" = paste(
+      "The posterior means of the 1,500 simulated sites against their true",
+      "effects, around the dashed diagonal."
     )
   )
 )

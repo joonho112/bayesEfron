@@ -1,6 +1,9 @@
-# Builds inst/examples/grid_comparison_example.rds, which
-# vignette("choosing-a-grid") and vignette("diagnostics") read. Needs CmdStan
-# and the loo package. Run from the package root:
+# Made the comparisons of grids that the documentation of version 0.3.0
+# read. The file is now a test fixture,
+# tests/testthat/_fixtures/grid_comparison_v030.rds, which the tests read as
+# an object of that version; run with the present version, this script
+# would write tables of the present form. Needs CmdStan and the loo
+# package. Run from the package root:
 #
 #   Rscript data-raw/grid-comparison.R
 #
@@ -174,6 +177,6 @@ out <- list(
   cmdstan_version = as.character(cmdstanr::cmdstan_version()),
   created = format(Sys.Date())
 )
-saveRDS(out, "inst/examples/grid_comparison_example.rds", version = 3)
-message("inst/examples/grid_comparison_example.rds: ",
-        file.size("inst/examples/grid_comparison_example.rds"), " bytes")
+saveRDS(out, "tests/testthat/_fixtures/grid_comparison_v030.rds", version = 3)
+message("tests/testthat/_fixtures/grid_comparison_v030.rds: ",
+        file.size("tests/testthat/_fixtures/grid_comparison_v030.rds"), " bytes")

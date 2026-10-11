@@ -1,4 +1,6 @@
-postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") {
+postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE",
+                                   site_draws = TRUE, program = "efron_re",
+                                   seed = NULL, thin = 1L) {
   if (!identical(model_family, "RE")) {
     .bef_abort_extraction_failed(
       "`model_family` must be \"RE\"; other families are not implemented.",
@@ -7,16 +9,39 @@ postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") 
   }
 
   K <- as.integer(stan_data$K)
-  draws <- .bef_extract_draws_array(cmdstan_fit)
-  draw_matrix <- .bef_draws_matrix(draws)
-  # All generated quantities are needed for the summaries. Only the scalar
-  # series are kept in `posterior`; the site-level matrices stay in `draws`.
-  posterior_full <- .bef_extract_re_generated_quantities(draw_matrix, K = K)
-  posterior <- posterior_full[.bef_generated_quantity_fields()]
+  L <- as.integer(stan_data$L)
+  if (identical(program, "efron_mix")) {
+    # This program writes the parameters and g only. The effective number of
+    # parameters and, when they are asked for, the site-level draws are
+    # computed here from the draws of g.
+    draws <- .bef_complete_mix_draws(
+      .bef_extract_draws_array(cmdstan_fit),
+      stan_data = stan_data, site_draws = isTRUE(site_draws), seed = seed
+    )
+  } else {
+    draws <- .bef_extract_draws_array(
+      cmdstan_fit,
+      variables = if (isTRUE(site_draws)) NULL else .bef_kept_variables(stan_data)
+    )
+  }
+  # The diagnostics describe the whole run. Thinning only reduces what is
+  # kept, and everything else below is computed from the draws that are.
   diagnostics <- .bef_postprocess_diagnostics(
     cmdstan_fit = cmdstan_fit,
     draws = draws
   )
+  draws <- .bef_thin_draws(draws, thin)
+  draw_matrix <- .bef_draws_matrix(draws)
+  # The scalar series are kept in `posterior`. The site-level matrices, when
+  # the fit keeps them, stay in `draws`.
+  posterior <- lapply(
+    stats::setNames(nm = .bef_generated_quantity_fields()),
+    function(field) .bef_draws_scalar(draw_matrix, field)
+  )
+  if (isTRUE(site_draws)) {
+    # A full fit must hold every site-level block.
+    .bef_extract_re_generated_quantities(draw_matrix, K = K)
+  }
 
   list(
     draws = draws,
@@ -25,18 +50,96 @@ postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") 
     diagnostic_skipped = diagnostics$diagnostic_skipped,
     sampler_diagnostics_failed = diagnostics$sampler_diagnostics_failed,
     sampler_diagnostics_warned = diagnostics$sampler_diagnostics_warned,
-    mean_g_summary = .bef_summary_vector(posterior_full$mean_g),
-    var_g_summary = .bef_summary_vector(posterior_full$var_g),
-    sd_g_summary = .bef_summary_vector(posterior_full$sd_g),
-    effective_params_summary = .bef_summary_vector(posterior_full$effective_params),
+    mean_g_summary = .bef_summary_vector(posterior$mean_g),
+    var_g_summary = .bef_summary_vector(posterior$var_g),
+    sd_g_summary = .bef_summary_vector(posterior$sd_g),
+    effective_params_summary = .bef_summary_vector(posterior$effective_params),
     log_marginal_likelihood_summary = .bef_summary_vector(
-      posterior_full$log_marginal_likelihood
+      posterior$log_marginal_likelihood
     ),
+    nuts = .bef_thin_draws(diagnostics$nuts, thin),
     theta_summary = .bef_theta_summary(
-      posterior_full,
-      log_g = .bef_draws_vector(draw_matrix, "log_g", as.integer(stan_data$L)),
-      stan_data = stan_data
+      .bef_engine_from_parts(
+        log_g = .bef_draws_vector(draw_matrix, "log_g", L),
+        grid = stan_data$grid,
+        theta_hat = stan_data$theta_hat,
+        sigma = stan_data$sigma,
+        tau_c = if (is.null(stan_data$tau_c)) 0 else stan_data$tau_c
+      )
     )
+  )
+}
+
+# The draws of the program efron_mix.stan with what efron_re.stan computed
+# in Stan added to them: `effective_params` and, with `site_draws`, the five
+# site-level blocks. The variables are in the order of efron_re.stan, so a
+# fit looks the same whichever program made it.
+.bef_complete_mix_draws <- function(draws, stan_data, site_draws = FALSE, seed = NULL) {
+  K <- as.integer(stan_data$K)
+  L <- as.integer(stan_data$L)
+  n_iter <- dim(draws)[[1L]]
+  n_chains <- dim(draws)[[2L]]
+  draw_matrix <- .bef_draws_matrix(draws)
+  engine <- .bef_engine_from_parts(
+    log_g = .bef_draws_vector(draw_matrix, "log_g", L),
+    grid = stan_data$grid,
+    theta_hat = stan_data$theta_hat,
+    sigma = stan_data$sigma,
+    tau_c = if (is.null(stan_data$tau_c)) 0 else stan_data$tau_c
+  )
+  added <- list(effective_params = matrix(.bef_effective_params(engine), ncol = 1L,
+                                          dimnames = list(NULL, "effective_params")))
+  if (isTRUE(site_draws)) {
+    blocks <- .bef_site_blocks(engine, seed = seed)
+    for (name in names(blocks)) {
+      colnames(blocks[[name]]) <- sprintf("%s[%d]", name, seq_len(K))
+    }
+    added <- c(blocks, added)
+  }
+  old_names <- dimnames(draws)[[3L]]
+  base <- sub("\\[.*$", "", old_names)
+  first <- old_names[base %in% c("lp__", "alpha", "lambda", "log_g", "mean_g", "var_g", "sd_g")]
+  last <- setdiff(old_names, first)
+  new_names <- unlist(lapply(added, colnames), use.names = FALSE)
+  out <- array(
+    NA_real_,
+    dim = c(n_iter, n_chains, length(old_names) + length(new_names)),
+    dimnames = c(dimnames(draws)[1:2], list(c(first, new_names, last)))
+  )
+  names(dimnames(out)) <- names(dimnames(draws))
+  out[, , first] <- unclass(draws)[, , first, drop = FALSE]
+  out[, , last] <- unclass(draws)[, , last, drop = FALSE]
+  # A matrix of draws has the chains one after another, so its rows fill the
+  # iterations of chain 1, then of chain 2, and so on.
+  for (block in added) {
+    for (column in colnames(block)) {
+      out[, , column] <- matrix(block[, column], nrow = n_iter, ncol = n_chains)
+    }
+  }
+  if (any(!is.finite(out))) {
+    .bef_abort_extraction_failed(
+      "The site-level quantities computed from the draws of `log_g` are not all finite."
+    )
+  }
+  posterior::as_draws_array(out)
+}
+
+# Every `thin`-th iteration of each chain, starting with the first.
+.bef_thin_draws <- function(draws, thin = 1L) {
+  if (is.null(draws) || is.null(thin) || thin <= 1L || length(dim(draws)) != 3L) {
+    return(draws)
+  }
+  posterior::thin_draws(posterior::as_draws_array(draws), thin = as.integer(thin))
+}
+
+# The variables of a fit that keeps no site-level draws: the sampled
+# parameters, log_g and the scalar summaries of g. With
+# store_grid_quantities, g and log_w as well.
+.bef_kept_variables <- function(stan_data) {
+  c(
+    "lp__", "alpha", "lambda", "log_g",
+    .bef_generated_quantity_fields(),
+    if (isTRUE(as.logical(stan_data$store_grid_quantities))) c("log_w", "g")
   )
 }
 
@@ -62,7 +165,7 @@ postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") 
     ess_tail_min = 400,
     divergences_max = 0L,
     max_treedepth_max = 0L,
-    ebfmi_min = 0.2,
+    ebfmi_min = 0.3,
     min_draws_for_check = 400L
   )
 }
@@ -106,11 +209,21 @@ postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") 
   ess_bulk <- pull("ess_bulk")
   ess_tail <- pull("ess_tail")
 
+  # An infinite Rhat belongs to a quantity that stayed at one value in each
+  # chain and at different values across chains: the chains did not mix.
+  # That is a failed check and not a check that could not be made. The
+  # infinite values are stored as missing, and the names are kept.
+  rhat_infinite <- names(rhat)[is.infinite(rhat)]
+  rhat[is.infinite(rhat)] <- NA_real_
+
   skipped <- character()
   for (field in c("rhat", "ess_bulk", "ess_tail")) {
     value <- get(field)
+    if (identical(field, "rhat") && length(rhat_infinite) > 0L) {
+      next
+    }
     if (all(is.na(value)) || any(is.infinite(value))) {
-      # A nonfinite result cannot satisfy the stored diagnostic contract.
+      # A nonfinite result is not a valid value of a stored diagnostic.
       # Mark the entire field unavailable, just as for a computation error;
       # a skipped field must contain only NA values.
       if (any(is.infinite(value))) {
@@ -129,7 +242,7 @@ postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") 
 
   list(
     rhat = rhat, ess_bulk = ess_bulk, ess_tail = ess_tail,
-    diagnostic_skipped = skipped
+    diagnostic_skipped = skipped, rhat_infinite = rhat_infinite
   )
 }
 
@@ -148,6 +261,10 @@ postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") 
   values$ebfmi <- sampler$ebfmi
 
   checks <- .bef_diagnostic_check(values, draws)
+  if (length(per_parameter$rhat_infinite) > 0L) {
+    checks$failed <- union(checks$failed, "rhat")
+    checks$warned <- setdiff(checks$warned, "rhat")
+  }
   skipped <- unique(c(
     per_parameter$diagnostic_skipped, sampler$diagnostic_skipped,
     checks$skipped
@@ -163,7 +280,45 @@ postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") 
     values = values,
     diagnostic_skipped = skipped,
     sampler_diagnostics_failed = checks$failed,
-    sampler_diagnostics_warned = checks$warned
+    sampler_diagnostics_warned = checks$warned,
+    nuts = .bef_nuts_draws(cmdstan_fit)
+  )
+}
+
+# The sampler's own quantities for every iteration (divergence, tree depth,
+# energy, acceptance statistic, step size, number of leapfrog steps), as a
+# draws_array, for bayesplot. NULL when the fit object cannot give them.
+.bef_nuts_draws <- function(cmdstan_fit) {
+  fun <- tryCatch(cmdstan_fit$sampler_diagnostics, error = function(err) NULL)
+  if (!is.function(fun)) {
+    return(NULL)
+  }
+  tryCatch(fun(format = "draws_array"), error = function(err) NULL)
+}
+
+# The checks that a fit fails, those that deserve a warning and those that
+# could not be made: the ones recorded when the fit was made, together with
+# those that the stored values imply under the thresholds of this version.
+# A fit saved with a threshold that has since been tightened is judged by
+# the present one.
+.bef_fit_diagnostic_flags <- function(fit) {
+  metadata <- fit$metadata
+  diagnostics <- .bef_metadata_attr(metadata, "diagnostics")
+  stored <- function(name) {
+    value <- .bef_metadata_attr(metadata, name)
+    if (is.null(value)) character() else value
+  }
+  failed <- stored("sampler_diagnostics_failed")
+  warned <- stored("sampler_diagnostics_warned")
+  if (is.list(diagnostics) && length(dim(fit$draws)) == 3L) {
+    checks <- .bef_diagnostic_check(diagnostics, fit$draws)
+    failed <- union(failed, checks$failed)
+    warned <- union(warned, checks$warned)
+  }
+  list(
+    failed = failed,
+    warned = setdiff(warned, failed),
+    skipped = stored("diagnostic_skipped")
   )
 }
 
@@ -346,7 +501,10 @@ postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") 
   list(failed = failed, warned = warned, skipped = skipped)
 }
 
-.bef_extract_draws_array <- function(cmdstan_fit) {
+# The draws as a draws_array. With `variables`, only those are read from
+# the CSV files of CmdStan, which is most of the time that postprocessing
+# takes when there are many sites.
+.bef_extract_draws_array <- function(cmdstan_fit, variables = NULL) {
   draws_fun <- tryCatch(cmdstan_fit$draws, error = function(err) NULL)
   if (!is.function(draws_fun)) {
     .bef_abort_extraction_failed(
@@ -354,8 +512,13 @@ postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") 
     )
   }
 
+  selective <- !is.null(variables) && "variables" %in% names(formals(draws_fun))
   draws <- tryCatch(
-    draws_fun(format = "draws_array"),
+    if (selective) {
+      draws_fun(variables = variables, format = "draws_array")
+    } else {
+      draws_fun(format = "draws_array")
+    },
     error = function(err) {
       .bef_abort_extraction_failed(
         "Failed to extract CmdStan draws as a draws_array.",
@@ -363,6 +526,12 @@ postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") 
       )
     }
   )
+  if (!is.null(variables) && !selective && length(dim(draws)) == 3L) {
+    # An object whose draws() cannot select: drop the other variables here.
+    names3 <- dimnames(draws)[[3L]]
+    keep <- sub("\\[.*$", "", names3) %in% variables
+    draws <- draws[, , keep, drop = FALSE]
+  }
 
   if (!is.array(draws) || !is.numeric(draws) || length(dim(draws)) != 3L ||
       any(!is.finite(draws))) {
@@ -452,41 +621,6 @@ postprocess_stan_draws <- function(cmdstan_fit, stan_data, model_family = "RE") 
     return(0)
   }
   stats::sd(x)
-}
-
-# The table of site effects. Each row summarizes the posterior distribution of
-# one theta[i], which averages over the posterior draws of g (Lee and Sui
-# 2025, Section 4.3 and Appendix A): its mean, its standard deviation, the 5%
-# and 95% quantiles and its mode on the grid.
-.bef_theta_summary <- function(posterior, log_g, stan_data) {
-  K <- ncol(posterior$theta_mean)
-  hpdi <- vapply(
-    seq_len(K),
-    function(site) {
-      posterior::quantile2(
-        posterior$theta_rep[, site],
-        probs = c(0.05, 0.95),
-        names = FALSE
-      )
-    },
-    numeric(2L)
-  )
-
-  data.frame(
-    site = seq_len(K),
-    mean = colMeans(posterior$theta_mean),
-    sd = .bef_posterior_sd(posterior$theta_mean, posterior$theta_sd),
-    hpdi_lower = hpdi[1L, ],
-    hpdi_upper = hpdi[2L, ],
-    map = .bef_posterior_mode(
-      log_g,
-      theta_hat = as.numeric(stan_data$theta_hat),
-      sigma = as.numeric(stan_data$sigma),
-      grid = as.numeric(stan_data$grid)
-    ),
-    row.names = seq_len(K),
-    check.names = FALSE
-  )
 }
 
 # The posterior standard deviation of each site effect. The posterior variance

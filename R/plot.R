@@ -1,87 +1,181 @@
 #' Plot a fitted model
 #'
 #' @description
-#' `plot()` draws one of four plots of a fitted model: the site effects
-#' with their intervals, the estimated distribution of effects, the
-#' convergence diagnostics, or the Pareto k values of leave-one-out
-#' cross-validation.
+#' The `plot()` method for a fitted model shows the plot selected by
+#' `type`. Each type is produced by one of the package's plot functions,
+#' e.g., `"sites"` by [plot_sites()] and `"g"` by [plot_g()], and further
+#' arguments are passed on to that function. See Details for all types.
 #'
-#' @param x A `bef_fit_re` object from [bayes_efron_fit()].
-#' @param type Character string, the plot to draw. `"caterpillar"`
-#'   (the default) shows for each site the posterior mean of
-#'   \eqn{\theta_i}, an interval of probability `level` as a thin line and
-#'   the central 50% interval as a thick line; a dashed vertical line marks
-#'   the posterior mean of the mean of \eqn{g}. `"g"` shows the posterior
-#'   mean of the probability that \eqn{g} gives to each grid point, with a
-#'   pointwise band of probability `level`. `"diagnostic"` shows the
-#'   largest R-hat, the smallest bulk and tail effective sample sizes and
-#'   the numbers of divergent transitions and of iterations at the maximum
-#'   tree depth, as [diagnose()] reports them; E-BFMI is not drawn.
-#'   `"loo"` shows the Pareto k value of each site from [loo.bef_fit()],
-#'   with reference lines at 0.5 and 0.7; it needs the loo package.
-#' @param level Number between 0 and 1, the probability content of the
-#'   intervals and of the band. Defaults to `0.9`.
-#' @param sort_by Character string, the order of the sites in the
-#'   caterpillar plot: `"mean"` (the default) for the order of the
-#'   posterior means, `"sigma"` for the order of the standard errors, or
-#'   `"none"` for the order of the data.
-#' @param ... Not used.
-#' @param backend Character string, `"ggplot2"` or `"base"`. If it is not
-#'   given, ggplot2 is used when it is installed and base graphics
-#'   otherwise.
+#' @details
+#' `type` can be one of the following. The help page of each function
+#' describes the plot and its arguments.
 #'
-#' @return With ggplot2, a `ggplot` object, to which layers can be added.
-#'   With base graphics the plot is drawn and `NULL` is returned invisibly.
+#' * `"sites"` (the default): [plot_sites()], a caterpillar plot of the
+#'   site effects with their posterior intervals
+#' * `"g"`: [plot_g()], the estimated distribution of effects
+#' * `"shrinkage"`: [plot_shrinkage()], a shrinkage plot of posterior means
+#'   against estimates
+#' * `"exceedance"`: [plot_exceedance()], the probability that each effect
+#'   exceeds a threshold
+#' * `"site_posterior"`: [plot_site_posterior()], the posterior
+#'   distribution of the effect of each site specified in `sites`
+#' * `"diagnostics"`: [plot_diagnostics()], sampler and grid diagnostics
+#' * `"loo"`: [plot_loo()], the Pareto k values of the sites from
+#'   leave-one-out cross-validation
+#' * `"ppc"`: [plot_ppc()], a posterior predictive check of the model
+#'   against the estimates
+#' * `"mcmc"`: [plot_mcmc()], trace plots and other plots of the posterior
+#'   draws
+#' * `"grid"`: [plot.bef_grid()], the grid in relation to the estimates
+#' * `"recovery"`: [plot_recovery()], a comparison of the fit with the
+#'   known true effects specified in `truth`
 #'
-#' @seealso [bef_fit], [diagnose()], [loo.bef_fit()]
+#' `"caterpillar"` and `"diagnostic"` are accepted as aliases for `"sites"`
+#' and `"diagnostics"`.
+#'
+#' `type = "g"` shows the density of \eqn{g}. To plot the probabilities of
+#' the grid points instead, call `plot_g(x, type = "mass")`. Note that
+#' their heights depend on the number of grid points.
+#'
+#' @param x A `bef_fit` object created by [bayes_efron_fit()].
+#' @param type The plot to show, e.g., `"sites"` (the default), `"g"` or
+#'   `"shrinkage"`. See Details for all types.
+#' @param ... Further arguments passed to the plot function for `type`,
+#'   such as `level`, `sort_by` or `scale`.
+#' @param backend Deprecated. `backend = "base"` plots the types
+#'   `"caterpillar"`, `"g"`, `"diagnostic"` and `"loo"` with base graphics
+#'   instead of ggplot2 and issues a warning. This option will be removed.
+#'
+#' @return A `ggplot` object, which can be modified with ggplot2 functions,
+#'   e.g., by adding layers. For `type = "mcmc"`, the value returned by
+#'   [plot_mcmc()]. With `backend = "base"`, the plot is shown on the
+#'   current graphics device and `NULL` is returned invisibly.
+#'
+#' @seealso [plot_sites()], [plot_g()], [bef_fit], [diagnose()],
+#'   `vignette("plots")`
 #'
 #' @examples
-#' plot(raudenbush_fit)
-#' plot(raudenbush_fit, sort_by = "sigma", level = 0.95)
-#' plot(raudenbush_fit, type = "g")
-#' plot(raudenbush_fit, type = "diagnostic", backend = "base")
+#' plot(krw_fit, n_extreme = 10, scale = 100)
+#' plot(krw_fit, type = "g", scale = 100)
+#' plot(krw_fit, type = "diagnostics")
 #'
-#' # With ggplot2 the result can be extended.
-#' p <- plot(raudenbush_fit, type = "g")
-#' if (inherits(p, "ggplot")) {
-#'   p + ggplot2::labs(title = "Teacher expectancy effects")
-#' }
-#'
-#' @examplesIf requireNamespace("loo", quietly = TRUE)
-#' plot(raudenbush_fit, type = "loo")
+#' # The result is a ggplot object, so labels and layers can be added.
+#' plot(krw_fit, type = "shrinkage", scale = 100) +
+#'   ggplot2::labs(x = "Estimated gap (percentage points)")
 #'
 #' @export
-plot.bef_fit_re <- function(x,
-                            type = c("caterpillar", "g", "diagnostic", "loo"),
-                            level = 0.9,
-                            sort_by = c("mean", "sigma", "none"),
-                            ...,
-                            backend = c("ggplot2", "base")) {
+plot.bef_fit_re <- function(x, type = "sites", ..., backend = NULL) {
   x <- .bef_prepare_fit(x)
-  type <- .bef_validate_method_choice(
-    type,
-    c("caterpillar", "g", "diagnostic", "loo"),
-    arg = "type"
+  types <- .bef_plot_types()
+  if (!is.character(type) || length(type) != 1L || is.na(type) ||
+      !type %in% c(names(types), names(.bef_plot_type_aliases()))) {
+    .bef_abort_invalid_args(
+      sprintf("`type` must be one of: %s.",
+              paste(sprintf("\"%s\"", names(types)), collapse = ", ")),
+      arg = "type"
+    )
+  }
+  args <- list(...)
+  if (!is.null(backend)) {
+    backend <- .bef_validate_method_choice(backend, c("ggplot2", "base"), arg = "backend")
+    if (identical(backend, "base")) {
+      return(.bef_plot_base_backend(x, type, args))
+    }
+  }
+  old_name <- type %in% c(names(.bef_plot_type_aliases()), "g", "loo")
+  if (type %in% names(.bef_plot_type_aliases())) {
+    type <- .bef_plot_type_aliases()[[type]]
+  }
+  if (identical(type, "grid")) {
+    return(.bef_plot_fit_grid(x, args))
+  }
+  target <- types[[type]]
+  if (old_name) {
+    # Version 0.3 took `level` and `sort_by` for every type and ignored them
+    # where they had no meaning.
+    ignored <- setdiff(c("level", "sort_by"), names(formals(target)))
+    args <- args[!names(args) %in% ignored | !nzchar(names(args))]
+  }
+  do.call(target, c(list(x), args))
+}
+
+# The types of plot() and the functions that draw them.
+.bef_plot_types <- function() {
+  list(
+    sites = plot_sites, g = plot_g, shrinkage = plot_shrinkage,
+    exceedance = plot_exceedance, diagnostics = plot_diagnostics, loo = plot_loo,
+    grid = NULL, site_posterior = plot_site_posterior, ppc = plot_ppc,
+    recovery = plot_recovery, mcmc = plot_mcmc
   )
-  level <- .bef_validate_summary_level(level)
+}
+
+# The names that version 0.3 gave to two of the types.
+.bef_plot_type_aliases <- function() {
+  c(caterpillar = "sites", diagnostic = "diagnostics")
+}
+
+# The grid of a fit, drawn with the data of the fit.
+.bef_plot_fit_grid <- function(x, args) {
+  grid <- .bef_metadata_attr(x$metadata, "grid")
+  if (!inherits(grid, "bef_grid")) {
+    .bef_abort_invalid_fit(
+      paste("This fit does not hold its grid as an object, which fits made by bayesEfron 0.4",
+            "or later do. Build the grid with `make_efron_grid()` and plot that.")
+    )
+  }
+  data <- x$metadata$data_list
+  do.call(plot, c(list(grid, theta_hat = unname(data$theta_hat), sigma = data$sigma), args))
+}
+
+# The four plots of version 0.3 in base graphics. The code below this
+# function is that of version 0.3 and is not developed further.
+.bef_plot_base_backend <- function(x, type, args) {
+  old <- c("caterpillar", "g", "diagnostic", "loo")
+  if (identical(type, "sites")) {
+    type <- "caterpillar"
+  }
+  if (identical(type, "diagnostics")) {
+    type <- "diagnostic"
+  }
+  if (!type %in% old) {
+    .bef_abort_invalid_args(
+      sprintf("`backend = \"base\"` draws only the types %s; `type = \"%s\"` is drawn with ggplot2.",
+              paste(sprintf("\"%s\"", old), collapse = ", "), type),
+      arg = "backend"
+    )
+  }
+  extra <- setdiff(names(args), c("level", "sort_by"))
+  if (length(args) > 0L && (is.null(names(args)) || length(extra) > 0L)) {
+    .bef_abort_invalid_args(
+      "With `backend = \"base\"` the only further arguments are `level` and `sort_by`.",
+      arg = "..."
+    )
+  }
+  level <- .bef_validate_summary_level(if (is.null(args$level)) 0.9 else args$level)
   sort_by <- .bef_validate_method_choice(
-    sort_by,
-    c("mean", "sigma", "none"),
+    if (is.null(args$sort_by)) "mean" else args$sort_by, c("mean", "sigma", "none"),
     arg = "sort_by"
   )
-
-  payload <- .bef_plot_payload_bef_fit_re(
-    x = x,
-    type = type,
-    level = level,
-    sort_by = sort_by
-  )
-
-  if (.bef_plot_use_ggplot2(backend, explicit = !missing(backend))) {
-    return(.bef_plot_ggplot2(payload))
-  }
+  .bef_warn_base_backend()
+  payload <- .bef_plot_payload_bef_fit_re(x = x, type = type, level = level, sort_by = sort_by)
   .bef_plot_base(payload)
   invisible(NULL)
+}
+
+# Said once in a session.
+.bef_warn_base_backend <- function() {
+  key <- "plot_backend_base"
+  if (isTRUE(.bayesEfron_msgs_emitted[[key]])) {
+    return(invisible(FALSE))
+  }
+  .bayesEfron_msgs_emitted[[key]] <- TRUE
+  .bef_warn(
+    paste("`backend = \"base\"` is deprecated and will be removed in bayesEfron 0.5. The plots",
+          "are drawn with ggplot2; `g_summary()` and `site_summary()` give their numbers for",
+          "plots of your own. This warning is shown once in a session."),
+    "bef_deprecated"
+  )
+  invisible(TRUE)
 }
 
 .bef_plot_payload_bef_fit_re <- function(x, type, level, sort_by) {
@@ -113,21 +207,13 @@ plot.bef_fit_re <- function(x,
 }
 
 .bef_caterpillar_data <- function(x, level = 0.9, sort_by = "mean") {
-  theta <- confint(x, level = level, type = "theta")
-  theta_rep <- .bef_site_draws(x, "theta_rep")
-  inner <- vapply(
-    seq_len(ncol(theta_rep)),
-    function(site) {
-      posterior::quantile2(
-        theta_rep[, site],
-        probs = c(0.25, 0.75),
-        names = FALSE
-      )
-    },
-    numeric(2L)
-  )
-  theta$inner_lower <- inner[1L, ]
-  theta$inner_upper <- inner[2L, ]
+  # The plot keeps the column names of version 0.3.0.
+  theta <- as.data.frame(confint(x, level = level, type = "theta"))
+  theta <- theta[, c("site", "lower", "upper", "point")]
+  engine <- .bef_engine(x)
+  inner <- .bef_site_quantile(engine, c(0.25, 0.75))
+  theta$inner_lower <- inner[, 1L]
+  theta$inner_upper <- inner[, 2L]
   theta$sd <- x$metadata$theta_summary$sd
   theta$sigma <- x$metadata$data_list$sigma
   ord <- switch(
@@ -146,7 +232,8 @@ plot.bef_fit_re <- function(x,
   if (!is.null(density)) {
     return(density)
   }
-  data <- confint(x, level = level, type = "g")
+  data <- as.data.frame(confint(x, level = level, type = "g"))
+  data <- data[, c("site", "lower", "upper", "point")]
   data$kind <- "moment"
   data$position <- seq_len(nrow(data))
   data
@@ -199,32 +286,6 @@ plot.bef_fit_re <- function(x,
     row.names = NULL,
     check.names = FALSE
   )
-}
-
-.bef_plot_use_ggplot2 <- function(backend = c("ggplot2", "base"),
-                                  explicit = FALSE) {
-  backend <- .bef_validate_method_choice(
-    backend, c("ggplot2", "base"), arg = "backend"
-  )
-  if (identical(backend, "base")) {
-    return(FALSE)
-  }
-  if (isTRUE(explicit)) {
-    rlang::check_installed("ggplot2", reason = "for `backend = \"ggplot2\"`")
-  }
-  requireNamespace("ggplot2", quietly = TRUE)
-}
-
-.bef_plot_ggplot2 <- function(payload) {
-  plot <- switch(
-    payload$type,
-    caterpillar = .bef_plot_caterpillar_ggplot2(payload),
-    g = .bef_plot_g_ggplot2(payload),
-    diagnostic = .bef_plot_diagnostic_ggplot2(payload),
-    loo = .bef_plot_loo_ggplot2(payload)
-  )
-  attr(plot, "bef_plot_payload") <- payload
-  plot
 }
 
 .bef_plot_base <- function(payload) {
@@ -323,84 +384,6 @@ plot.bef_fit_re <- function(x,
   )
 }
 
-.bef_plot_caterpillar_ggplot2 <- function(payload,
-                                          title = "Site effects") {
-  data <- payload$data
-  ggplot2::ggplot(data, ggplot2::aes(y = .data$position)) +
-    ggplot2::geom_segment(
-      ggplot2::aes(x = .data$lower, xend = .data$upper, yend = .data$position)
-    ) +
-    ggplot2::geom_segment(
-      ggplot2::aes(
-        x = .data$inner_lower,
-        xend = .data$inner_upper,
-        yend = .data$position
-      ),
-      linewidth = 1.1
-    ) +
-    ggplot2::geom_point(ggplot2::aes(x = .data$point), size = 1.8) +
-    ggplot2::geom_vline(xintercept = payload$reference, linetype = 2, color = "grey50") +
-    ggplot2::scale_y_continuous(breaks = data$position, labels = data$site) +
-    ggplot2::labs(
-      title = title,
-      x = "Effect",
-      y = "Site"
-    ) +
-    ggplot2::theme_minimal()
-}
-
-.bef_plot_g_ggplot2 <- function(payload) {
-  if (identical(payload$data$kind[[1L]], "density")) {
-    return(
-      ggplot2::ggplot(
-        payload$data,
-        ggplot2::aes(x = .data$grid, y = .data$point)
-      ) +
-        ggplot2::geom_ribbon(
-          ggplot2::aes(ymin = .data$lower, ymax = .data$upper),
-          alpha = 0.2
-        ) +
-        ggplot2::geom_line() +
-        ggplot2::labs(
-          title = "Distribution of effects",
-          x = "Effect",
-          y = "Probability"
-        ) +
-        ggplot2::theme_minimal()
-    )
-  }
-
-  ggplot2::ggplot(
-    payload$data,
-    ggplot2::aes(x = .data$site, y = .data$point)
-  ) +
-    ggplot2::geom_pointrange(
-      ggplot2::aes(ymin = .data$lower, ymax = .data$upper)
-    ) +
-    ggplot2::labs(
-      title = "Summaries of the distribution of effects",
-      x = NULL,
-      y = "Posterior interval"
-    ) +
-    ggplot2::theme_minimal()
-}
-
-.bef_plot_diagnostic_ggplot2 <- function(payload) {
-  ggplot2::ggplot(
-    payload$data,
-    ggplot2::aes(x = .data$metric, y = .data$value)
-  ) +
-    ggplot2::geom_col() +
-    # The diagnostics are on different scales, so each has its own panel.
-    ggplot2::facet_wrap(ggplot2::vars(.data$metric), scales = "free", nrow = 1L) +
-    ggplot2::labs(
-      title = "Convergence diagnostics",
-      x = NULL,
-      y = "Value"
-    ) +
-    ggplot2::theme_minimal()
-}
-
 # Pareto k by site for the loo plot. The bands at 0.5 and 0.7 follow the loo
 # package.
 .bef_loo_plot_data <- function(x) {
@@ -432,14 +415,4 @@ plot.bef_fit_re <- function(x,
   )
   graphics::abline(h = c(0.5, 0.7), lty = c(3L, 2L))
   invisible(data)
-}
-
-.bef_plot_loo_ggplot2 <- function(payload) {
-  data <- payload$data
-  ggplot2::ggplot(data, ggplot2::aes(x = .data$site, y = .data$pareto_k)) +
-    ggplot2::geom_hline(yintercept = c(0.5, 0.7), linetype = c(3L, 2L)) +
-    ggplot2::geom_point() +
-    ggplot2::labs(
-      x = "Site", y = "Pareto k", title = "Pareto k by site"
-    )
 }

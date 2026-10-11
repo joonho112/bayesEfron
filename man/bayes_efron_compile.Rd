@@ -3,53 +3,58 @@
 \name{bayes_efron_compile}
 \alias{bayes_efron_compile}
 \alias{bayes_efron_clear_cache}
-\title{Compile the Stan model ahead of time, or remove the compiled model}
+\title{Compile the Stan programs before the first fit}
 \usage{
 bayes_efron_compile(model_family = "RE", quiet = TRUE, force_recompile = FALSE)
 
 bayes_efron_clear_cache(scope = "all")
 }
 \arguments{
-\item{model_family}{Character string. \code{"RE"} is the only model available.}
+\item{model_family}{Model family. Currently only \code{"RE"} is available.}
 
-\item{quiet}{Logical. If \code{TRUE} (the default), the compiler output is not
-shown.}
+\item{quiet}{If \code{TRUE} (the default), the compiler output is not shown.}
 
-\item{force_recompile}{Logical. If \code{TRUE}, the model is compiled even when
-a compiled copy exists. Defaults to \code{FALSE}.}
+\item{force_recompile}{If \code{TRUE}, compile the programs even if compiled
+models already exist.}
 
-\item{scope}{Character string. \code{"all"} (the default) deletes the cached
-files. The values \code{"session"}, \code{"compiled_models"} and
-\code{"lock_only"} are accepted for scripts written for earlier versions and
-give a warning; \code{"lock_only"} no longer does anything.}
+\item{scope}{What to delete. \code{"all"} (the default) deletes the compiled
+models from the cache. The other values are deprecated and are
+accepted with a warning: \code{"compiled_models"} is equivalent to \code{"all"},
+\code{"session"} deletes no files and only makes the session load the
+compiled models again for the next fit, and \code{"lock_only"} does
+nothing.}
 }
 \value{
-\code{bayes_efron_compile()} returns the \code{cmdstanr::CmdStanModel}
-object, invisibly. \code{bayes_efron_clear_cache()} returns the number of
-files it deleted, invisibly.
+\code{bayes_efron_compile()} invisibly returns the
+\code{cmdstanr::CmdStanModel} object for the current Stan program.
+\code{bayes_efron_clear_cache()} invisibly returns the number of files
+that it deleted.
 }
 \description{
-The first call to \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} compiles the Stan model, which can
-take up to a minute. \code{bayes_efron_compile()} does that step on its own,
-so that a later fit starts sampling at once. \code{bayes_efron_clear_cache()}
-deletes the compiled model.
+The first call to \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} compiles the Stan program, which
+can take up to a minute. \code{bayes_efron_compile()} compiles it in advance,
+so that the first fit starts sampling immediately.
+\code{bayes_efron_clear_cache()} deletes the compiled models.
 }
 \details{
-The compiled model is stored in \code{tools::R_user_dir("bayesEfron", "cache")}
-and reused in later sessions. The file name includes a hash of the Stan
-file, the CmdStan version and the machine architecture, so the model is
-compiled again after an update of the package's Stan file or of CmdStan.
-Set the environment variable \code{BAYESEFRON_CACHE_ROOT} to store it somewhere
-else, for example on a cluster where the home directory is not writable.
+The package has two Stan programs: the current one, and the program of
+version 0.3.0, which \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} runs only with
+\code{settings = "0.3.0"}. \code{bayes_efron_compile()} compiles both.
 
-\code{bayes_efron_compile()} needs the cmdstanr package and a working CmdStan
-installation.
+Compiled models are stored in \code{tools::R_user_dir("bayesEfron", "cache")}
+and reused in later sessions. A model is compiled again after an update
+of the package's Stan file or of CmdStan. To store the models somewhere
+else, e.g., on a cluster where the home directory is not writable, set
+the environment variable \code{BAYESEFRON_CACHE_ROOT}.
+
+\code{bayes_efron_compile()} requires the cmdstanr package and a working
+installation of CmdStan.
 }
 \examples{
 \dontrun{
 bayes_efron_compile()
 
-# Start again from the Stan file.
+# Delete the compiled models and compile again.
 bayes_efron_clear_cache()
 bayes_efron_compile()
 }

@@ -1,0 +1,84 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' class='svglite' data-engine-version='2.0' width='720.00pt' height='576.00pt' viewBox='0 0 720.00 576.00'>
+<defs>
+  <style type='text/css'><![CDATA[
+    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {
+      fill: none;
+      stroke: #000000;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-miterlimit: 10.00;
+    }
+  ]]></style>
+</defs>
+<rect width='100%' height='100%' style='stroke: none; fill: #FFFFFF;'/>
+<defs>
+  <clipPath id='cpMC4wMHw3MjAuMDB8MC4wMHw1NzYuMDA='>
+    <rect x='0.00' y='0.00' width='720.00' height='576.00' />
+  </clipPath>
+</defs>
+<g clip-path='url(#cpMC4wMHw3MjAuMDB8MC4wMHw1NzYuMDA=)'>
+<rect x='0.00' y='0.00' width='720.00' height='576.00' style='stroke-width: 1.07; stroke: none; fill: #FFFFFF;' />
+</g>
+<defs>
+  <clipPath id='cpNDMuNDR8NzE0LjUyfDIyLjc4fDUxMi43NA=='>
+    <rect x='43.44' y='22.78' width='671.08' height='489.96' />
+  </clipPath>
+</defs>
+<g clip-path='url(#cpNDMuNDR8NzE0LjUyfDIyLjc4fDUxMi43NA==)'>
+<polyline points='56.34,512.74 56.34,22.78 ' style='stroke-width: 1.07; stroke: #EBEBEB; stroke-linecap: butt;' />
+<polyline points='217.66,512.74 217.66,22.78 ' style='stroke-width: 1.07; stroke: #EBEBEB; stroke-linecap: butt;' />
+<polyline points='378.98,512.74 378.98,22.78 ' style='stroke-width: 1.07; stroke: #EBEBEB; stroke-linecap: butt;' />
+<polyline points='540.30,512.74 540.30,22.78 ' style='stroke-width: 1.07; stroke: #EBEBEB; stroke-linecap: butt;' />
+<polyline points='701.62,512.74 701.62,22.78 ' style='stroke-width: 1.07; stroke: #EBEBEB; stroke-linecap: butt;' />
+<line x1='56.34' y1='488.65' x2='56.44' y2='488.65' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='56.34' y1='448.49' x2='56.64' y2='448.49' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='56.34' y1='408.32' x2='60.90' y2='408.32' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='56.34' y1='368.16' x2='64.47' y2='368.16' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='56.34' y1='328.00' x2='593.28' y2='328.00' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='56.34' y1='287.84' x2='630.04' y2='287.84' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='56.34' y1='247.68' x2='684.50' y2='247.68' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='56.34' y1='207.52' x2='689.83' y2='207.52' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='56.34' y1='167.36' x2='700.87' y2='167.36' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='56.34' y1='127.20' x2='700.99' y2='127.20' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='56.34' y1='87.04' x2='701.50' y2='87.04' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='56.34' y1='46.88' x2='701.56' y2='46.88' style='stroke-width: 0.64; stroke: #D9D9D9; stroke-linecap: butt;' />
+<line x1='637.09' y1='512.74' x2='637.09' y2='22.78' style='stroke-width: 1.07; stroke: #595959; stroke-dasharray: 5.69,5.69; stroke-linecap: butt;' />
+<circle cx='56.44' cy='488.65' r='2.27' style='stroke-width: 0.71; stroke: #7F7F7F;' />
+<circle cx='56.64' cy='448.49' r='2.27' style='stroke-width: 0.71; stroke: #7F7F7F;' />
+<circle cx='60.90' cy='408.32' r='2.27' style='stroke-width: 0.71; stroke: #7F7F7F;' />
+<circle cx='64.47' cy='368.16' r='2.27' style='stroke-width: 0.71; stroke: #7F7F7F;' />
+<circle cx='593.28' cy='328.00' r='2.27' style='stroke-width: 0.71; stroke: #7F7F7F;' />
+<circle cx='630.04' cy='287.84' r='2.27' style='stroke-width: 0.71; stroke: #7F7F7F;' />
+<circle cx='684.50' cy='247.68' r='2.27' style='stroke-width: 0.71; stroke: none; fill: #0072B2;' />
+<circle cx='689.83' cy='207.52' r='2.27' style='stroke-width: 0.71; stroke: none; fill: #0072B2;' />
+<circle cx='700.87' cy='167.36' r='2.27' style='stroke-width: 0.71; stroke: none; fill: #0072B2;' />
+<circle cx='700.99' cy='127.20' r='2.27' style='stroke-width: 0.71; stroke: none; fill: #0072B2;' />
+<circle cx='701.50' cy='87.04' r='2.27' style='stroke-width: 0.71; stroke: none; fill: #0072B2;' />
+<circle cx='701.56' cy='46.88' r='2.27' style='stroke-width: 0.71; stroke: none; fill: #0072B2;' />
+</g>
+<g clip-path='url(#cpMC4wMHw3MjAuMDB8MC4wMHw1NzYuMDA=)'>
+<text x='38.51' y='491.74' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 004</text>
+<text x='38.51' y='451.58' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 002</text>
+<text x='38.51' y='411.42' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 001</text>
+<text x='38.51' y='371.26' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 003</text>
+<text x='38.51' y='331.10' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 007</text>
+<text x='38.51' y='290.94' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 006</text>
+<text x='38.51' y='250.78' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 005</text>
+<text x='38.51' y='210.62' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 011</text>
+<text x='38.51' y='170.46' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 009</text>
+<text x='38.51' y='130.30' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 012</text>
+<text x='38.51' y='90.14' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 008</text>
+<text x='38.51' y='49.98' text-anchor='end' style='font-size: 9.00px; fill: #4D4D4D; font-family: sans;' textLength='33.03px' lengthAdjust='spacingAndGlyphs'>Site 010</text>
+<text x='56.34' y='523.73' text-anchor='middle' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='17.13px' lengthAdjust='spacingAndGlyphs'>0.00</text>
+<text x='217.66' y='523.73' text-anchor='middle' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='17.13px' lengthAdjust='spacingAndGlyphs'>0.25</text>
+<text x='378.98' y='523.73' text-anchor='middle' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='17.13px' lengthAdjust='spacingAndGlyphs'>0.50</text>
+<text x='540.30' y='523.73' text-anchor='middle' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='17.13px' lengthAdjust='spacingAndGlyphs'>0.75</text>
+<text x='701.62' y='523.73' text-anchor='middle' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='17.13px' lengthAdjust='spacingAndGlyphs'>1.00</text>
+<text x='378.98' y='535.87' text-anchor='middle' style='font-size: 11.00px; font-family: sans;' textLength='174.29px' lengthAdjust='spacingAndGlyphs'>Probability that the effect is above 0</text>
+<text x='43.44' y='14.56' style='font-size: 13.20px; font-family: sans;' textLength='134.31px' lengthAdjust='spacingAndGlyphs'>exceedance with cutoff</text>
+<text x='5.48' y='549.69' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='348.80px' lengthAdjust='spacingAndGlyphs'>Each point is the posterior probability for one site. Sites are ordered by the probability, the</text>
+<text x='5.48' y='559.19' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='341.46px' lengthAdjust='spacingAndGlyphs'>largest at the top. Dashed line: 0.9. 6 of the 12 sites are at or above it (filled points); that</text>
+<text x='5.48' y='568.69' style='font-size: 8.80px; fill: #4D4D4D; font-family: sans;' textLength='204.00px' lengthAdjust='spacingAndGlyphs'>count does not control an error rate over many sites.</text>
+</g>
+</svg>

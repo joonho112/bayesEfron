@@ -1,0 +1,878 @@
+---
+title: "Small classes in 79 schools"
+description: "Analyze a multisite trial in education: build an estimate and a standard error for each of 79 schools from student data, fit the model, and use alternative standard errors and a simulation with known effects to judge the evidence that the effect of small classes varies across schools."
+output:
+  rmarkdown::html_vignette:
+    fig_width: 6.5
+    fig_height: 4
+bibliography: ../references.bib
+link-citations: true
+vignette: >
+  %\VignetteIndexEntry{Small classes in 79 schools}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6.5, fig.height = 4)
+# The ragg device writes smaller figure files; without it the default is used.
+if (requireNamespace("ragg", quietly = TRUE)) knitr::opts_chunk$set(dev = "ragg_png")
+options(bayesEfron.use_cli = FALSE, width = 80)
+num <- function(x, digits = 2) formatC(x, format = "f", digits = digits)
+pct <- function(x, digits = 0) paste0(formatC(100 * x, format = "f", digits = digits), "%")
+series <- function(x, f = num, ...) {
+  x <- trimws(f(x, ...))
+  paste0(paste(x[-length(x)], collapse = ", "), " and ", x[length(x)])
+}
+# The files beside this article: the fit of the schools, the runs that it is
+# compared with, the contrasts under other assumptions about the classes,
+# and the table of the simulation. data-raw/star.R, data-raw/class-size.R
+# and data-raw/benchmark/schools.R in the source repository write them. The
+# fit, the runs and the table are read in visible chunks, where they are
+# first used.
+first_stage <- readRDS("class-size-first-stage.rds")
+```
+
+This case study analyzes a multisite trial with bayesEfron, from the
+students' test scores to what we would report. A multisite trial runs one
+experiment in many places, which the package calls sites, so it can tell
+us more than whether the treatment works on average. @raudenbush2015 name
+three things to learn about the site effects: their mean, how much they
+vary, and the effect at each site. bayesEfron estimates all three from
+one estimate and one standard error for each site, as
+`vignette("bayesEfron")` describes. We follow them through a large
+experiment in education, and end up less sure of the second than a first
+look at the fit suggests.
+
+```{r library}
+library(bayesEfron)
+```
+
+Tennessee's Project STAR assigned students and teachers at random, within
+each of 79 schools, to small classes or to regular classes, the regular
+ones with or without a teacher's aide. The design called for 13 to 17
+students in a small class and 22 to 25 in a regular one
+[@achilles2008; @finn1990]. Students in small classes did better on
+average. Published analyses disagree about whether they did better by the
+same amount in every school: @nye2000 concluded that the effects were
+quite consistent across schools, whereas @konstantopoulos2011 concluded
+that they varied significantly across schools in every grade. We use the
+data from kindergarten, the first of the experiment's four years.
+
+## From students to one estimate for each school
+
+To fit the model we need an estimate and a standard error for each
+school, not the students' scores, so we first have to compute them. A
+multisite trial adds this step to a meta-analysis, where both are taken
+from published reports. The data set `star_schools` has the result, and
+we print the first rows of some of its columns.
+
+```{r data}
+head(star_schools[, c("site", "location", "yi", "sei", "n_students",
+                      "n_classes", "n_classes_small")])
+```
+
+`yi` is the difference between a school's small classes and its regular
+classes, with or without an aide, in a composite of the reading and
+mathematics scores at the end of kindergarten. Its unit is the standard
+deviation of the composite among the students who have both scores. `sei`
+is its standard error, the subject of the rest of this section. See
+`?star_schools` for the source of the data.
+
+```{r data-facts, include = FALSE}
+schools <- star_schools
+small <- table(schools$n_classes_small)
+source <- attr(schools, "source")
+ratio <- schools$sei / schools$sei_ols
+one <- schools$n_classes_small == 1L
+two <- schools$n_classes_small == 2L
+stopifnot(
+  nrow(schools) == 79L, sum(schools$n_students) == 5786L,
+  sum(schools$n_classes) == 325L, sum(schools$n_classes_small) == 127L,
+  round(mean(schools$n_students)) == 73,
+  sum(schools$n_classes >= 3L & schools$n_classes <= 5L) > 65L,
+  small[["1"]] == 35L, small[["2"]] == 41L, sum(small) - 76L == 3L,
+  all(ratio > 1), stats::median(ratio) > 1.85, stats::median(ratio) < 1.95,
+  max(schools$sei[two]) < min(schools$sei[one]),
+  abs(source$class_sd - 0.34) < 0.01, abs(source$residual_sd - 0.83) < 0.01,
+  stats::cor(schools$yi, schools$yi_ols) > 0.99,
+  # The file of the other assumptions starts from the same contrasts.
+  identical(first_stage$class_sd, source$class_sd),
+  first_stage$between_class_df == 167L
+)
+print(c(range(schools$sei[one]), range(schools$sei[two]), stats::median(ratio)))
+```
+
+In all, the sample has 5,786 students in 325 classes, which is a lot for
+the mean effect but not much for any one school. A school has
+`r round(mean(schools$n_students))` students on average, and most schools
+have 3 to 5 classes: `r small[["1"]]` schools have a single small class,
+and `r small[["2"]]` have two.
+
+Classes matter because students in the same class have the same teacher
+and the same room, so their scores are alike for reasons that have
+nothing to do with the size of the class. In a school with one small
+class, the difference between that class and the others is also the
+difference between one teacher and the others. A standard error that
+treats the students as independent ignores this. The mixed model below
+takes it into account. It has an intercept and a small-class contrast for
+each school and a random intercept for each class, and it is fitted to
+all the schools at once with the lme4 package [@bates2015].
+
+```{r first-stage, eval = FALSE}
+# One row for each student: the composite `y`, the indicator `small`, and
+# factors for the school and the class.
+model <- lme4::lmer(y ~ 0 + school + school:small + (1 | class),
+                    data = students)
+```
+
+The 79 coefficients of `school:small` are the estimates in `yi`, and
+`sei` has their standard errors. In the source repository, the script
+`data-raw/star.R` builds `star_schools` in this way from the public data
+file. The mixed model estimates a standard deviation of
+`r num(source$class_sd)` between classes of the same kind in a school and
+of `r num(source$residual_sd)` between the students of a class.
+
+Because these two numbers are common to all the schools, a school's
+standard error is determined by the number and sizes of its small and
+regular classes. It is between `r num(min(schools$sei[one]))` and
+`r num(max(schools$sei[one]))` for the schools with one small class, and
+between `r num(min(schools$sei[two]))` and `r num(max(schools$sei[two]))`
+for the schools with two. Another column, `sei_ols`, is the standard
+error that ordinary least squares (OLS) gives the same contrast within a
+school, with the students treated as independent. It is smaller for every
+school, and for the median school the standard error from the mixed model
+is `r num(stats::median(ratio), 1)` times as large.
+
+Like other analyses of this kind, the model that we fit next treats the
+standard errors as known. Here they depend on the variance between
+classes, which is estimated with `r first_stage$between_class_df` degrees
+of freedom (the number of classes minus the number of groups of classes
+of the same kind in a school), and on the
+assumption that this variance is the same for small and regular classes
+and in every school. We come back to both in the section on the standard
+errors.
+
+## A fit with one remaining warning
+
+We fit the model with the call below. It sets four sampler arguments, and
+most of this section explains why.
+
+```{r fit-call, eval = FALSE}
+fit <- bayes_efron_fit(star_schools, seed = 1985, adapt_delta = 0.99,
+                       max_treedepth = 12, iter_warmup = 2000,
+                       iter_sampling = 6000)
+```
+
+We ran this call in advance and saved the fit, thinned to 1 draw in 30.
+The next chunk reads it from a file beside the source of this article.
+
+```{r fit}
+fit <- readRDS("class-size-fit.rds")
+fit
+```
+
+The output has a `Warnings` line, which lists `ebfmi`, the E-BFMI
+diagnostic of the sampler.
+
+The four arguments are a response to what the defaults did with these
+data. To show this, we ran `bayes_efron_fit(star_schools)` with 6 different
+seeds, and then the call above with the same seeds. The diagnostics and
+summaries of these 12 runs are in `evidence`, a list of results that we
+computed in advance for this article. We read it and print the runs with
+the defaults.
+
+```{r runs-defaults}
+evidence <- readRDS("class-size-evidence.rds")
+runs <- evidence$runs
+show_runs <- function(x) {
+  data.frame(seed = x$seed, ebfmi_min = round(x$ebfmi_min, 2),
+             max_rhat = round(x$max_rhat, 3),
+             min_ess_bulk = round(x$min_ess_bulk),
+             divergences = x$divergences, treedepth_hits = x$treedepth_hits,
+             mean_g = round(x$mean_g, 3), sd_g = round(x$sd_g, 3))
+}
+show_runs(runs[runs$setting == "defaults", ])
+```
+
+```{r runs-facts, include = FALSE}
+default <- runs[runs$setting == "defaults", ]
+stored <- runs[runs$setting == "stored", ]
+d <- diagnose(fit)
+this <- stored[stored$seed == 1985, ]
+stopifnot(
+  nrow(default) == 6L, nrow(stored) == 6L, identical(default$seed, stored$seed),
+  # The stored fit is the first row of its table.
+  abs(this$ebfmi_min - min(d$ebfmi)) < 1e-12, this$max_rhat == max(d$rhat, na.rm = TRUE),
+  identical(d$sampler_diagnostics_warned, "ebfmi"),
+  length(d$sampler_diagnostics_failed) == 0L,
+  isTRUE(attr(fit$metadata, "storage")$thin == 30L),
+  # The defaults: a low E-BFMI in every run, the tree depth in five, a
+  # divergent transition in one.
+  all(default$ebfmi_min < 0.3), sum(default$treedepth_hits > 0) == 5L,
+  sum(default$divergences > 0) == 1L,
+  # The settings of the stored fit.
+  all(stored$ebfmi_min < 0.3), all(stored$divergences == 0),
+  all(stored$max_rhat < 1.01), all(stored$min_ess_bulk > 1100),
+  all(stored$min_ess_tail > 1100), sum(stored$treedepth_hits > 0) == 2L,
+  max(stored$treedepth_hits) <= 5L,
+  # The summaries over the twelve runs.
+  all(round(runs$mean_g, 3) %in% c(0.204, 0.205)),
+  diff(range(runs$sd_g)) < 0.01, diff(range(runs$sd_g_lower)) < 0.015,
+  diff(range(runs$sd_g_upper)) < 0.015,
+  # The same schools with the smaller standard errors.
+  evidence$ols$run$ebfmi_min > 0.6, evidence$ols$run$warned == "",
+  evidence$ols$run$failed == ""
+)
+print(range(runs$sd_g)); print(range(runs$sd_g_lower)); print(range(runs$sd_g_upper))
+```
+
+In every run at least one chain has an E-BFMI below 0.3 (`ebfmi_min` is
+the smallest of the 4 chains). In 5 of the 6 runs some iterations reach
+the maximum tree depth, and one run has a divergent transition, which
+`diagnose()` counts as a failed check. `vignette("diagnostics")` gives
+the remedies:
+
+- a higher `adapt_delta` (a smaller step size) for divergent transitions,
+- a higher `max_treedepth` for iterations at the maximum tree depth,
+- a longer run (`iter_warmup` and `iter_sampling`) for effective sample
+  sizes or an R-hat near their thresholds.
+
+The four arguments in our call apply all three. In `runs` these settings
+are labeled `"stored"`, and the same 6 seeds now give the following.
+
+```{r runs-stored}
+show_runs(runs[runs$setting == "stored", ])
+```
+
+No run has a divergent transition, every R-hat is below 1.01, and the
+smallest effective sample size is above 1,100. In 2 runs a few iterations
+still reach the maximum tree depth, at most
+`r max(stored$treedepth_hits)` of 24,000. But the E-BFMI stays below 0.3
+in every run, with either setting.
+
+A low E-BFMI means that the chains move slowly between the high and the
+low levels of the log density, as `vignette("diagnostics")` explains. It
+is a warning about how well the sampler explores, and it is there in all
+12 runs. What we can check is whether the results depend on the run. Over
+the 12 runs the mean of $g$, the distribution of the effects, is
+`r num(min(runs$mean_g), 3)` or `r num(max(runs$mean_g), 3)`, its
+standard deviation is between `r num(min(runs$sd_g), 3)` and
+`r num(max(runs$sd_g), 3)`, and each limit of the 90% interval for that
+standard deviation varies by less than 0.015. So the summaries are stable
+across seeds and settings. That does not show that the sampler has
+explored all of the posterior distribution, and a report of the fit
+should say that the warning was there.
+
+When the same 79 schools are given the OLS standard errors, which are
+about half as large, the warning is not there: a fit with the defaults
+then has an E-BFMI of `r num(evidence$ols$run$ebfmi_min)` and no warning
+of any kind. The simulation below shows which data sets of this design
+have the warning and which do not.
+
+## The mean and the spread of the effects
+
+We plot the estimate of $g$ with `plot_g()`, and add marks for the 79
+estimates and, as a dashed curve, the normal model fitted to them by
+restricted maximum likelihood (REML).
+
+```{r g-plot, fig.height = 3.8, fig.alt = "The estimated density of the 79 effects, a single peak near 0.2 with a 90% band, a dashed normal curve that nearly coincides with it, and marks for the estimates, which spread from about -0.9 to 1.4."}
+plot_g(fit, observed = "rug", normal = TRUE)
+```
+
+The two curves nearly coincide. For the numbers we use `confint()` with
+`type = "g"`, which gives the mean, the variance and the standard
+deviation of $g$, each with a 90% interval.
+
+```{r g}
+confint(fit, type = "g")
+```
+
+```{r g-facts, include = FALSE}
+g_ci <- confint(fit, type = "g")
+rownames(g_ci) <- g_ci$parameter
+normal <- evidence$normal
+rownames(normal) <- normal$standard_errors
+reml <- normal["classes", ]
+grid <- d$grid
+negative <- g_summary(fit, type = "prob", upper = 0)
+stopifnot(
+  abs(g_ci["mean_g", "mean"] - reml$mean) < 0.01, g_ci["mean_g", "lower"] > 0.1,
+  g_ci["sd_g", "mean"] > 1.3 * reml$sd, g_ci["sd_g", "lower"] > 0.05,
+  reml$df == 78L, reml$p > 0.3, reml$p < 0.4,
+  abs(grid$sd_g[["mean"]] - g_ci["sd_g", "mean"]) < 1e-8,
+  grid$sd_g_prior[["q50"]] > 1.2, grid$sd_g_prior[["q5"]] > 1,
+  negative$mean > 0.08, negative$mean < 0.15, negative$lower < 0.02,
+  negative$upper > 0.2
+)
+print(reml); print(negative)
+```
+
+We estimate the mean of the effects at `r num(g_ci["mean_g", "mean"])`
+standard deviations of the composite, with a 90% interval from
+`r num(g_ci["mean_g", "lower"])` to `r num(g_ci["mean_g", "upper"])`, and
+the normal model puts it at `r num(reml$mean)` as well. This is the
+part of the answer that the data determine well.
+
+The same cannot be said of the spread. For the standard deviation of $g$
+the fit gives `r num(g_ci["sd_g", "mean"])`, with an interval from
+`r num(g_ci["sd_g", "lower"])` to `r num(g_ci["sd_g", "upper"])`. The
+REML estimate is `r num(reml$sd)`. The test of homogeneity that goes
+with the normal model does not reject: its statistic is
+`r num(reml$q, 1)` on `r reml$df` degrees of freedom, a p-value of
+`r num(reml$p)`.
+
+It is tempting to read the first of these numbers as a finding that the
+effect differs from school to school by about 0.2. The interval does
+exclude zero, but it could not include it: $g$ is a smooth density on the
+grid, so its standard deviation is positive whatever the data are.
+`diagnose()` puts the number in context: its `grid` component has this
+standard deviation (`sd_g`) beside its prior distribution on the same
+grid (`sd_g_prior`).
+
+```{r prior}
+diagnose(fit)$grid[c("sd_g", "sd_g_prior")]
+```
+
+On this grid the standard deviation of $g$ is about
+`r num(grid$sd_g_prior[["q50"]], 1)` before the data and
+`r num(grid$sd_g[["mean"]], 1)` after them. So the data have moved it
+most of the way toward zero, but we cannot learn from the fit itself how
+much further the model would let it go. The same is true of what follows
+from the spread, such as the proportion of schools in which small classes
+do harm, which `g_summary()` gives as the probability that $g$ puts below
+zero.
+
+```{r negative}
+g_summary(fit, type = "prob", upper = 0)
+```
+
+The fit puts this proportion at `r pct(negative$mean)`, with a 90%
+interval from `r pct(negative$lower, 1)` to `r pct(negative$upper)`. To
+learn how to read numbers like these, we turn to simulated data, for
+which the true spread is known.
+
+## Simulating trials like this one
+
+We simulated data sets with the 79 standard errors of these schools. In
+every case the true effects have the mean that REML estimates for the
+schools, and their spread follows one of four cases:
+
+- no variation, so that every school has the same effect,
+- normal, with the REML estimate of the standard deviation
+  (`r num(reml$sd)`),
+- normal, with the posterior mean of the standard deviation of $g$
+  (`r num(g_ci["sd_g", "mean"])`),
+- normal, with the upper limit of the 90% interval for that standard
+  deviation (`r num(g_ci["sd_g", "upper"])`).
+
+We drew 200 data sets for each case and fitted each of them twice with
+`bayes_efron_fit()`, with the sampler settings of the second section and
+with the defaults. We also fitted the normal model by REML and then took
+its mean and standard deviation as known, which is a plug-in analysis.
+
+We read the summary of the simulation from a file. The first table is
+about the spread of the effects, for the fits
+with the settings of the second section (`bayesEfron`) and the plug-in
+normal model (`normal`).
+
+```{r simulation}
+sims <- read.csv("class-size-samples.csv", check.names = FALSE)
+shown <- sims[sims$method %in% c("bayesEfron", "normal"), ]
+data.frame(effects = shown$scenario, analysis = shown$method,
+           sd = round(shown$sd_mean, 2), sd_q05 = round(shown$sd_q05, 2),
+           sd_q95 = round(shown$sd_q95, 2), sd_zero = shown$sd_zero,
+           sd_inclusion = shown$sd_inclusion)
+```
+
+```{r simulation-facts, include = FALSE}
+scenarios <- c("no variation", "normal, SD 0.14", "normal, SD 0.20", "normal, SD 0.35")
+cell <- function(method, column, which = scenarios) {
+  rows <- sims[sims$method == method, ]
+  rows <- rows[match(which, rows$scenario), ]
+  stopifnot(!anyNA(rows$scenario))
+  rows[[column]]
+}
+own <- function(column, ...) cell("bayesEfron", column, ...)
+defaults <- function(column, ...) cell("bayesEfron, defaults", column, ...)
+plug_in <- function(column, ...) cell("normal", column, ...)
+known <- function(column) cell("known g", column, scenarios[-1])
+observed <- sims$observed_own_sd[1]
+as_small <- 1 - own("own_as_large")
+all_draws <- runs$sd_g[runs$setting == "stored" & runs$seed == 1985]
+stopifnot(
+  identical(unique(sims$scenario), scenarios), all(sims$replications == 200),
+  abs(observed - g_ci["sd_g", "mean"]) < 1e-6,
+  # The same comparison with the value from all the draws of the stored call.
+  all_draws < observed, observed - all_draws < 0.003,
+  all(own("own_as_large_all_draws") - own("own_as_large") >= 0),
+  all(own("own_as_large_all_draws") - own("own_as_large") < 0.025),
+  abs(own("true_sd")[2] - reml$sd) < 1e-6, abs(own("true_sd")[3] - observed) < 1e-6,
+  abs(own("true_sd")[4] - g_ci["sd_g", "upper"]) < 0.001,
+  # The standard deviation of g: what the fit reports without variation, and
+  # how often each distribution gives a value like that of the schools.
+  own("sd_mean")[1] > 0.15, own("sd_q05")[1] > 0.1, own("sd_q95")[1] > observed,
+  own("own_as_large")[1] > 0.2, own("own_as_large")[1] < 0.3,
+  all(diff(own("own_as_large")) > 0), as_small[4] < 0.05,
+  own("sd_inclusion")[1] == 0, all(own("sd_inclusion")[2:4] > 0.9),
+  plug_in("sd_zero")[1] > 0.4, plug_in("sd_zero")[2] > 0.2,
+  # The intervals of the schools.
+  own("inclusion")[1] > 0.99, own("inclusion")[2] > 0.9,
+  all(own("inclusion")[3:4] < 0.89), all(own("inclusion")[3:4] > 0.87),
+  all(own("inclusion_se") < 0.005),
+  # The data sets whose fit reports a standard deviation no larger than that
+  # of the schools.
+  identical(own("sd_as_small"), as.integer(round(200 * as_small))),
+  own("inclusion_sd_as_small")[1] > 0.99, own("inclusion_sd_as_small")[2] > 0.9,
+  own("inclusion_sd_as_small")[3] < 0.83, own("sd_as_small")[3] > 50,
+  all(plug_in("inclusion")[1:3] < 0.8), plug_in("inclusion")[1] < 0.6,
+  plug_in("inclusion")[4] < 0.89, all(abs(known("inclusion") - 0.9) < 0.01),
+  # The school with the largest estimate.
+  all(own("largest_inclusion") > 0.9), all(own("largest_error") > 0.04),
+  which.max(own("largest_error")) == 1L, own("largest_error")[1] > 0.12,
+  # How many intervals exclude zero when every school has the same effect.
+  own("excluding_zero_q05")[1] <= 2, own("excluding_zero_q95")[1] >= 60,
+  # The sampler: the two settings.
+  all(own("with_divergences") == 0), all(own("ess_below_400") == 0),
+  sum(own("rhat_above_1.01")) < 10, sum(defaults("with_divergences")) > 100,
+  sum(defaults("rhat_above_1.01")) > 50,
+  all(defaults("sd_change_largest") < 0.02),
+  all(abs(defaults("inclusion_change")) < 0.001),
+  # At most two schools of 79 in any data set.
+  max(defaults("inclusion_change_largest")) < 2.5 / 79,
+  sum(own("with_treedepth_hits")) > 200,
+  # E-BFMI: low when the estimate of g is narrow.
+  own("ebfmi_below_0.3")[1] > 180, own("ebfmi_below_0.3")[4] < 30,
+  all(diff(own("ebfmi_below_0.3")) < 0), all(own("ebfmi_sd_correlation") > 0.6),
+  own("inclusion_ebfmi_below")[3] < own("inclusion_ebfmi_above")[3] - 0.05,
+  all(own("end_warnings") == 0)
+)
+print(rbind(own_sd = own("sd_mean"), as_large = own("own_as_large"),
+            inclusion = own("inclusion"), largest = own("largest_error")))
+print(rbind(below = own("inclusion_ebfmi_below"), above = own("inclusion_ebfmi_above"),
+            correlation = own("ebfmi_sd_correlation")))
+```
+
+The columns are as follows.
+
+- `sd` is the estimated standard deviation of the effects, averaged over
+  the data sets: the posterior mean of the standard deviation of $g$ for
+  bayesEfron, the REML estimate for the normal model.
+- `sd_q05` and `sd_q95` are the 5% and 95% quantiles of those estimates.
+- `sd_zero` is the proportion of data sets in which the estimate is zero.
+- `sd_inclusion` is the coverage of the 90% interval for the standard
+  deviation, the proportion of data sets in which it contains the true
+  value.
+
+When every school has the same effect, the fit still reports a standard
+deviation of `r num(own("sd_mean")[1])` on average, and a value between
+`r num(own("sd_q05")[1])` and `r num(own("sd_q95")[1])` in 90% of the
+data sets. The value for the real schools, `r num(observed)`, is inside
+that range. The column `own_as_large` of the summary is the proportion of
+data sets with a posterior mean at least as large as the one for the real
+schools.
+
+```{r as-large}
+shown <- sims[sims$method == "bayesEfron", ]
+data.frame(effects = shown$scenario, own_as_large = shown$own_as_large)
+```
+
+A posterior mean that large occurred in
+`r pct(own("own_as_large")[1], 1)` of the data sets without any
+variation, and in `r series(own("own_as_large")[2:3], pct, 1)` of those
+with standard deviations of 0.14 and 0.20. The fit of the 79 schools
+therefore does not show that the effect of small classes varies. It does
+limit how large the
+variation can be: when the true standard deviation was 0.35, a posterior
+mean as small as the one for the schools occurred in `r pct(as_small[4], 1)` of the data
+sets. These percentages compare the simulated fits with
+`r num(observed, 3)`, the posterior mean of the 800 stored draws. If we
+compare with `r num(all_draws, 3)`, from all the draws of the same run,
+the first three become
+`r series(own("own_as_large_all_draws")[1:3], pct, 1)`.
+
+We should read the interval for the standard deviation in the same way.
+It contained the true value in
+`r series(own("sd_inclusion")[2:4], pct, 1)` of the data sets in the
+three normal cases, and in none of those without variation, where its
+lower limit was `r num(own("sd_lower_mean")[1])` on average. Its upper
+limit can be used, but its lower limit is not evidence against zero. REML
+errs in the other direction: it estimates the standard deviation as zero
+in `r pct(plug_in("sd_zero")[1], 1)` of the data sets without variation,
+and still in `r pct(plug_in("sd_zero")[2], 1)` of those with a standard
+deviation of 0.14.
+
+The next table is about the individual schools. It adds the rows called
+`known g`, for an analysis that is given the distribution that the
+effects come from, which is possible only in a simulation. Without
+variation that distribution is the common effect itself, so this case has
+no such row.
+
+```{r simulation-schools}
+shown <- sims[sims$method != "bayesEfron, defaults", ]
+data.frame(effects = shown$scenario, analysis = shown$method,
+           inclusion = round(shown$inclusion, 3),
+           length = round(shown$length, 2),
+           largest_inclusion = shown$largest_inclusion,
+           largest_error = round(shown$largest_error, 2))
+```
+
+`inclusion` is the coverage of the schools' 90% intervals, that is, the
+proportion of the true effects inside them, and `length` is their mean
+length. The other two columns follow one school in each data set, the one
+with the largest estimate: `largest_inclusion` is how often its interval
+covers its true effect, and `largest_error` is the average difference
+between its posterior mean and its true effect.
+
+In the four cases the bayesEfron intervals contained
+`r series(own("inclusion"), pct, 1)` of the true effects, with Monte
+Carlo standard errors below 0.5 percentage points. They are longer than
+they need to be when the effects do not vary, and they fall short of the
+nominal 90% by `r num(100 * (0.9 - own("inclusion")[3]), 1)` and
+`r num(100 * (0.9 - own("inclusion")[4]), 1)` percentage points when the
+standard deviation is 0.20 and 0.35. For the plug-in normal model the
+intervals contained `r series(plug_in("inclusion"), pct, 1)`, because
+that analysis takes its two estimates as known, and where REML estimates
+no variation, every interval is a single point.
+
+These percentages are averages over all the data sets of a case, and the
+fit of the real schools is not an average one: the standard deviation
+that it reports is on the low side for data with a true standard
+deviation of 0.20. Among the data sets in which the fit reported a
+standard deviation no larger than the one for the real schools
+(`r series(own("sd_as_small")[1:3], format)` data sets in the first three
+cases), the intervals contained
+`r series(own("inclusion_sd_as_small")[1:3], pct, 1)` of the true
+effects. When the effects varied with a standard deviation of 0.20 and
+the data happened not to show it, the intervals for the schools were too
+short.
+
+For the school with the largest estimate in a data set, the posterior
+mean was too high on average in all four cases, by
+`r num(min(own("largest_error")))` to `r num(max(own("largest_error")))`,
+and by the most when the effects did not vary. Its interval contained its
+true effect in at least `r pct(min(own("largest_inclusion")))` of the
+data sets in every case.
+
+We can also use the simulation to compare the two sampler settings. Under
+the settings of the second section, none of the 800 fits had a divergent
+transition or a bulk effective sample size below 400,
+`r sum(own("rhat_above_1.01"))` had an R-hat above 1.01, and in
+`r sum(own("with_treedepth_hits"))` some iterations reached the maximum
+tree depth. Under the defaults, `r sum(defaults("with_divergences"))`
+fits had divergent transitions and `r sum(defaults("rhat_above_1.01"))`
+an R-hat above 1.01. Even so, the summaries barely depended on the
+setting. Between the two, the posterior mean of the standard deviation of
+$g$ differed by less than 0.02 in every data set, and the proportion of
+true effects inside the intervals by less than 0.001 on average and by at
+most 2 of the 79 schools in any data set.
+
+As for the E-BFMI, it was below 0.3 in `r own("ebfmi_below_0.3")[1]` of
+the 200 fits without variation and in `r own("ebfmi_below_0.3")[4]` of
+the 200 with a standard deviation of 0.35. Within each case it was lower
+when the estimate of $g$ was narrower: its correlation with the posterior
+mean of the standard deviation of $g$ is between
+`r num(min(own("ebfmi_sd_correlation")))` and
+`r num(max(own("ebfmi_sd_correlation")))`. In these data sets, then, a
+low E-BFMI went with a narrow estimate of $g$. We cannot tell from these
+runs whether the model could be written so that it samples such data
+without the warning. A narrow estimate of $g$ is also the condition under
+which the school intervals were too short, and the two show the same
+pattern. When the standard deviation was 0.20, the intervals
+contained `r pct(own("inclusion_ebfmi_below")[3], 1)` of the true effects
+among the fits with a low E-BFMI and
+`r pct(own("inclusion_ebfmi_above")[3], 1)` among the others.
+
+## The schools one by one
+
+`plot_sites()` plots the posterior mean and the intervals of every
+school, and we order the schools by their estimates.
+
+```{r sites-plot, fig.height = 7.5, fig.alt = "One row for each of the 79 schools, ordered by estimate: the posterior mean with its 50% and 90% intervals, and the estimate as an open circle. The estimates spread from about -0.9 to 1.4, and the posterior means stay close to the dashed line at the mean of the distribution of effects."}
+plot_sites(fit, sort_by = "observed")
+```
+
+```{r sites-facts, include = FALSE}
+sites <- site_summary(fit)
+center <- g_ci["mean_g", "mean"]
+weight <- (sites$mean - center) / (sites$estimate - center)
+positive <- exceedance_prob(fit, threshold = 0)
+above <- sum(sites$lower > 0)
+raw_length <- mean(2 * stats::qnorm(0.95) * sites$se)
+largest <- which.max(sites$estimate)
+second <- order(sites$estimate, decreasing = TRUE)[2]
+stopifnot(
+  identical(sites$estimate, star_schools$yi), above == 15L, sum(sites$upper < 0) == 0L,
+  min(sites$mean) > 0, max(sites$mean) < 0.6,
+  stats::median(weight) > 0.12, stats::median(weight) < 0.16,
+  min(positive) > 0.6, mean(sites$upper - sites$lower) < 0.45 * raw_length,
+  largest == 5L, second == 60L, sites$se[second] < sites$se[largest],
+  sites$mean[second] > sites$mean[largest], sites$upper[second] > 1.4,
+  star_schools$n_classes[second] == 7L, star_schools$n_classes[largest] == 3L,
+  # School 60: longer than the interval of its estimate alone, and an upper
+  # limit that moves with the draws and with the standard errors.
+  sites$upper[second] - sites$lower[second] > 2 * stats::qnorm(0.95) * sites$se[second],
+  identical(evidence$full_sites$estimate, star_schools$yi),
+  abs(evidence$full_sites$upper[second] - sites$upper[second]) > 0.05,
+  abs(evidence$full_sites$upper[largest] - sites$upper[largest]) < 0.02,
+  identical(evidence$first_stage$variant, c("common", "lower", "upper", "by_kind")),
+  abs(evidence$first_stage$site_60_upper[1] - evidence$full_sites$upper[second]) < 1e-12,
+  diff(range(evidence$first_stage$site_60_upper)) > 0.7,
+  diff(range(evidence$first_stage$site_5_upper)) > 0.5,
+  abs(evidence$first_stage$site_5_upper[1] - evidence$full_sites$upper[largest]) < 1e-12
+)
+upper_5 <- evidence$first_stage$site_5_upper
+upper_60 <- evidence$first_stage$site_60_upper
+print(c(range(sites$estimate), range(sites$mean), stats::median(weight), min(positive)))
+```
+
+The open circles are the estimates, which run from
+`r num(min(sites$estimate))` to `r num(max(sites$estimate))`, and the
+points are the posterior means, which run from `r num(min(sites$mean))`
+to `r num(max(sites$mean))`. For the median school, the posterior mean
+lies `r pct(stats::median(weight))` of the way from the mean of $g$ to
+the estimate. On average the 90% intervals have a length of
+`r num(mean(sites$upper - sites$lower))`, whereas intervals from the
+estimates and their standard errors alone would have a mean length of
+`r num(raw_length)`.
+
+`exceedance_prob()` returns the posterior probability that each school's
+effect is above a threshold, here zero. We print the range of these
+probabilities and count the 90% intervals that lie above zero.
+
+```{r positive}
+positive <- exceedance_prob(fit, threshold = 0)
+range(positive)
+sum(site_summary(fit)$lower > 0)
+```
+
+For every school the probability of a positive effect is at least
+`r num(floor(100 * min(positive)) / 100)`, and for `r above` schools the 90% interval lies
+above zero. These numbers describe schools with a common positive mean
+more than they distinguish one school from another. In the simulated data
+sets in which every school had the same effect, the number of intervals
+that excluded zero was anywhere between `r own("excluding_zero_q05")[1]`
+and `r own("excluding_zero_q95")[1]` in 90% of the data sets, depending
+on where the mean of the estimates happened to fall.
+
+Schools 5 and 60 have the two largest estimates, and `site_summary()`
+returns their rows.
+
+```{r two-schools}
+site_summary(fit, sites = c(5, 60))[, c("label", "estimate", "se", "mean",
+                                        "lower", "upper")]
+```
+
+School 5, with 3 classes, has the largest estimate, which the fit shrinks
+to a posterior mean of `r num(sites$mean[largest])`, with an interval
+from `r num(sites$lower[largest])` to `r num(sites$upper[largest])`. In
+the simulation, the posterior mean of the school with the largest
+estimate was too high on average, but its interval contained the true
+effect at least as often as its nominal 90%. For a school like this one
+we would therefore report the interval.
+
+School 60 has 7 classes and a smaller standard error, and its estimate is
+shrunk less. Its posterior distribution has a long right shoulder: the
+interval runs from `r num(sites$lower[second])` to
+`r num(sites$upper[second])`, and it is longer than the
+`r num(2 * stats::qnorm(0.95) * sites$se[second])` of an interval from
+the estimate and its standard error alone.
+
+The upper limit of that interval is the least stable number in the fit.
+Computed from all the draws of the run instead of the 800 stored ones, it
+is `r num(evidence$full_sites$upper[second])`. The upper limits for
+both schools also depend on what is assumed about the classes: under the assumptions
+compared in the next section, the upper limit for school 5 lies between
+`r num(min(upper_5))` and `r num(max(upper_5))`, and the upper limit for
+school 60 between `r num(min(upper_60))` and `r num(max(upper_60))`.
+
+## Varying the standard errors
+
+Suppose that we had ignored the classes and analyzed each school by OLS,
+with its students treated as independent. We would then fit the model to
+the columns `yi_ols` and `sei_ols`.
+
+```{r ols-call, eval = FALSE}
+ols <- as_bef_data(star_schools, theta_hat = "yi_ols", sigma = "sei_ols")
+fit_ols <- bayes_efron_fit(ols, seed = 1985)
+```
+
+The results of this fit are in `evidence$ols`, and
+`plot_g()` adds its estimate of $g$ to our plot through the `compare`
+argument.
+
+```{r ols-plot, fig.height = 3.8, fig.alt = "Two estimated densities of the 79 effects. The one from the fit above is a narrow peak near 0.2; the one from the fit with the standard errors of ordinary least squares is about twice as wide and half as high."}
+ols <- evidence$ols
+plot_g(fit, compare = list(
+  "OLS standard errors" = data.frame(x = ols$density$value,
+                                     density = ols$density$mean)
+), xlim = c(-1.5, 2))
+```
+
+```{r ols-facts, include = FALSE}
+ols_g <- ols$g
+rownames(ols_g) <- ols_g$parameter
+reml_ols <- normal["OLS", ]
+stopifnot(
+  ols_g["sd_g", "mean"] > 1.9 * g_ci["sd_g", "mean"],
+  ols_g["sd_g", "lower"] > g_ci["sd_g", "mean"],
+  abs(ols_g["mean_g", "mean"] - g_ci["mean_g", "mean"]) < 0.02,
+  reml_ols$sd > 2 * reml$sd, reml_ols$p < 1e-20,
+  ols$intervals_excluding_zero == 26L, sum(ols$sites$upper < 0) == 3L,
+  nrow(ols$sites) == 79L, identical(ols$sites$estimate, star_schools$yi_ols)
+)
+print(ols_g); print(reml_ols)
+```
+
+With the OLS standard errors the standard deviation of $g$ is
+`r num(ols_g["sd_g", "mean"])`, with an interval from
+`r num(ols_g["sd_g", "lower"])` to `r num(ols_g["sd_g", "upper"])`, twice
+as large as in the fit above. REML now estimates `r num(reml_ols$sd)`,
+the test of homogeneity rejects with a p-value below $10^{-20}$, and
+`r ols$intervals_excluding_zero` school intervals exclude zero,
+`r sum(ols$sites$upper < 0)` of them on the negative side, compared with
+`r above` in the fit above, all on the positive side. The mean of the
+effects is almost unchanged, at `r num(ols_g["mean_g", "mean"])`.
+
+Between the two analyses the estimates are almost the same, with a
+correlation of `r num(stats::cor(schools$yi, schools$yi_ols), 3)`. It is
+the standard errors that differ, because the two analyses answer
+different questions. OLS takes the classes that were formed as given, and
+its contrast is the difference between those classes. The mixed model
+with class intercepts estimates what the difference would be with other
+teachers and other classes in the same school, which is what an effect of
+class size means. What the smaller standard errors leave out,
+the differences between the teachers and the classes of a school, is
+counted as variation in the effect of small classes.
+
+We have not reproduced either of the analyses cited at the start, and we
+cannot say what part the standard errors play in their disagreement. In our analysis of
+one grade, the standard errors that ignore the classes would have shown
+strong variation, whereas the standard errors of the fit above, which
+take the classes into account, do not show any.
+
+The standard errors that take the classes into account are estimates
+too, and we can vary what they depend on in the same way. The results for
+four versions of them are in `evidence$first_stage`, labeled in the first
+column of the table.
+
+```{r class-variance}
+variants <- evidence$first_stage
+data.frame(classes = c("one variance", "variance at its lower end",
+                       "variance at its upper end", "a variance for each kind"),
+           se = round(variants$se_ratio_median, 2),
+           reml_sd = round(variants$reml_sd, 2), p = round(variants$p, 3),
+           sd_g = round(variants$sd_g, 2), lower = round(variants$sd_g_lower, 2),
+           upper = round(variants$sd_g_upper, 2),
+           ebfmi_min = round(variants$ebfmi_min, 2))
+```
+
+```{r class-variance-facts, include = FALSE}
+limits <- first_stage$class_sd_limits
+kinds <- first_stage$by_kind
+one_step <- first_stage$one_step
+stopifnot(
+  identical(variants$variant, c("common", "lower", "upper", "by_kind")),
+  # The first row is the stored call with all its draws.
+  abs(variants$se_ratio_median[1] - 1) < 1e-10, abs(variants$p[1] - reml$p) < 1e-10,
+  abs(variants$sd_g[1] - all_draws) < 1e-12,
+  limits[["lower"]] < first_stage$class_sd, limits[["upper"]] > first_stage$class_sd,
+  limits[["lower"]] > 0.29, limits[["upper"]] < 0.41,
+  kinds$sd[["small"]] > 1.3 * kinds$sd[["regular"]], kinds$p < 0.05, kinds$p > 0.01,
+  # The lower end: a test that rejects, and no warning about E-BFMI.
+  variants$p[2] < 0.05, variants$p[2] > 0.03, variants$ebfmi_min[2] > 0.3,
+  !grepl("ebfmi", variants$warned[2]),
+  # The upper end and a variance for each kind: no variation by REML.
+  all(variants$reml_sd[3:4] == 0), all(variants$p[3:4] > 0.8),
+  all(variants$se_ratio_median[3:4] > 1.1), variants$se_ratio_median[2] < 0.92,
+  all(variants$failed == ""), all(variants$max_rhat < 1.01),
+  all(variants$min_ess_bulk > 400), all(variants$divergences == 0),
+  min(variants$sd_g_upper) > 0.3, max(variants$sd_g_upper) < 0.41,
+  which.max(variants$sd_g_upper) == 2L,
+  one_step$sd > 0.1, one_step$sd < 0.2, one_step$statistic < 1
+)
+print(limits); print(kinds$sd); print(unlist(one_step))
+```
+
+- The first row is the fit of this case study, here with all the draws of
+  its run. Its standard errors depend on a standard deviation of
+  `r num(first_stage$class_sd)` between classes, with a 95% interval from
+  `r num(limits[["lower"]])` to `r num(limits[["upper"]])`.
+- In the second and third rows that standard deviation is at the limits
+  of the interval.
+- In the fourth row the small and the regular classes each have their
+  own variance. That mixed model fits the students better, with a
+  likelihood-ratio statistic of `r num(kinds$statistic, 1)` on 1 degree
+  of freedom (a p-value of `r num(kinds$p)`), and it estimates a standard
+  deviation of `r num(kinds$sd[["small"]])` between small classes and
+  `r num(kinds$sd[["regular"]])` between regular ones.
+
+`se` is the median over the schools of the ratio of the standard error to
+the standard error in the first row. `reml_sd` and `p` are the REML
+estimate of the standard deviation of the effects and the p-value of the
+test of homogeneity, and the next three columns are the posterior mean
+and the 90% interval of the standard deviation of $g$.
+
+When the variance between classes is at the lower end of its interval,
+the test of homogeneity rejects at the 5% level, and the fit has no
+warning about E-BFMI. Under either of the other two assumptions, REML
+estimates no variation at all. The statement that these data do not show
+variation therefore fails in one of the four rows, and it depends on a
+standard deviation between classes that the data place only between
+`r num(limits[["lower"]])` and `r num(limits[["upper"]])`. In every row,
+the upper limit of the interval for the standard deviation of the effects
+is at most `r num(max(variants$sd_g_upper))`.
+
+We also fitted a model to the students that estimates the variance of the
+effect across schools in one step, with the class intercepts of the first
+row. It gives a standard deviation of `r num(one_step$sd)` and a
+likelihood-ratio statistic of `r num(one_step$statistic)` for the
+hypothesis of no variation, which is no evidence against that hypothesis.
+
+For a multisite trial, the two comparisons in this section show where
+care is needed. Whether the effect appears to vary depends first on how
+the standard errors are computed and on how well the variances behind
+them are known, and only then on the model for the distribution of
+effects.
+
+## Reporting this trial
+
+The simulation has limits that we should keep in view: one set of 79
+standard errors treated as known, normal distributions of the effects,
+normal sampling errors, and effects unrelated to their precision. Within
+those limits, we would report three things for these schools.
+
+1. The mean effect with its interval, which is the result that the data
+   determine well.
+2. For the spread, the upper limit of the interval and not the posterior
+   mean. The standard deviation of the effects is unlikely to exceed
+   `r num(g_ci["sd_g", "upper"])`, or `r num(variants$sd_g_upper[2])`
+   with the variance between classes at the lower end of its interval,
+   and the data do not show that it differs from zero. In the simulation,
+   the model returned a posterior mean between
+   `r num(own("sd_mean")[1])` and `r num(own("sd_mean")[3])` on average
+   whether the true standard deviation was zero or 0.20.
+3. For a school, the interval, with a caution. When the effects varied
+   with a standard deviation of 0.20 and the fit reported a standard
+   deviation no larger than the one for these schools, the intervals
+   contained `r pct(own("inclusion_sd_as_small")[3])` of the true
+   effects. The number of intervals that exclude zero tells us nothing
+   about the schools.
+
+A report should also say how the standard errors were computed and how
+well the variance behind them is known, because the conclusion about the
+spread depends on them. And it should say that the sampler issued a
+warning, with the checks that were made: several seeds, a longer run, and
+a comparison of the summaries.
+
+As in `vignette("teacher-expectancy")`, the plug-in normal model is not
+the safer choice. Its intervals for the schools contained
+`r series(plug_in("inclusion"), pct, 1)` of the true effects in the four
+cases. A normal model that carries the uncertainty in its variance was
+not part of our comparison.
+
+Finally, the fit in this article is thinned to 800 of its 24,000 draws.
+For a report, run the call at the top of the second section as it is,
+which stores every draw.
+
+## References

@@ -1,5 +1,6 @@
 #' @order 13
-#' @describeIn bef_fit Returns the lines that `print()` shows, as a character vector.
+#' @describeIn bef_fit Returns the lines that `print()` shows as a
+#'   character vector.
 #' @export
 format.bef_fit <- function(x, ..., use_cli = NULL) {
   x <- .bef_prepare_fit(x)
@@ -10,7 +11,8 @@ format.bef_fit <- function(x, ..., use_cli = NULL) {
 }
 
 #' @order 14
-#' @describeIn bef_fit Returns the lines of the printed summary.
+#' @describeIn bef_fit Returns the lines of the printed summary as a
+#'   character vector.
 #' @export
 format.summary.bef_fit <- function(x, ..., use_cli = NULL) {
   .bef_check_saved_summary(x)
@@ -21,7 +23,8 @@ format.summary.bef_fit <- function(x, ..., use_cli = NULL) {
 }
 
 #' @order 8
-#' @describeIn as_bef_data Returns the lines that `print()` shows, as a character vector.
+#' @describeIn as_bef_data Returns the lines that `print()` shows as a
+#'   character vector.
 #' @export
 format.bef_data <- function(x, ..., use_cli = NULL) {
   if (.bef_format_use_cli(use_cli)) {
@@ -31,7 +34,8 @@ format.bef_data <- function(x, ..., use_cli = NULL) {
 }
 
 #' @order 6
-#' @describeIn diagnose Returns the lines that `print()` shows, as a character vector.
+#' @describeIn diagnose Returns the lines that `print()` shows as a
+#'   character vector.
 #' @export
 format.bef_diagnostic <- function(x, ..., use_cli = NULL) {
   if (.bef_format_use_cli(use_cli)) {
@@ -43,9 +47,10 @@ format.bef_diagnostic <- function(x, ..., use_cli = NULL) {
 format_bef_fit_base <- function(x) {
   metadata <- x$metadata
   diagnostics <- .bef_metadata_attr(metadata, "diagnostics")
-  skipped <- .bef_metadata_attr(metadata, "diagnostic_skipped")
-  failed <- .bef_metadata_attr(metadata, "sampler_diagnostics_failed")
-  warned <- .bef_metadata_attr(metadata, "sampler_diagnostics_warned")
+  flags <- .bef_fit_diagnostic_flags(x)
+  skipped <- flags$skipped
+  failed <- flags$failed
+  warned <- flags$warned
 
   lines <- c(
     "<bayesEfron fit>",
@@ -53,6 +58,7 @@ format_bef_fit_base <- function(x) {
     sprintf("Sites: %d", as.integer(metadata$data_list$K)),
     sprintf("Grid method: %s", metadata$grid_method),
     sprintf("Runtime: %s sec", .bef_format_number(metadata$runtime_seconds)),
+    .bef_format_draws_line(x),
     sprintf(
       "Diagnostics: Rhat %s; ESS bulk %s; ESS tail %s; divergences %s; treedepth hits %s",
       .bef_format_number(.bef_diagnostic_worst(diagnostics$rhat, max)),
@@ -73,7 +79,12 @@ format_bef_fit_base <- function(x) {
     lines <- c(lines, sprintf("Warnings: %s", paste(warned, collapse = ", ")))
   }
 
-  c(lines, "Use summary() for posterior summaries.")
+  c(
+    lines,
+    .bef_format_data_line(metadata$data_list),
+    .bef_format_grid_line(metadata),
+    "Next: summary() and site_summary() for the sites, g_summary() for the distribution of effects, plot()."
+  )
 }
 
 format_summary_bef_fit_base <- function(x) {
@@ -86,6 +97,7 @@ format_summary_bef_fit_base <- function(x) {
     sprintf("  mean: %s", .bef_format_number(prior$mean)),
     sprintf("  var:  %s", .bef_format_number(prior$var)),
     sprintf("  sd:   %s", .bef_format_number(prior$sd)),
+    "  (each is a posterior mean, so sd squared is not var)",
     "",
     "Diagnostics:",
     sprintf("  Rhat (max):        %s",
@@ -140,7 +152,13 @@ format_summary_bef_fit_base <- function(x) {
   }
 
   if (!is.null(x$theta_summary)) {
-    lines <- c(lines, "", "Theta summary:", .bef_format_theta_summary(x$theta_summary))
+    level <- attr(x$theta_summary, "level", exact = TRUE)
+    if (is.null(level)) level <- attr(x, "level", exact = TRUE)
+    lines <- c(
+      lines, "",
+      sprintf("Site effects (posterior summaries, %s%% intervals):", format(100 * level)),
+      .bef_format_theta_summary(x$theta_summary)
+    )
   }
 
   lines
@@ -199,6 +217,7 @@ format_bef_diagnostic_base <- function(x) {
             .bef_format_number(.bef_diagnostic_worst(x_summary$ebfmi, min))),
     sprintf("Runtime: %s sec", .bef_format_number(x_summary$runtime_seconds))
   )
+  lines <- c(lines, .bef_format_grid_diagnostics(x_summary$grid))
 
   if (length(x_summary$sampler_diagnostics_failed) > 0L) {
     lines <- c(lines, sprintf(
@@ -244,7 +263,7 @@ format_summary_bef_fit_cli <- function(x) {
   .bef_format_cli_lines(
     lines,
     heading = 1L,
-    sections = which(lines %in% c("Prior g:", "Diagnostics:", "Theta summary:"))
+    sections = which(lines %in% c("Prior g:", "Diagnostics:") | grepl("^Site effects \\(", lines))
   )
 }
 
@@ -286,34 +305,43 @@ format_bef_diagnostic_cli <- function(x) {
 
 .bef_format_theta_summary <- function(theta_summary, max_rows = 12L) {
   n <- nrow(theta_summary)
-  rows <- seq_len(n)
-  omitted <- 0L
-  if (n > max_rows) {
-    rows <- c(seq_len(max_rows / 2L), seq.int(n - max_rows / 2L + 1L, n))
-    omitted <- n - length(rows)
+  pick <- function(new, old) {
+    if (is.null(theta_summary[[new]])) theta_summary[[old]] else theta_summary[[new]]
   }
-
-  out <- c("  site      mean        sd     lower     upper       map")
-  body <- vapply(
-    rows,
-    function(i) {
-      sprintf(
-        "  %-4s %9s %9s %9s %9s %9s",
-        as.character(theta_summary$site[[i]]),
-        .bef_format_number(theta_summary$mean[[i]]),
-        .bef_format_number(theta_summary$sd[[i]]),
-        .bef_format_number(theta_summary$hpdi_lower[[i]]),
-        .bef_format_number(theta_summary$hpdi_upper[[i]]),
-        .bef_format_number(theta_summary$map[[i]])
-      )
-    },
-    character(1L)
+  lower <- pick("lower", "hpdi_lower")
+  upper <- pick("upper", "hpdi_upper")
+  mode <- pick("mode", "map")
+  labels <- if (is.null(theta_summary$label)) {
+    as.character(theta_summary$site)
+  } else {
+    theta_summary$label
+  }
+  labels <- ifelse(nchar(labels) > 18L, paste0(substr(labels, 1L, 17L), "~"), labels)
+  width <- max(4L, nchar(labels))
+  row <- function(i) {
+    sprintf(
+      "  %-*s %9s %9s %9s %9s %9s",
+      width, labels[[i]],
+      .bef_format_number(theta_summary$mean[[i]]),
+      .bef_format_number(theta_summary$sd[[i]]),
+      .bef_format_number(lower[[i]]),
+      .bef_format_number(upper[[i]]),
+      .bef_format_number(mode[[i]])
+    )
+  }
+  header <- sprintf("  %-*s %9s %9s %9s %9s %9s", width, "site", "mean", "sd",
+                    "lower", "upper", "mode")
+  if (n <= max_rows) {
+    return(c(header, vapply(seq_len(n), row, character(1L))))
+  }
+  # The first and the last sites, with the omitted ones between them.
+  half <- max_rows %/% 2L
+  c(
+    header,
+    vapply(seq_len(half), row, character(1L)),
+    sprintf("  ... %d sites omitted ...", n - 2L * half),
+    vapply(seq.int(n - half + 1L, n), row, character(1L))
   )
-  out <- c(out, body)
-  if (omitted > 0L) {
-    out <- c(out, sprintf("  ... %d sites omitted ...", omitted))
-  }
-  out
 }
 
 .bef_format_number <- function(x, digits = 4L) {
@@ -335,4 +363,84 @@ format_bef_diagnostic_cli <- function(x) {
     return("")
   }
   sprintf(" (%s)", variable)
+}
+
+# One line on the draws that a fit holds.
+.bef_format_draws_line <- function(x) {
+  dims <- dim(x$draws)
+  thin <- .bef_metadata_attr(x$metadata, "storage")$thin
+  sprintf(
+    "Draws: %d (%d chain%s%s); site-level draws %s",
+    as.integer(prod(dims[seq_len(2L)])), as.integer(dims[[2L]]),
+    if (dims[[2L]] == 1L) "" else "s",
+    if (isTRUE(thin > 1L)) sprintf(", one iteration in %d kept", as.integer(thin)) else "",
+    if (.bef_has_site_draws(x)) "kept" else "not kept"
+  )
+}
+
+# One line on the standard errors: whether they are equal, and their range.
+.bef_format_data_line <- function(data) {
+  sigma <- as.numeric(data$sigma)
+  if (length(sigma) == 0L) {
+    return(character())
+  }
+  if (isTRUE(all.equal(min(sigma), max(sigma)))) {
+    return(sprintf("Standard errors: equal, %s", .bef_format_number(sigma[[1L]])))
+  }
+  sprintf(
+    "Standard errors: %s to %s (largest / smallest %s)",
+    .bef_format_number(min(sigma)), .bef_format_number(max(sigma)),
+    .bef_format_number(max(sigma) / min(sigma))
+  )
+}
+
+# One line on the grid: its points, its range, and the smallest standard
+# error in units of the grid spacing.
+.bef_format_grid_line <- function(metadata) {
+  data <- metadata$data_list
+  grid <- as.numeric(data$grid)
+  L <- length(grid)
+  if (L < 2L) {
+    return(character())
+  }
+  spacing <- (grid[L] - grid[1L]) / (L - 1L)
+  c(
+    sprintf(
+      "Grid: %d points from %s to %s; smallest standard error %s grid spacings",
+      L, .bef_format_number(grid[1L]), .bef_format_number(grid[L]),
+      .bef_format_number(min(as.numeric(data$sigma)) / spacing)
+    ),
+    .bef_format_grid_rule_line(.bef_metadata_attr(metadata, "grid"))
+  )
+}
+
+# How the range of the grid was set and what sits at each point, for a fit
+# that recorded its grid. Fits of earlier versions have no such record.
+.bef_format_grid_rule_line <- function(grid) {
+  if (!inherits(grid, "bef_grid")) {
+    return(character())
+  }
+  rule <- if (identical(grid$grid_method, "support")) {
+    "ends given in `support`"
+  } else if (identical(grid$grid_method, "pilot")) {
+    sprintf(
+      "rule \"pilot\", %s", if (isTRUE(grid$pilot$narrowed)) {
+        sprintf("narrowed to %s%% of the range of \"paper_realdata\"",
+                .bef_format_number(100 * grid$pilot$share))
+      } else {
+        "not narrowed (the range of \"paper_realdata\")"
+      }
+    )
+  } else {
+    sprintf("rule \"%s\"", grid$grid_method)
+  }
+  sprintf(
+    "Grid range: %s; %s; %d spline functions", rule,
+    if (identical(grid$component, "normal")) {
+      sprintf("normal components of standard deviation %s", .bef_format_number(grid$tau_c))
+    } else {
+      "point masses"
+    },
+    as.integer(grid$M)
+  )
 }

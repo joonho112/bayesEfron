@@ -1,86 +1,137 @@
 ---
-title: "Using metafor and data frames as input"
-description: "Getting estimates and standard errors into the model from a data frame, a list or metafor, and labeling the results."
+title: "Estimates, standard errors and site labels"
+description: "Getting estimates and standard errors into a fit from a data frame, two vectors or metafor, and keeping the names of the sites through to the tables and plots."
 output:
   rmarkdown::html_vignette:
-    fig_width: 7
-    fig_height: 4.5
+    fig_width: 6.5
+    fig_height: 4
 bibliography: references.bib
 link-citations: true
 vignette: >
-  %\VignetteIndexEntry{Using metafor and data frames as input}
+  %\VignetteIndexEntry{Estimates, standard errors and site labels}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
-library(bayesEfron)
+# The ragg device writes smaller figure files; without it the default is used.
+if (requireNamespace("ragg", quietly = TRUE)) knitr::opts_chunk$set(dev = "ragg_png")
 options(bayesEfron.use_cli = FALSE, width = 80)
 has_metafor <- requireNamespace("metafor", quietly = TRUE)
 num <- function(x, digits = 2) formatC(x, format = "f", digits = digits)
 ```
 
-The model needs two numbers for each site: an estimate of the effect and
-the standard error of that estimate. Data seldom arrive in that form. A
-table may hold variances where standard errors are wanted, or the estimates
-may still have to be computed from the means, standard deviations and
-sample sizes of two groups. The sites usually have names as well, which you
-will want to see again next to the results. `as_bef_data()` deals with the
-first two points and keeps the names.
+This vignette shows how to pass estimates and standard errors to
+`bayes_efron_fit()` from a data frame, from metafor or as two vectors. It
+also shows where the site labels appear in the results, and how to compare
+a fit with the normal random-effects model from metafor.
 
-## Estimates already in a data frame
-
-The teacher expectancy studies of @raudenbush1985 come as a data frame
-with one row for each study.
-
-```{r data}
-studies <- raudenbush1985[, c("author", "yi", "vi", "sei")]
-studies$sei <- round(studies$sei, 4)
-head(studies, 4)
+```{r library}
+library(bayesEfron)
 ```
 
-`yi` is the estimate, a standardized mean difference, `vi` is its sampling
-variance and `sei` its standard error. `as_bef_data()` finds the two
-columns it needs by their names.
+The model needs two numbers for each site: an estimate of the effect and
+the standard error of that estimate. Data rarely arrive in that form. A
+table may have variances where standard errors are wanted, or the estimates
+may still have to be computed from the means, standard deviations and
+sample sizes of two groups. The sites (studies, firms, schools) usually
+have names as well, which you will want to see again beside the results.
+`as_bef_data()` handles the first case and, together with
+`metafor::escalc()`, the second, and a fit keeps the names.
+
+## Estimates in a data frame
+
+We start with the callback data from `vignette("bayesEfron")`, which have
+one row for each of 97 firms.
+
+```{r data}
+head(krw_discrimination[, c("firm_name", "yi", "vi", "sei")], 4)
+```
+
+`yi` is the difference between the callback probabilities of
+applications with distinctively white and distinctively Black names at
+the firm, `vi` its sampling variance and `sei` its standard error. The
+function `as_bef_data()` finds the two columns that it needs by their
+names, and its `site` argument names the column that contains the labels:
 
 ```{r by-name}
-dat <- as_bef_data(raudenbush1985)
+dat <- as_bef_data(krw_discrimination, site = "firm_name")
 dat
 ```
 
-For the estimates it takes the first of the names `theta_hat`, `yi`,
-`estimate`, `effect` and `y` that the data frame has, and for the standard
-errors the first of `sigma`, `se`, `std_error`, `stderr` and `sei`. Columns
-with other names are given in the arguments `theta_hat` and `sigma`. If
-your second column holds variances, as `vi` does, set `variance = TRUE` and
-the function takes the square roots.
+It takes the first of these names that the data frame has, here `yi` and
+`sei`:
+
+- estimates: `theta_hat`, `yi`, `estimate`, `effect`, `y`;
+- standard errors: `sigma`, `se`, `std_error`, `stderr`, `sei`.
+
+If your columns have other names, give them in the arguments `theta_hat`
+and `sigma`. If the second column contains variances, as `vi` does, set
+`variance = TRUE` and the function takes the square roots.
 
 ```{r variance}
-dat_v <- as_bef_data(raudenbush1985, theta_hat = "yi", sigma = "vi",
-                     variance = TRUE)
-all.equal(dat_v$sigma, dat$sigma)
+from_variances <- as_bef_data(krw_discrimination, sigma = "vi",
+                              variance = TRUE, site = "firm_name")
+all.equal(from_variances$sigma, dat$sigma)
 ```
 
-The function stops if a value is missing, if a standard error is not
-positive or if there are fewer than five sites. It does not drop incomplete
-rows, because the number of sites would then change without notice.
+```{r data-facts, include = FALSE}
+stopifnot(nrow(krw_discrimination) == 97L,
+          isTRUE(all.equal(krw_discrimination$vi, krw_discrimination$sei^2)),
+          identical(dat$names, krw_discrimination$firm_name),
+          identical(dat$source, "data.frame"),
+          is.null(as_bef_data(krw_discrimination)$names),
+          inherits(try(as_bef_data(krw_discrimination[1:4, ]), silent = TRUE),
+                   "try-error"),
+          inherits(try(as_bef_data(krw_discrimination[c(1, 1:5), ],
+                                   site = "firm_name"), silent = TRUE),
+                   "try-error"),
+          # A column of variances given as standard errors draws a warning.
+          inherits(tryCatch(as_bef_data(krw_discrimination, sigma = "vi"),
+                            warning = function(w) w), "warning"),
+          !inherits(tryCatch(as_bef_data(transform(krw_discrimination, spread = vi),
+                                         sigma = "spread"),
+                             warning = function(w) w), "warning"))
+```
+
+`as_bef_data()` warns when a column with a name that begins with `vi` or
+`var` is given as the standard errors without `variance = TRUE`. It cannot
+detect variances under another name, because both are positive numbers, so
+check the range of `sigma` in the printed object.
+
+The function throws an error if a value is missing, if a standard error is
+not positive, if a label occurs twice or if there are fewer than 5 sites.
+It does not drop incomplete rows, because the number of sites would then
+change without notice. For example, a missing standard error gives this
+error:
 
 ```{r missing}
-incomplete <- raudenbush1985
+incomplete <- krw_discrimination
 incomplete$sei[3] <- NA
 try(as_bef_data(incomplete))
 ```
 
-## From group summaries to estimates
+We can pass `dat` to `bayes_efron_fit()` as it is.
 
-Often the data are one step further back, and each study reports the mean,
-the standard deviation and the size of two groups. `metafor::escalc()`
-computes an estimate and its sampling variance from such summaries
-[@viechtbauer2010], and `as_bef_data()` accepts its result. The example is
-the nine studies of the length of hospital stay of stroke patients under
-specialized and under routine care that @normand1999 analyzed. The data
-are in the metadat package, which metafor loads.
+```{r fit-call, eval = FALSE}
+fit <- bayes_efron_fit(dat, seed = 20250807)
+```
+
+You can also pass the data frame itself when its columns have the names
+listed above. Its row names, if they have been set, are then the labels.
+
+## Group summaries and metafor
+
+Often the estimates have not been computed yet, and each study reports the
+mean, the standard deviation and the size of two groups. From such
+summaries, `metafor::escalc()` computes an estimate and its sampling
+variance [@viechtbauer2010], and `as_bef_data()` accepts its result.
+
+As an example we apply `escalc()` to the 9 studies that @normand1999
+analyzed, which compare the length of hospital stay of stroke patients
+under specialized and under routine care. The data are in the metadat
+package, which metafor loads.
 
 ```{r escalc, eval = has_metafor, message = FALSE}
 library(metafor)
@@ -88,143 +139,165 @@ stroke <- escalc(
   measure = "MD",
   m1i = m1i, sd1i = sd1i, n1i = n1i,
   m2i = m2i, sd2i = sd2i, n2i = n2i,
-  data = dat.normand1999
+  data = dat.normand1999, slab = source
 )
 stroke[, c("source", "m1i", "m2i", "yi", "vi")]
 ```
 
-With `measure = "MD"` the estimate `yi` is the difference between the two
-means, here in days, and `vi` is the sum of the two squared standard errors
-of the means, $s_1^2 / n_1 + s_2^2 / n_2$. A difference in the original
-units is the natural choice when every study measures the outcome in the
-same way, as these do. When the studies use different instruments, as the
-teacher expectancy studies did with their IQ tests, the standardized mean
-difference (`measure = "SMD"`) puts the estimates on a common scale.
+We set `measure = "MD"`, so the estimate `yi` is the difference between
+the two means, here in days, and `vi` is the sum of the two squared
+standard errors of the means, $s_1^2 / n_1 + s_2^2 / n_2$. A difference in
+the original units is the natural choice when every study measures the
+outcome in the same way, as these do. When the studies use different
+instruments, as the teacher expectancy studies in
+`vignette("teacher-expectancy")` did with their IQ tests, the standardized
+mean difference (`measure = "SMD"`) puts the estimates on a common scale.
+
+From an `escalc` object, `as_bef_data()` takes the column `yi` as the
+estimates and the square roots of `vi` as the standard errors.
 
 ```{r escalc-convert, eval = has_metafor}
-rownames(stroke) <- stroke$source
 stroke_dat <- as_bef_data(stroke)
-stroke_dat
+as.data.frame(stroke_dat)
 ```
 
-For an `escalc` object the estimates are the column `yi` and the standard
-errors are the square roots of `vi`. The site labels are taken from the row
-names, which is why the row names were set first; labels given to
-`escalc()` in its argument `slab` are not used.
+```{r escalc-facts, include = FALSE, eval = has_metafor}
+unlabeled <- stroke
+attr(unlabeled$yi, "slab") <- NULL
+by_row <- unlabeled
+rownames(by_row) <- paste("study", 1:9)
+stopifnot(nrow(stroke) == 9L,
+          identical(stroke_dat$names, as.character(dat.normand1999$source)),
+          isTRUE(all.equal(stroke_dat$sigma, sqrt(as.numeric(stroke$vi)))),
+          is.null(as_bef_data(unlabeled)$names),
+          identical(as_bef_data(by_row)$names, paste("study", 1:9)))
+```
 
-Nine studies are enough for the function to run, but they can say little
-about the shape of the distribution of effects, and with so few the results
-depend more on the choices that `vignette("choosing-a-grid")` describes.
-The check of the intervals that `vignette("implementation")` reports starts
-at 50 sites; we have no evidence on how they perform with fewer.
+The labels are the ones given to `escalc()` in its `slab` argument. Without
+`slab`, row names that have been set are used.
 
-## A list
+Although 9 studies are enough for the function to run, we can learn little
+from them about the shape of the distribution of effects. With so few
+sites, the result depends strongly on the range of the grid, as
+`vignette("teacher-expectancy")` shows for 19 studies.
 
-When the estimates and standard errors are two vectors, they can be passed
-to `bayes_efron_fit()` directly. `as_bef_data()` accepts them as a list as
-well, which is a way to have them checked beforehand.
+## Two vectors
+
+If your estimates and standard errors are two vectors, pass them to
+`bayes_efron_fit()` as its first two arguments. The names of the estimates,
+if they have any, become the labels. To have the two vectors checked before
+running a fit, give them to `as_bef_data()` as a list, in which an element
+`names` can supply the labels:
 
 ```{r list}
 as_bef_data(list(
-  theta_hat = c(0.03, 0.12, -0.14, 1.18, 0.26),
-  sigma = c(0.125, 0.147, 0.167, 0.373, 0.369),
-  names = c("Rosenthal", "Conn", "Jose", "Pellegrini 1", "Pellegrini 2")
+  theta_hat = krw_discrimination$yi,
+  sigma = krw_discrimination$sei,
+  names = krw_discrimination$firm_name
 ))
 ```
 
-## Fitting, and putting the names back
+Whatever the form, the estimates should be the original ones. Estimates
+that have already been shrunk, such as the posterior means from another
+model, are not independent noisy observations of the effects, and passing
+them as if they were changes the model.
 
-The elements `theta_hat` and `sigma` of the result are the two arguments of
-`bayes_efron_fit()`.
+## Site labels in the results
 
-```{r fit-call, eval = FALSE}
-dat <- as_bef_data(raudenbush1985, site = "author")
-fit <- bayes_efron_fit(dat$theta_hat, dat$sigma, seed = 1985)
-```
-
-The fitted object numbers the sites in the order of the data and does not
-keep their labels, so the labels have to be put back by hand. The object
-`raudenbush_fit` in the package holds the result of this fit and keeps one
-posterior draw in fifteen.
+A fit stores the site labels. To show this we use `krw_fit`, the fit of
+the callback data that comes with the package, made with the
+`bayes_efron_fit()` call above and `thin = 15`. Its table of site effects
+has the labels in the column `label`.
 
 ```{r labels}
-dat <- as_bef_data(raudenbush1985, site = "author")
-fit <- raudenbush_fit
-results <- cbind(study = dat$names, as.data.frame(fit))
-results$mean <- round(results$mean, 2)
-head(results[, c("study", "mean", "hpdi_lower", "hpdi_upper")])
+fit <- krw_fit
+head(site_summary(fit)[, c("site", "label", "estimate", "mean", "lower",
+                           "upper")], 4)
 ```
 
-`mean` is the posterior mean of the effect. `hpdi_lower` and `hpdi_upper`
-are the 5% and 95% posterior quantiles, the limits of a 90% interval; in
-spite of their names the interval is equal-tailed. `confint(fit,
-level = 0.95)` gives 95% intervals, the level that metafor uses by default
-for its confidence intervals, and `?bef_fit` describes all the columns.
+You can choose a site by its label wherever a function takes `sites`, and
+the returned vectors are named by label. Here we pick four firms and
+print, for each, the probability of a positive gap and the posterior mean
+in percentage points:
 
-## What differs from a random-effects model
-
-metafor fits the random-effects model to the same two columns. The
-difference between the two analyses lies in what is assumed about the
-distribution of true effects. The random-effects model takes it to be
-normal, with a mean and a standard deviation that are estimated. bayesEfron
-estimates the distribution itself, $g$, and reports its mean and standard
-deviation as summaries.
-
-```{r normal, eval = has_metafor}
-normal_fit <- rma(yi, vi, data = raudenbush1985)
-c(mean = unname(coef(normal_fit)), sd = sqrt(normal_fit$tau2))
-confint(fit, type = "g")[c(1, 3), ]
+```{r by-label}
+chosen <- c("Rite Aid", "KFC", "Safeway", "Genuine Parts (Napa Auto)")
+round(exceedance_prob(fit, sites = chosen), 3)
+round(100 * coef(fit)[chosen], 2)
 ```
 
-```{r outside, include = FALSE}
-grid <- fit$metadata$data_list$grid
-g <- colMeans(exp(posterior::as_draws_matrix(fit)[, sprintf("log_g[%d]", seq_along(grid))]))
-outside <- grid < min(raudenbush1985$yi) | grid > max(raudenbush1985$yi)
-mean_g <- sum(g * grid)
-share <- sum(g[outside] * (grid[outside] - mean_g)^2) / sum(g * (grid - mean_g)^2)
-# The next paragraph says "about twice"; stop if that no longer holds.
-if (has_metafor) {
-  g_summary <- confint(fit, type = "g")
-  ratio <- g_summary$point[g_summary$site == "sd_g"] / sqrt(normal_fit$tau2)
-  stopifnot(length(ratio) == 1, abs(ratio - 2) < 0.4)
-}
+```{r label-facts, include = FALSE}
+stopifnot(identical(site_summary(fit)$label, krw_discrimination$firm_name),
+          identical(names(coef(fit)), krw_discrimination$firm_name),
+          identical(names(exceedance_prob(fit, sites = chosen)), chosen),
+          identical(site_summary(fit, sites = "Safeway")$site,
+                    which(krw_discrimination$firm_name == "Safeway")),
+          isTRUE(all.equal(site_summary(fit)$estimate, krw_discrimination$yi)))
 ```
 
-The two means are close, whereas the standard deviation of $g$ is about
-twice that of the normal model. Both numbers describe how much the true
-effects vary between studies, and they differ because the two models allow
-different shapes for that variation. Part of the difference is the long
-right tail of the estimated $g$ (it is shown in `vignette("bayesEfron")`),
-which a normal distribution cannot have. The other part is that $g$ keeps a
-little probability beyond the smallest and the largest estimate, where the
-data hardly bear on it: `r num(sum(g[outside]))` in all, which accounts for
-`r round(100 * share)`% of the variance of the estimated distribution, the
-posterior mean of $g$. A standard deviation is sensitive to such
-probability, so that of $g$ says as much about the tails that the model
-allows as about the bulk of the effects.
+The plots show the labels as well, here for the same four firms.
 
-The site effects differ too. `blup()` gives the prediction of the normal
-model for each study, which is drawn toward the overall mean by a factor
-that depends only on the standard error. With bayesEfron, how far an
-estimate is drawn in depends on the shape of $g$ as well.
-
-```{r blup, eval = has_metafor}
-compare <- data.frame(
-  study = raudenbush1985$author,
-  estimate = raudenbush1985$yi,
-  normal = round(blup(normal_fit)$pred, 2),
-  bayesEfron = round(coef(fit), 2)
-)
-compare[order(-compare$estimate)[1:6], ]
+```{r label-plot, fig.height = 2.6, fig.alt = "Posterior means and intervals of the callback gaps of four firms chosen by name, each row labeled with the name of the firm."}
+plot_sites(fit, sites = chosen, scale = 100)
 ```
 
-For most of the studies the two columns are close, but they part for the
-largest estimates. Under the normal model the largest estimate, which has a
-large standard error, is taken to be mostly noise and is drawn most of the
-way to the mean. Under the estimated $g$, with its long right tail, a true
-effect of that size is less surprising, and the estimate is drawn in less
-far. Which of the two is nearer the truth cannot be read from 19 studies.
-The comparison shows that the answer for the extreme studies depends on
-what is assumed about the distribution.
+Without labels a site is identified by its number, which is its position
+in the input, so keep the rows of your data in the order in which they
+were fitted. If the sites have labels, that order no longer matters for
+finding a site.
+
+## Comparison with the normal model from metafor
+
+A metafor user will want to see the result next to the normal
+random-effects model. We plot the estimated distribution of effects with
+`plot_g()`, and `normal = TRUE` adds that model: a normal distribution with
+its mean and standard deviation estimated from the same estimates by
+restricted maximum likelihood (REML).
+
+```{r normal-plot, fig.height = 3.6, fig.alt = "The estimated density of the callback gaps in percentage points with its 90 percent band, and the dashed curve of a normal distribution fitted by REML."}
+plot_g(fit, normal = TRUE, scale = 100)
+```
+
+The dashed curve leaves out the uncertainty of its two parameters, whereas
+the band around the solid curve is a posterior interval. See
+`vignette("bayesEfron")` for what we can conclude about the callback gaps
+from the two curves.
+
+The same two numbers come from `metafor::rma()` once its iteration is
+allowed to run to convergence, here with a smaller `threshold`:
+
+```{r rma, eval = has_metafor}
+loose <- rma(yi, vi, data = krw_discrimination, method = "REML")
+tight <- rma(yi, vi, data = krw_discrimination, method = "REML",
+             control = list(threshold = 1e-10))
+rbind(default = c(mean = coef(loose)[[1]], sd = sqrt(loose$tau2)),
+      tightened = c(mean = coef(tight)[[1]], sd = sqrt(tight$tau2)))
+```
+
+```{r rma-facts, include = FALSE, eval = has_metafor}
+# The normal curve that plot_g() draws: its standard deviation follows from
+# the height of its peak.
+curve <- ggplot2::layer_data(plot_g(fit, normal = TRUE), 2L)
+curve <- curve[curve$linetype == "dashed", ]
+drawn_sd <- 1 / (sqrt(2 * pi) * max(curve$y))
+off <- abs(sqrt(loose$tau2) - sqrt(tight$tau2)) / sqrt(tight$tau2)
+studies <- rma(yi, vi, data = raudenbush1985, method = "REML")
+studies_tight <- rma(yi, vi, data = raudenbush1985, method = "REML",
+                     control = list(threshold = 1e-10))
+stopifnot(abs(drawn_sd - sqrt(tight$tau2)) / sqrt(tight$tau2) < 1e-3,
+          off > 0.003, off < 0.005,
+          tight$tau2 > 0.0002, tight$tau2 < 0.00025,
+          abs(sqrt(studies$tau2) - sqrt(studies_tight$tau2)) /
+            sqrt(studies_tight$tau2) < 0.001)
+print(c(drawn_sd, sqrt(tight$tau2), off))
+```
+
+By default `rma()` stops when its estimate of the variance of the effects
+changes by less than $10^{-5}$ from one step to the next. That is early
+for estimates on a small scale. The variance of these gaps is about
+0.0002, and the default leaves the standard deviation 0.4% away from the
+value at convergence, which is the value that `plot_g()` shows. To plot a
+normal model fitted in another way, give its two numbers as
+`normal = c(mean = ..., sd = ...)`.
 
 ## References

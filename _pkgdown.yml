@@ -20,10 +20,18 @@ navbar:
     right: [search, github]
 
 articles:
-- title: Vignettes
+- title: Case studies
+  navbar: ~
+  contents:
+  - twin-towers
+  - teacher-expectancy
+  - articles/class-size
+  - empirical-bayes
+- title: Guides
   navbar: ~
   contents:
   - data-input
+  - plots
   - choosing-a-grid
   - diagnostics
   - model
@@ -32,8 +40,8 @@ articles:
 reference:
 - title: Fit the model
   desc: >
-    `bayes_efron_fit()` fits the model, and `?bef_fit` describes the object
-    that it returns and the methods for it.
+    `bayes_efron_fit()` fits the model. `?bef_fit` describes the fitted
+    object and its methods.
   contents:
   - bayes_efron_fit
   - bef_fit
@@ -45,27 +53,71 @@ reference:
   contents:
   - as_bef_data
   - make_efron_grid
-- title: Check and plot a fit
-  desc: Convergence diagnostics and plots of a fitted model.
+- title: Summarize a fit
+  desc: >
+    The estimated distribution of effects and the posterior distributions
+    of the site effects, as data frames.
+  contents:
+  - g_summary
+  - site_summary
+- title: Check a fit
+  desc: Sampler and grid diagnostics.
   contents:
   - diagnose
+- title: Plots
+  desc: >
+    Each plot function returns a `ggplot` object. `plot()` on a fit calls
+    them by `type`.
+  contents:
   - plot.bef_fit_re
+- subtitle: Results
+  contents:
+  - plot_g
+  - plot_sites
+  - plot_shrinkage
+  - plot_exceedance
+  - plot_site_posterior
+- subtitle: Checks of a fit
+  contents:
+  - plot_diagnostics
+  - plot_loo
+  - plot_ppc
+  - plot_mcmc
+- subtitle: Grids and simulated data
+  contents:
+  - plot.bef_grid
+  - plot.bef_grid_comparison
+  - plot_recovery
 - title: Compare models
   desc: >
-    Leave-one-out cross-validation for one fit, and a comparison of several
-    specifications of the grid and the spline basis.
+    Leave-one-out cross-validation, a comparison of fits with different
+    grids and spline bases, and the estimate of g in the form that the
+    empirical Bayes functions of the ebnm package take.
   contents:
   - loo.bef_fit
   - compare_efron_grids
+  - as_normalmix
 - title: Compile the model
   desc: Compile the Stan program before the first fit, or delete the compiled model.
   contents:
   - bayes_efron_compile
-- title: Data
-  desc: The teacher expectancy studies and the model fitted to them.
+- title: Data sets and stored fits
+  desc: >
+    Example data, and fits of them that are stored in the package so that
+    the examples run without CmdStan.
+- subtitle: Callback gaps of 97 firms, and 1,500 simulated sites (Lee and Sui, 2025)
+  contents:
+  - krw_discrimination
+  - krw_fit
+  - twin_towers
+  - twin_towers_fit
+- subtitle: A small meta-analysis (19 teacher expectancy studies)
   contents:
   - raudenbush1985
   - raudenbush_fit
+- subtitle: A multisite trial in education (79 schools of Project STAR)
+  contents:
+  - star_schools
 - title: Package
   contents:
   - bayesEfron-package

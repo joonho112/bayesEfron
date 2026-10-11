@@ -1,5 +1,5 @@
 # Structure and internal consistency of a fitted object, checked on the short
-# five-site fit shipped in inst/examples (one chain, 100 draws; no CmdStan
+# five-site fit in tests/testthat/_fixtures (one chain, 100 draws; no CmdStan
 # needed).
 
 example_fit <- function() {
@@ -30,9 +30,11 @@ test_that("a fit has draws, metadata and posterior with the documented fields", 
     setdiff(names(attributes(fit$metadata)), "names"),
     c(
       "sd_g_summary", "diagnostics", "diagnostic_skipped",
-      "sampler_diagnostics_failed", "sampler_diagnostics_warned"
+      "sampler_diagnostics_failed", "sampler_diagnostics_warned",
+      "summary_definition_version"
     )
   )
+  expect_identical(attr(fit$metadata, "summary_definition_version"), 2L)
   expect_named(
     fit$metadata$data_list,
     c("K", "theta_hat", "sigma", "L", "grid", "M", "B", "store_grid_quantities")
@@ -117,7 +119,7 @@ test_that("convergence diagnostics are reported per parameter", {
 test_that("prepared Stan data keep the number of sites and the basis has full rank", {
   theta_hat <- c(-1, 0, 2, 3)
   sigma <- c(0.2, 0.3, 0.4, 0.5)
-  grid <- make_efron_grid(theta_hat, sigma, M = 4L)
+  grid <- make_efron_grid(theta_hat, sigma, M = 4L, grid_method = "paper_realdata")
   stan_data <- getFromNamespace("prepare_stan_data", "bayesEfron")(
     list(theta_hat = theta_hat, sigma = sigma),
     grid

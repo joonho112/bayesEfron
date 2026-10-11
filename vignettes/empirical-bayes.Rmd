@@ -1,0 +1,484 @@
+---
+title: "bayesEfron and empirical Bayes methods compared"
+description: "bayesEfron and the empirical Bayes methods in the ebnm package, fitted to the same data: agreement of the posterior means, differences in the intervals and in the estimated distribution of effects, and the contribution of the uncertainty about that distribution."
+output:
+  rmarkdown::html_vignette:
+    fig_width: 6.5
+    fig_height: 4
+bibliography: references.bib
+link-citations: true
+vignette: >
+  %\VignetteIndexEntry{bayesEfron and empirical Bayes methods compared}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+# The ragg device writes smaller figure files; without it the default is used.
+if (requireNamespace("ragg", quietly = TRUE)) knitr::opts_chunk$set(dev = "ragg_png")
+options(bayesEfron.use_cli = FALSE, width = 90)
+```
+
+In this vignette we compare bayesEfron with the empirical Bayes methods
+in the ebnm package [@willwerscheid2025]. We apply both to the same data:
+the 97 callback gaps of `vignette("bayesEfron")`, the 1,500 simulated
+sites of `vignette("twin-towers")`, and further simulated data sets, from
+which we estimate coverage.
+
+Empirical Bayes is the most common way to shrink estimates that come
+with standard errors [@robbins1956]. It works in two steps. First it
+estimates the distribution of the true effects, $g$, from all the
+estimates. Then it treats that estimate, $\hat g$, as if it were the
+truth, and computes the posterior distribution of each effect under it.
+An estimate used in this way is called a plug-in estimate. bayesEfron
+starts from the same sampling model and the same idea, but differs in
+the second step. It gives $g$ a prior distribution, obtains a posterior
+distribution for it, and averages the posterior distribution of each
+effect over that uncertainty [@lee2025]. We want to see how much this
+changes the results, and what else differs between the methods.
+
+## Setup
+
+We ran the comparison in advance, with the script
+`data-raw/ebnm-comparison.R` in the source repository, and stored its
+results in the package, so you don't need ebnm to follow this vignette.
+After loading bayesEfron we read the stored results and take out the
+four tables of results.
+
+```{r stored}
+library(bayesEfron)
+
+stored <- readRDS(system.file("examples", "ebnm_comparison.rds",
+                              package = "bayesEfron"))
+krw <- stored$krw$table            # callback gaps
+twin <- stored$twin$table          # simulated sites
+panels <- stored$panels$table      # simulated data sets, unequal standard errors
+equal <- stored$equal_se$repeated  # simulated data sets, equal standard errors
+```
+
+Two small functions format the numbers in the tables: `num()` sets the
+number of decimals, and `with_se()` puts a standard error in parentheses
+after its value.
+
+```{r helpers}
+num <- function(x, digits = 3) formatC(x, format = "f", digits = digits)
+with_se <- function(x, se, digits = 3) {
+  sprintf("%s (%s)", num(x, digits), num(se, digits))
+}
+```
+
+```{r lookup, include = FALSE}
+# Row names and a lookup function for the numbers in the text.
+rownames(krw) <- krw$method
+rownames(twin) <- twin$method
+panel <- function(K, method) panels[panels$K == K & panels$method == method, ]
+```
+
+## A plug-in version of a bayesEfron fit
+
+For a bayesEfron fit we can separate the two steps by using the
+posterior mean of $g$ as a plug-in estimate. `as_normalmix()` returns
+that posterior mean in the form that ebnm uses for a prior distribution.
+We apply it to `krw_fit`, the fit of the 97 callback gaps from
+`vignette("bayesEfron")`.
+
+```{r as-normalmix}
+g_hat <- as_normalmix(krw_fit)
+class(g_hat)
+str(unclass(g_hat)[c("pi", "mean", "sd")], give.attr = FALSE)
+```
+
+As the output shows, the result is a mixture of point masses at the
+`r length(g_hat$pi)` grid points (`mean`), with their probabilities in
+`pi`. If we pass it to ebnm with `fix_g = TRUE`, ebnm computes the
+posterior distributions of the effects as if this one $g$ were the
+truth. The call needs ebnm and is not run here.
+
+```{r plug-in, eval = FALSE}
+plugged <- ebnm::ebnm_npmle(krw_discrimination$yi, krw_discrimination$sei,
+                            g_init = g_hat, fix_g = TRUE)
+```
+
+In the tables below, the rows labeled "g of bayesEfron, plugged in" are
+fits of this kind. They use the same $g$ as the rows labeled
+"bayesEfron" but leave out its uncertainty. Their means and standard
+deviations come from ebnm, and their intervals are computed from that
+$g$ in the way that bayesEfron computes its own, so the two rows differ
+only by the uncertainty about $g$.
+
+## Methods and settings
+
+All the methods are listed with their calls in `stored$settings`. In the
+calls, `x` and `s` are the estimates and their standard errors.
+
+```{r methods}
+knitr::kable(stored$settings, col.names = c("Method", "Call"))
+```
+
+The first six rows are ebnm prior families: no shrinkage, a normal
+distribution, a scale mixture of normals, the adaptive shrinkage (ash)
+prior from the ashr package, a unimodal distribution, and the
+nonparametric maximum likelihood estimate (NPMLE) [@kiefer1956]. We
+explain the other rows where they are used.
+
+Three choices make the fits comparable.
+
+- We estimate the location of each prior family (`mode = "estimate"`),
+  because by default ebnm centers the prior at zero.
+- Every interval is an equal-tailed 90% interval. For ebnm we take the
+  5% and 95% sample quantiles of 4,000 draws from each posterior
+  distribution, because its `confint()` method returns a highest density
+  interval.
+- We give the ash prior normal components and fit it without the penalty
+  that ashr puts on its weights by default.
+
+Efron's estimator, in the last row, appears only in the last table of
+results. The ebnm function for it, `ebnm_deconvolver()`, calls the
+deconvolveR package [@narasimhan2020] and takes z-scores and no standard
+errors. When the standard errors differ, a fit to the z-scores estimates
+the distribution of the effects divided by their standard errors, which
+is a different quantity. So we compare this estimator on data whose
+standard errors are all equal.
+
+An empirical Bayes fit of these data takes a fraction of a second. By
+comparison, the bayesEfron fits took
+`r num(krw["bayesEfron", "seconds"], 1)` seconds for the 97 firms and
+`r num(twin["bayesEfron", "seconds"], 0)` seconds for the 1,500
+simulated sites, including the pilot fit that sets the range of the
+grid. We do not show these times again in the tables below.
+
+## Callback gaps at 97 firms
+
+We do not know the true gaps, so we compare each method with the
+bayesEfron fit, `krw_fit`. Below we round the columns of `krw` that make
+this comparison and print them.
+
+```{r krw}
+shown <- data.frame(
+  method = krw$method, correlation = krw$correlation,
+  largest_difference = krw$largest_difference_in_se, sd_ratio = krw$sd_ratio,
+  length_ratio = krw$length_ratio, log_likelihood = krw$loglik
+)
+shown[2:5] <- round(shown[2:5], 3)
+shown$log_likelihood <- round(shown$log_likelihood, 1)
+knitr::kable(shown, col.names = c("Method", "Correlation of posterior means",
+                                  "Largest difference (standard errors)",
+                                  "Ratio of posterior SD", "Ratio of interval length",
+                                  "Log likelihood"))
+```
+
+```{r krw-facts, include = FALSE}
+sites <- site_summary(krw_fit)
+ebnm_rows <- krw[1:6, ]
+plugged <- krw["g of bayesEfron, plugged in", ]
+stopifnot(
+  abs(krw["bayesEfron", "mean_sd"] - mean(sites$sd)) < 1e-12,
+  abs(krw["bayesEfron", "mean_length"] - mean(sites$upper - sites$lower)) < 1e-12,
+  all(ebnm_rows$correlation > 0.95), which.max(krw$loglik) == 6L,
+  all(ebnm_rows$sd_ratio[-1] < 1), plugged$sd_ratio > 0.99, plugged$length_ratio > 0.99,
+  plugged$length_ratio < 1,
+  diff(range(krw$loglik[!krw$method %in% c("NPMLE", "No shrinkage", "bayesEfron")])) < 1,
+  max(krw[c(1:6, 7), "seconds"]) < 1, max(twin$seconds[1:8]) < 1
+)
+```
+
+For each method the table has:
+
+- the correlation of its posterior means with the bayesEfron posterior
+  means;
+- the largest difference between the two, in units of the firm's
+  standard error;
+- its mean posterior standard deviation, as a ratio to the bayesEfron
+  value;
+- the mean length of its 90% intervals, also as a ratio to the bayesEfron
+  value;
+- the marginal log likelihood of the 97 estimates under its estimate of
+  $g$.
+
+A ratio below 1 means smaller than bayesEfron.
+
+Across methods the posterior means agree closely. Every correlation is
+above 0.95, and among the six ebnm prior families the NPMLE is the
+closest, at
+`r num(krw["NPMLE", "correlation"])`. The intervals differ more. The
+NPMLE intervals are
+`r num(100 * (1 - krw["NPMLE", "length_ratio"]), 0)`% shorter than the
+bayesEfron intervals, and the normal fit's intervals are
+`r num(100 * (1 - krw["Normal", "length_ratio"]), 0)`% shorter.
+
+This difference does not come from the uncertainty about $g$, as the
+plug-in row shows. Leaving that uncertainty out makes the bayesEfron
+intervals only `r num(100 * (1 - plugged$length_ratio), 1)`% shorter.
+For these data, the shape of the estimated $g$ matters far more for the
+intervals than the uncertainty about it.
+
+The NPMLE has the largest log likelihood, as it must among distributions
+on its grid. All the others, including the $g$ of bayesEfron in the
+plug-in row, are within one unit of each other.
+
+To compare the estimates of $g$ themselves we plot them as distribution
+functions, which can be compared between a smooth estimate and a
+discrete one. We take the distribution functions of three ebnm estimates
+from `stored$krw$cdf` and pass them to `plot_g()` in its `compare`
+argument, with the gaps in percentage points (`scale = 100`).
+
+```{r krw-cdf, fig.alt = "The distribution function of the estimated distribution of callback gaps with its band, and those of the nonparametric, normal and unimodal empirical Bayes fits."}
+curves <- stored$krw$cdf
+others <- lapply(c(NPMLE = "NPMLE", Normal = "Normal", Unimodal = "Unimodal"),
+                 function(method) curves[curves$method == method, c("x", "cdf")])
+plot_g(krw_fit, type = "cdf", compare = others, scale = 100)
+```
+
+```{r krw-cdf-facts, include = FALSE}
+# How far the distribution functions of the empirical Bayes fits leave the
+# band of the fit.
+band <- curves[curves$method == "bayesEfron", ]
+outside <- vapply(c("Normal", "NPMLE", "Unimodal"), function(method) {
+  curve <- curves[curves$method == method, ]
+  stopifnot(identical(curve$x, band$x))
+  max(pmax(band$lower - curve$cdf, curve$cdf - band$upper, 0))
+}, numeric(1))
+print(outside)
+stopifnot(outside[["Normal"]] < 0.0002, outside[["NPMLE"]] > 0.1, outside[["Unimodal"]] > 0.1)
+firms <- stored$krw$firms
+in_every_list <- names(which(table(firms$firm) == length(unique(firms$method))))
+print(length(unique(firms$firm))); print(in_every_list)
+```
+
+Only the bayesEfron estimate has a band. The NPMLE is a step function
+with a few jumps, which is the form that an NPMLE takes, and the
+unimodal estimate has a large jump at its mode. Between their jumps
+these two curves leave the band, by up to `r num(outside[["NPMLE"]], 2)`
+and `r num(outside[["Unimodal"]], 2)` in probability, as a discrete
+estimate must when it is compared with a smooth one. By contrast, the
+normal curve stays within the band, to within 0.0002 in probability. On
+this evidence, the data do not exclude a normal distribution of the gaps.
+
+The methods also largely agree on which firms are at the top. If we list
+the 10 firms with the largest posterior means for each of the 8 rows
+(`stored$krw$firms`), we get `r length(unique(firms$firm))` firms in
+all, and `r length(in_every_list)` of them are in every list.
+
+## Simulated sites with known effects
+
+The true effects of the 1,500 simulated sites are known and lie in two
+groups, so here we can judge each fit against the truth. We print four
+measures from `twin`.
+
+```{r twin}
+shown <- data.frame(
+  method = twin$method, rmse = round(twin$rmse, 3),
+  inside = with_se(twin$inclusion, twin$inclusion_se),
+  length = round(twin$mean_length, 2), w1 = round(twin$w1, 3)
+)
+knitr::kable(shown, col.names = c("Method", "RMSE of posterior means",
+                                  "Proportion inside 90% interval (SE)", "Mean length",
+                                  "Distance of the estimate of g"),
+             align = "lrrrr")
+```
+
+```{r twin-facts, include = FALSE}
+truth <- twin_towers$theta_true
+sites <- site_summary(twin_towers_fit)
+own <- twin["bayesEfron", ]
+stopifnot(
+  abs(own$rmse - sqrt(mean((sites$mean - truth)^2))) < 1e-12,
+  abs(own$inclusion - mean(truth >= sites$lower & truth <= sites$upper)) < 1e-12,
+  abs(own$rmse - twin["NPMLE", "rmse"]) < 0.001,
+  twin["NPMLE", "inclusion"] < 0.8,
+  abs(twin["Known g", "inclusion"] - 0.9) < 2 * twin["Known g", "inclusion_se"],
+  abs(own$inclusion - 0.9) < 2 * own$inclusion_se,
+  own$w1 == min(twin$w1[!twin$method %in% c("Known g", "No shrinkage",
+                                            "bayesEfron, range from the true effects")]),
+  twin["Normal", "rmse"] > own$rmse + 0.03
+)
+```
+
+The first measure is the root mean squared error (RMSE) of the posterior
+means. The second is the proportion of the true effects inside the 90%
+intervals, with its standard error (`inclusion` and `inclusion_se` in the
+stored tables). The third is the mean length of those intervals, and the
+fourth is the Wasserstein distance between the estimate of $g$ and the
+true effects, which is the area between their two distribution functions
+in the units of the effects. The row "Known g" uses the true
+distribution itself and shows what is attainable, and the last row takes
+the range of its grid from the true effects.
+
+The methods fall into groups. The normal fit, the scale mixture and the
+ash fit have an RMSE near `r num(twin["Normal", "rmse"], 2)`, because
+they shrink toward one center and the effects have two. The unimodal fit
+does somewhat better, at `r num(twin["Unimodal", "rmse"], 2)`. Both the
+NPMLE and bayesEfron reach `r num(own$rmse)`, close to the
+`r num(twin["Known g", "rmse"])` of the true distribution. They differ
+in their intervals, however: the NPMLE intervals contain
+`r num(100 * twin["NPMLE", "inclusion"], 0)`% of the true effects and
+the bayesEfron intervals `r num(100 * own$inclusion, 0)`%.
+
+Ignoring the uncertainty about $g$ does not explain why the NPMLE
+intervals are too short. The true distribution itself, taken as known,
+gives intervals that contain
+`r num(100 * twin["Known g", "inclusion"], 0)`% of the true effects, and
+the plug-in $g$ of bayesEfron gives
+`r num(100 * twin["g of bayesEfron, plugged in", "inclusion"], 0)`%. We
+think the reason is the form of the estimate. The NPMLE of $g$ is a
+handful of point masses, and the posterior distribution of a site under
+it is concentrated on those points. By contrast, the bayesEfron estimate
+is smooth, and among the estimates that use only the data it is the
+closest to the true effects.
+
+## Coverage over simulated data sets
+
+From one data set we learn little about coverage, which is the
+proportion of true effects inside the intervals averaged over many data
+sets. So we repeated the comparison on independent simulated data sets
+from the same design, each with its own true effects: 20 with 1,500
+sites and 100 with 100 sites. In the next table we print the means over
+these data sets, from `panels`, with their Monte Carlo standard errors.
+
+```{r panels}
+shown <- data.frame(
+  sites = panels$K, method = panels$method,
+  rmse = with_se(panels$rmse, panels$rmse_se),
+  inside = with_se(panels$inclusion, panels$inclusion_se),
+  length = with_se(panels$mean_length, panels$mean_length_se)
+)
+knitr::kable(shown, col.names = c("Sites", "Method", "RMSE (SE)",
+                                  "Coverage of 90% intervals (SE)", "Mean length (SE)"),
+             align = "rlrrr")
+```
+
+```{r panels-facts, include = FALSE}
+by_panel <- stored$panels$by_panel
+paired <- function(K, second, measure) {
+  a <- by_panel[by_panel$K == K & by_panel$method == "bayesEfron", ]
+  b <- by_panel[by_panel$K == K & by_panel$method == second, ]
+  stopifnot(identical(a$panel, b$panel))
+  d <- a[[measure]] - b[[measure]]
+  c(mean = mean(d), se = sd(d) / sqrt(length(d)))
+}
+extra_length <- function(K) {
+  100 * paired(K, "g of bayesEfron, plugged in", "mean_length")[["mean"]] /
+    panel(K, "g of bayesEfron, plugged in")$mean_length
+}
+rmse_gap <- function(K) paired(K, "NPMLE", "rmse")
+stopifnot(
+  all(abs(panels$inclusion[panels$method == "bayesEfron"] - 0.9) < 0.01),
+  all(panels$inclusion[panels$method == "NPMLE"] < 0.8),
+  extra_length(100) < 1, extra_length(1500) < 0.2,
+  rmse_gap(100)[["mean"]] > 2 * rmse_gap(100)[["se"]],
+  rmse_gap(1500)[["mean"]] > 2 * rmse_gap(1500)[["se"]],
+  all(abs(panels$inclusion[panels$method == "Normal"] - 0.9) < 0.01)
+)
+print(c(extra_length(100), extra_length(1500)))
+print(rbind(rmse_gap(100), rmse_gap(1500)))
+```
+
+At both sizes the bayesEfron intervals have coverage close to 0.90:
+`r num(panel(100, "bayesEfron")$inclusion)` with 100 sites and
+`r num(panel(1500, "bayesEfron")$inclusion)` with 1,500. For the NPMLE
+the coverage is `r num(panel(100, "NPMLE")$inclusion, 2)` and
+`r num(panel(1500, "NPMLE")$inclusion, 2)`.
+
+Again the uncertainty about $g$ adds little to the site intervals. The
+bayesEfron intervals are `r num(extra_length(100), 1)`% longer than the
+plug-in intervals with 100 sites and
+`r num(extra_length(1500), 2)`% longer with 1,500. We might have expected
+more with only 100 sites, which leave $g$ quite uncertain. But most of
+the posterior uncertainty about a single effect comes from its own
+standard error, and the part that comes from $g$ is small in comparison.
+For your own fit, `site_summary()` returns the two parts for every site
+in the columns `sd_given_g` and `sd_about_g`.
+
+In accuracy the NPMLE is slightly ahead. Its posterior means have an
+RMSE that is lower than the bayesEfron RMSE by
+`r num(100 * rmse_gap(100)[["mean"]] / panel(100, "bayesEfron")$rmse, 1)`%
+with 100 sites and by
+`r num(100 * rmse_gap(1500)[["mean"]] / panel(1500, "bayesEfron")$rmse, 1)`%
+with 1,500. The normal fit has a single center, which does not suit
+these effects, but its intervals still have coverage close to 0.90. It
+pays in accuracy and in length: with 1,500 sites its intervals are
+`r num(100 * (panel(1500, "Normal")$mean_length / panel(1500, "bayesEfron")$mean_length - 1), 0)`%
+longer than the bayesEfron intervals.
+
+## Equal standard errors and Efron's estimator
+
+bayesEfron is the Bayesian form of the estimator of @efron2016, and the
+two can be compared directly when the standard errors are equal. We
+first added an error with standard deviation 1 to each true effect of
+the 20 data sets with 1,500 sites. We then fitted the model and ran
+`deconvolveR::deconv()` on the grid of that fit, with the same number of
+spline functions and with the likelihood of the estimates themselves,
+not of their counts in intervals. Finally we computed the posterior
+distributions of the sites under the `deconv()` estimate of $g$. We
+added these 20 data sets after we had seen the result for one such data
+set. Their means are in `equal`, which we print next.
+
+```{r equal}
+shown <- data.frame(
+  functions = equal$M, method = equal$method,
+  rmse = with_se(equal$rmse, equal$rmse_se),
+  inside = with_se(equal$inclusion, equal$inclusion_se),
+  length = with_se(equal$mean_length, equal$mean_length_se, 2)
+)
+knitr::kable(shown, col.names = c("Spline functions", "Method", "RMSE (SE)",
+                                  "Coverage of 90% intervals (SE)", "Mean length (SE)"),
+             align = "rlrrr")
+```
+
+```{r equal-facts, include = FALSE}
+own <- equal[equal$method == "bayesEfron", ]
+efron <- equal[equal$method == "Efron's estimator", ]
+one <- stored$equal_se$g
+stopifnot(all(own$inclusion < 0.9 - 2 * own$inclusion_se),
+          all(abs(efron$inclusion - 0.9) < 0.015),
+          all(own$rmse < efron$rmse), all(own$mean_length < efron$mean_length),
+          all(equal$rhat_max < 1.01), max(one$bayesEfron) > 1.1 * max(one$efron))
+```
+
+As before, the point estimates are nearly the same. Here the bayesEfron
+intervals are the shorter ones, and their coverage falls short of 90%:
+`r num(100 * own$inclusion[1], 1)`% with 6 spline functions and
+`r num(100 * own$inclusion[2], 1)`% with 8, against
+`r num(100 * efron$inclusion[1], 1)`% and
+`r num(100 * efron$inclusion[2], 1)`% for Efron's estimator. All of
+these fits converged, so this is a property of the estimates and not of
+the sampler.
+
+We have an explanation, but we have not tested it on its own. With
+every standard error equal to 1, no site is precise enough to show the
+shape of $g$ within a group. In the one such data set for which we kept
+both estimates of $g$ (`stored$equal_se$g`), the posterior mean of $g$
+is more peaked than the estimate that `deconv()` regularizes with its
+penalty, and a more peaked $g$ gives narrower posterior distributions
+for the sites.
+
+We saw the lower coverage for one distribution of true effects, flat
+within two groups, and for one size of error, so we do not know how far
+it extends. The data sets with unequal standard errors from the same
+distribution show no shortfall. Even so, you should not rely on the 90%
+site intervals to have 90% coverage in every configuration, and data in
+which no site is estimated precisely call for caution.
+
+## Summary
+
+If the posterior means of the sites are all you need, it matters little
+whether you use a flexible empirical Bayes fit or bayesEfron, and an
+empirical Bayes fit takes a fraction of a second. These results give no
+reason to prefer the slower method for that purpose.
+
+The methods differ in their estimates of the distribution of effects and
+in the uncertainty that they attach to each effect. A normal prior is
+adequate when the effects are roughly normal and misses the shape when
+they are not. An NPMLE follows the shape with a few point masses, which
+do well for means and poorly for intervals. bayesEfron gives a smooth
+estimate of $g$, with a band that shows how much of its shape the data
+determine, and site intervals that had coverage close to 0.90 in the
+simulated data sets with unequal standard errors.
+
+What set bayesEfron apart in these comparisons was the smoothness of its
+estimate of $g$. Its intervals also average over the uncertainty about
+$g$, which is part of the model, but the averaging changed them by less
+than 1%.
+
+## References

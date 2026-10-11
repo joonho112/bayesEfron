@@ -1,7 +1,7 @@
 Package: bayesEfron
 Type: Package
-Title: Fully Bayesian Inference for the Empirical-Bayes Deconvolution Problem
-Version: 0.3.0
+Title: Fully Bayesian Deconvolution with Efron's Log-Spline Prior
+Version: 0.4.0
 Authors@R: person("JoonHo", "Lee",
     role = c("aut", "cre", "cph"),
     email = "jlee296@ua.edu",
@@ -10,11 +10,13 @@ Description: Estimates the distribution of true effects from a set of
     estimates with known standard errors, as in a meta-analysis or a
     multisite trial, using the fully Bayesian version of Efron's log-spline
     prior described in Lee and Sui (2025) <doi:10.3390/math13162639>. The
-    fit returns posterior draws and summaries for each effect and for the
-    effect distribution, with sampler diagnostics, plots, and model
-    comparison by approximate leave-one-out cross-validation. The model is
-    written in 'Stan' and is fitted with 'CmdStan' through the 'cmdstanr'
-    package.
+    fit returns posterior draws of the distribution of effects, from which
+    the summaries of each effect are computed. The package also provides
+    sampler and grid diagnostics, plots made with 'ggplot2', and model
+    comparison by approximate leave-one-out cross-validation. The estimated
+    distribution can be passed to the 'ebnm' package for comparison with
+    empirical Bayes estimates. The model is written in 'Stan' and is fitted
+    with 'CmdStan' through the 'cmdstanr' package.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Language: en-US
@@ -26,18 +28,22 @@ Imports:
     posterior (>= 1.5.0),
     checkmate (>= 2.2.0),
     rlang (>= 1.1.0),
-    digest (>= 0.6.30)
+    digest (>= 0.6.30),
+    ggplot2 (>= 3.4.0)
 Suggests:
     cmdstanr (>= 0.7.0),
     loo (>= 2.6.0),
     cli (>= 3.6.0),
-    ggplot2 (>= 3.4.0),
     knitr (>= 1.45),
     rmarkdown (>= 2.25),
     testthat (>= 3.2.0),
     metafor (>= 4.4.0),
     withr (>= 2.5.0),
-    spelling
+    spelling,
+    bayesplot,
+    vdiffr,
+    ebnm,
+    ragg
 SystemRequirements: CmdStan (>= 2.34.0;
     https://mc-stan.org/users/interfaces/cmdstan)
 Additional_repositories: https://stan-dev.r-universe.dev
@@ -47,4 +53,5 @@ URL: https://github.com/joonho112/bayesEfron, https://joonho112.github.io/bayesE
 BugReports: https://github.com/joonho112/bayesEfron/issues
 Roxygen: list(markdown = TRUE)
 LazyData: true
+LazyDataCompression: xz
 Config/roxygen2/version: 8.1.0

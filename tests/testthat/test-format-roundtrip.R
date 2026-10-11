@@ -88,7 +88,7 @@ expect_format_print_roundtrip <- function(x, use_cli) {
   )
 }
 
-test_that("format and print round-trip for all format-print pairs", {
+test_that("print() shows the lines of format() for a fit, its summary, data and diagnostics, and cli only adds styling", {
   fit <- format_rt_fit()
   parent_fit <- fit
   class(parent_fit) <- "bef_fit"
@@ -114,6 +114,17 @@ test_that("format and print round-trip for all format-print pairs", {
         )
       }
     )
+  }
+
+  # With colors, the three section titles of a summary are styled.
+  if (requireNamespace("cli", quietly = TRUE)) {
+    styled <- withr::with_options(
+      list(cli.num_colors = 256L),
+      format(summary(raudenbush_fit), use_cli = TRUE)
+    )
+    titles <- grep("Prior g:|Diagnostics:|Site effects \\(", cli::ansi_strip(styled))
+    expect_length(titles, 3L)
+    expect_true(all(grepl("\033[", styled[titles], fixed = TRUE)))
   }
 
   withr::local_options(bayesEfron.use_cli = FALSE)

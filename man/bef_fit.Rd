@@ -15,7 +15,14 @@
 \alias{logLik.bef_fit}
 \alias{as_draws.bef_fit}
 \alias{format.bef_fit}
+\alias{quantile.bef_fit_re}
 \alias{format.summary.bef_fit}
+\alias{residuals.bef_fit_re}
+\alias{simulate.bef_fit_re}
+\alias{ndraws.bef_fit}
+\alias{variables.bef_fit}
+\alias{AIC.bef_fit}
+\alias{BIC.bef_fit}
 \alias{bef_fit}
 \alias{bef_fit_re}
 \title{Fitted Efron log-spline model objects}
@@ -28,11 +35,19 @@
 
 \method{print}{summary.bef_fit}(x, ...)
 
-\method{coef}{bef_fit_re}(object, type = c("mean", "map"), ...)
+\method{coef}{bef_fit_re}(object, type = c("mean", "mode", "map"), ...)
 
-\method{confint}{bef_fit_re}(object, parm = NULL, level = 0.9, type = c("theta", "g"), ...)
+\method{confint}{bef_fit_re}(
+  object,
+  parm = NULL,
+  level = 0.9,
+  type = c("theta", "g"),
+  method = c("exact", "draws"),
+  interval = c("equal-tailed", "hpd"),
+  ...
+)
 
-\method{vcov}{bef_fit_re}(object, ...)
+\method{vcov}{bef_fit_re}(object, full = FALSE, ...)
 
 \method{fitted}{bef_fit_re}(object, ...)
 
@@ -46,203 +61,346 @@
 
 \method{format}{bef_fit}(x, ..., use_cli = NULL)
 
+\method{quantile}{bef_fit_re}(
+  x,
+  probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
+  reading = c("interpolated", "step"),
+  ...
+)
+
 \method{format}{summary.bef_fit}(x, ..., use_cli = NULL)
+
+\method{residuals}{bef_fit_re}(object, ...)
+
+\method{simulate}{bef_fit_re}(object, nsim = 1, seed = NULL, ...)
+
+\method{ndraws}{bef_fit}(x)
+
+\method{variables}{bef_fit}(x, ...)
+
+\method{AIC}{bef_fit}(object, ..., k = 2)
+
+\method{BIC}{bef_fit}(object, ...)
 }
 \arguments{
-\item{x, object}{A \code{bef_fit} object from \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}, or for the
-\code{summary.bef_fit} methods the result of \code{summary()}.}
+\item{x, object}{A \code{bef_fit} object created by \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}. For
+the \code{summary.bef_fit} methods, the result of \code{summary()}.}
 
-\item{...}{For the \code{print()} methods, arguments passed on to \code{format()}.
-The other methods do not use them.}
+\item{...}{Arguments passed on to \code{format()} by the \code{print()} methods.
+\code{summary()} throws an error if any are supplied; the other methods
+ignore them.}
 
-\item{level}{Number between 0 and 1, the probability content of the
-intervals. Defaults to \code{0.9}.}
+\item{level}{Posterior probability of the intervals, a number between 0
+and 1.}
 
-\item{type}{For \code{coef()}, \code{"mean"} (the default) for the posterior means
-or \code{"map"} for the posterior modes. For \code{confint()}, \code{"theta"} (the
-default) for intervals for the site effects or \code{"g"} for intervals for
-the mean, variance and standard deviation of \eqn{g}.}
+\item{type}{For \code{coef()}, the summary to return: \code{"mean"} (the default)
+for the posterior means or \code{"mode"} for the posterior modes (\code{"map"},
+the earlier name of \code{"mode"}, is also accepted). For \code{confint()}, the
+quantities for which intervals are returned: \code{"theta"} (the default)
+for the site effects or \code{"g"} for the mean, variance and standard
+deviation of \eqn{g}.}
 
-\item{parm}{The rows to return: site numbers for \code{type = "theta"}, and
-for \code{type = "g"} one or more of \code{"mean_g"}, \code{"var_g"} and \code{"sd_g"} or
-their positions. \code{NULL} (the default) returns all.}
+\item{parm}{The sites or parameters for which \code{confint()} returns
+intervals. For \code{type = "theta"}, a numeric vector of site positions in
+the data or a character vector of site labels. For \code{type = "g"}, one
+or more of \code{"mean_g"}, \code{"var_g"} and \code{"sd_g"}, or their positions. If
+\code{NULL} (the default), all are returned.}
 
-\item{row.names}{Character vector of row names, one for each site, or
-\code{NULL} (the default).}
+\item{method}{How \code{confint()} computes the limits for \code{type = "theta"}.
+\code{"exact"} (the default) takes them from the posterior distribution of
+the site effect, which averages over the draws of \eqn{g}. \code{"draws"}
+takes them as sample quantiles of the \code{theta_rep} draws and requires a
+fit made with \code{site_draws = TRUE}.}
+
+\item{interval}{Type of interval returned by \code{confint()}.
+\code{"equal-tailed"} (the default) has its limits at the quantiles
+\code{(1 - level) / 2} and \code{1 - (1 - level) / 2}. \code{"hpd"} is the shortest
+interval with posterior probability \code{level}; if the distribution has
+one mode, it is the highest posterior density interval. For
+\code{method = "draws"} and for \code{type = "g"}, \code{"hpd"} gives the shortest
+interval that contains at least that proportion of the draws. The two
+types differ whenever the posterior distribution is not symmetric,
+and most when it has two modes.}
+
+\item{full}{If \code{TRUE}, \code{vcov()} also returns the covariances between
+sites. If \code{FALSE} (the default), the matrix is diagonal.}
+
+\item{row.names}{Optional character vector of row names for
+\code{as.data.frame()}, one per site.}
 
 \item{optional}{Not used; it is an argument of the generic.}
 
-\item{use_cli}{Logical or \code{NULL}. With \code{TRUE} and the cli package
-installed, the first line is set in bold and section titles in
-color; \code{FALSE} gives plain text. \code{NULL} (the default) takes the value
-of \code{getOption("bayesEfron.use_cli", TRUE)}.}
+\item{use_cli}{If \code{TRUE} and the cli package is installed, the first
+line of the output is bold and, in a printed summary, the section
+titles are colored. If \code{FALSE}, the output is plain text. If \code{NULL}
+(the default), the
+value of \code{getOption("bayesEfron.use_cli", TRUE)} is used.}
+
+\item{probs}{Numeric vector of probabilities for \code{quantile()}, each
+greater than 0 and less than 1.}
+
+\item{reading}{How \code{quantile()} computes quantiles from point masses on
+the grid. \code{"interpolated"} (the default) spreads the probability of
+each grid point evenly over one grid spacing around it, and \code{"step"}
+leaves it on the grid point. See the Details of \code{\link[=g_summary]{g_summary()}}.}
+
+\item{nsim}{Number of joint draws for \code{simulate()}, a positive integer.}
+
+\item{seed}{Integer seed for the draws of \code{simulate()}, or \code{NULL} (the
+default) for none. If a seed is given, the state of R's random number
+generator is restored afterward.}
+
+\item{k}{Not used.}
+}
+\value{
+\code{summary()} returns a list of class \code{summary.bef_fit}. \code{coef()},
+\code{fitted()} and \code{residuals()} return numeric vectors with one element
+per site. \code{confint()} and \code{as.data.frame()} return data frames, and
+\code{vcov()}, \code{quantile()} and \code{simulate()} return matrices. The \code{print()}
+methods return \code{x} invisibly. The other methods are described in the
+two lists below: "Methods (by generic)" for class \code{bef_fit}, and
+"Functions" for class \code{bef_fit_re} and for a summary.
 }
 \description{
-\code{\link[=bayes_efron_fit]{bayes_efron_fit()}} returns an object of class \code{bef_fit_re}, which
-inherits from \code{bef_fit}. This page describes what the object holds and
-the methods that summarize it. \code{\link[=plot.bef_fit_re]{plot.bef_fit_re()}},
-\code{\link[=predict.bef_fit_re]{predict.bef_fit_re()}}, \code{\link[=diagnose]{diagnose()}} and \code{\link[=loo.bef_fit]{loo.bef_fit()}} have pages of
-their own.
+Objects of class \code{c("bef_fit_re", "bef_fit")}, as returned by
+\code{\link[=bayes_efron_fit]{bayes_efron_fit()}}, contain the posterior draws, the data, the settings
+of the fit and summaries of the draws (see Details). There are methods
+for printing and summarizing a fit, for posterior means, intervals and
+quantiles of the site effects, and for extracting the posterior draws.
+For plots, predictions, diagnostics and model comparison, see
+\code{\link[=plot.bef_fit_re]{plot.bef_fit_re()}}, \code{\link[=predict.bef_fit_re]{predict.bef_fit_re()}}, \code{\link[=diagnose]{diagnose()}} and
+\code{\link[=loo.bef_fit]{loo.bef_fit()}}.
 }
 \details{
-The object is a list with three elements.
+A fitted object is a list with the components \code{draws}, \code{posterior} and
+\code{metadata}, and with \code{cmdstan_fit} if the model was fitted with
+\code{keep_cmdstan_fit = TRUE}.
 
-\code{draws} is a \code{posterior::draws_array} with the posterior draws of every
-quantity in the Stan model: the spline coefficients \code{alpha} and the
-precision \code{lambda}; \code{log_g}, the log probabilities of \eqn{g} on the
-grid; \code{mean_g}, \code{var_g} and \code{sd_g}, the mean, variance and standard
-deviation of \eqn{g}; for each site the mean \code{theta_mean}, standard
-deviation \code{theta_sd} and mode \code{theta_map} of the posterior distribution
-of \eqn{\theta_i} given \eqn{g}, a draw \code{theta_rep} from that
-distribution and the log likelihood \code{log_lik}; \code{effective_params}; and
-\code{log_marginal_likelihood}, the sum of \code{log_lik} over the sites.
+\code{draws} is a \code{posterior::draws_array} with the posterior draws of the
+following variables.
+\itemize{
+\item \code{lp__}: The log density of the posterior distribution up to a
+constant, as reported by CmdStan.
+\item \code{alpha}: The spline coefficients.
+\item \code{lambda}: The precision of the prior for the spline coefficients.
+\item \code{log_g}: The log probabilities of \eqn{g} at the grid points.
+\item \code{mean_g}, \code{var_g}, \code{sd_g}: The mean, variance and standard deviation
+of \eqn{g}.
+\item \code{effective_params}: The effective number of parameters defined below.
+\item \code{log_marginal_likelihood}: The marginal log likelihood of the
+estimates, with the site effects integrated out.
+}
+
+A fit made with \code{site_draws = TRUE} stores five more variables per site.
+\itemize{
+\item \code{theta_mean}, \code{theta_sd}, \code{theta_map}: The mean, standard deviation
+and mode of the posterior distribution of \eqn{\theta_i}{theta_i}
+given \eqn{g}.
+\item \code{theta_rep}: A draw from that distribution.
+\item \code{log_lik}: The log likelihood of the site's estimate.
+}
+
+Otherwise these variables are not stored, and the methods compute the
+site summaries from the draws of \eqn{g}.
 
 \code{posterior} is a list with the draws of \code{mean_g}, \code{var_g}, \code{sd_g},
 \code{effective_params} and \code{log_marginal_likelihood} as numeric vectors.
 
-\code{metadata} is a list with the settings of the fit and summaries of the
-draws:
+\code{metadata} is a list with the data, the settings of the fit and
+summaries of the draws. It has the following components.
 \itemize{
-\item \code{model_family} and \code{grid_method}, as given to \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}.
-\item \code{seed}, the seed that the sampler used; \code{cmdstan_version}; and
-\code{stan_file_sha256}, a hash of the Stan file.
-\item \code{data_list}, the data passed to Stan: the estimates \code{theta_hat}, the
-standard errors \code{sigma}, the grid points \code{grid}, the spline basis \code{B},
-and the numbers of sites, grid points and spline functions, \code{K}, \code{L}
-and \code{M}.
-\item \code{runtime_seconds}, the time that sampling took.
-\item \code{theta_summary}, a data frame with one row for each site, described
-below.
-\item \code{mean_g_summary}, \code{var_g_summary}, \code{effective_params_summary} and
-\code{log_marginal_likelihood_summary}, each a list with the mean, the
-standard deviation and the 5\%, 50\% and 95\% quantiles of the draws.
+\item \code{model_family}: The model family, currently always \code{"RE"}.
+\item \code{grid_method}: The method that chose the limits of the grid, or
+\code{"support"} if the limits were specified directly.
+\item \code{seed}: The seed used by the sampler.
+\item \code{cmdstan_version}: The version of CmdStan.
+\item \code{stan_file_sha256}: The SHA-256 hash of the Stan file.
+\item \code{data_list}: The data passed to Stan, a list with the estimates
+\code{theta_hat}, the standard errors \code{sigma}, the grid points \code{grid}, the
+spline basis \code{B}, and the numbers of sites, grid points and spline
+functions (\code{K}, \code{L} and \code{M}).
+\item \code{runtime_seconds}: The time taken by sampling, in seconds.
+\item \code{theta_summary}: The table of site effects, a data frame with one row
+per site. Its columns are described below.
+\item \code{mean_g_summary}, \code{var_g_summary}, \code{effective_params_summary},
+\code{log_marginal_likelihood_summary}: Lists with the mean, the standard
+deviation and the 5\%, 50\% and 95\% quantiles of the draws.
 }
 
-The settings of the sampler are attributes of \code{metadata}.
-\code{attr(fit$metadata, "sampler_settings")} is a list with the values of
-\code{chains}, \code{parallel_chains}, \code{iter_warmup}, \code{iter_sampling},
-\code{adapt_delta}, \code{max_treedepth}, \code{seed}, \code{refresh} and \code{init} that were
-passed to CmdStan, and the attributes \code{package_version} and
-\code{cmdstanr_version} give the versions of bayesEfron and cmdstanr that
-made the fit. A fit saved by an earlier version of the package does not
-have these attributes.
+More information is stored in attributes of \code{metadata} and can be
+extracted with \code{attr()}, e.g., \code{attr(fit$metadata, "grid")}.
+\itemize{
+\item \code{sampler_settings}: A list with the values of \code{chains},
+\code{parallel_chains}, \code{iter_warmup}, \code{iter_sampling}, \code{adapt_delta},
+\code{max_treedepth}, \code{seed}, \code{refresh} and \code{init} passed to CmdStan.
+\item \code{grid}: The grid of the fit, as returned by \code{\link[=make_efron_grid]{make_efron_grid()}}. It
+can be supplied as \code{grid} in another fit.
+\item \code{storage}: A list recording whether the site-level draws are stored,
+the number of chains, the number of iterations stored per chain, and
+the value of \code{thin}.
+\item \code{package_version}, \code{cmdstanr_version}: The versions of bayesEfron and
+cmdstanr used for the fit.
+}
 
-If the model was fitted with \code{keep_cmdstan_fit = TRUE} there is a fourth
-element, \code{cmdstan_fit}.
+\code{theta_summary}, the table of site effects, has the columns listed
+below. The columns from \code{mean} to \code{mode} summarize the posterior
+distribution of \eqn{\theta_i}{theta_i}, which averages over the
+posterior draws of \eqn{g} (Lee and Sui, 2025, Section 4.3).
+\itemize{
+\item \code{site}: The site number, in the order of the data.
+\item \code{label}: The site label, or the site number if the data had no labels.
+\item \code{estimate}, \code{se}: The estimate and its standard error, as supplied.
+\item \code{mean}: The posterior mean.
+\item \code{sd}: The posterior standard deviation. The posterior variance is the
+variance of \eqn{\theta_i}{theta_i} given \eqn{g}, averaged over the
+draws of \eqn{g}, plus the variance over those draws of the mean of
+\eqn{\theta_i}{theta_i} given \eqn{g}, so \code{sd} includes the
+uncertainty about \eqn{g}.
+\item \code{lower}, \code{upper}: The 5\% and 95\% quantiles of the posterior
+distribution, i.e., the limits of an equal-tailed 90\% interval. They
+are quantiles of the distribution itself and not sample quantiles of
+site-level draws. For a fit with point masses they are computed with
+the \code{"interpolated"} reading (described under \code{reading}), so they
+generally fall between grid points.
+\item \code{mode}: The posterior mode. For point masses this is the grid point
+with the largest posterior probability, and for normal components the
+value at which the posterior density is largest.
+\item \code{hpdi_lower}, \code{hpdi_upper}, \code{map}: Deprecated columns that repeat
+\code{lower}, \code{upper} and \code{mode}. They will be removed.
+}
 
-In \code{theta_summary}, \code{site} numbers the sites in the order of the data.
-The other columns summarize the posterior distribution of
-\eqn{\theta_i}, which averages over the posterior draws of \eqn{g}
-(Lee and Sui, 2025, Section 4.3). \code{mean} is its mean and \code{sd} its
-standard deviation. The posterior variance is the variance of
-\eqn{\theta_i} given \eqn{g}, averaged over the draws of \eqn{g}, plus
-the variance over those draws of the mean of \eqn{\theta_i} given
-\eqn{g}, so that \code{sd} includes the uncertainty about \eqn{g}.
-\code{hpdi_lower} and \code{hpdi_upper} are the 5\% and 95\% quantiles of the
-posterior draws \code{theta_rep}; in spite of their names they are the limits
-of an equal-tailed interval and not of a highest posterior density
-interval. The draws take values on the grid, but a sample quantile is
-interpolated between two adjacent values of the ordered draws, so a
-limit can lie between two grid points. \code{map} is the posterior mode, the
-grid point to which the posterior distribution gives the largest
-probability.
+Like all site summaries, the posterior summaries in this table are
+computed from the stored draws of \eqn{g} and are subject to the Monte
+Carlo error of those draws. \code{\link[=site_summary]{site_summary()}} returns the same table for
+any level, with additional columns.
 
-\code{effective_params} is the sum over the sites of the ratio of the
-posterior variance of \eqn{\theta_i} given \eqn{g} to
-\eqn{\sigma_i^2}. In the normal random-effects model that ratio is the
-weight given to the site's own estimate, so the sum is small when the
-estimates are shrunk strongly and near the number of sites when they
-are hardly shrunk. It is a different quantity from the \code{p_loo} of
-\code{\link[=loo.bef_fit]{loo.bef_fit()}}, which the loo package also calls an effective number
-of parameters.
+\code{effective_params} is the sum over sites of the ratio of the posterior
+variance of \eqn{\theta_i}{theta_i} given \eqn{g} to
+\eqn{\sigma_i^2}{sigma_i^2}. In the normal random-effects model this
+ratio is the weight given to the site's own estimate, so the sum is
+small when the estimates are shrunk strongly and close to the number of
+sites when there is little shrinkage. Note that \code{p_loo} in
+\code{\link[=loo.bef_fit]{loo.bef_fit()}}, which the loo package also calls the effective number
+of parameters, is a different quantity.
 
-\eqn{g} is the prior distribution of each \eqn{\theta_i}, and the
-printed summary labels its mean, variance and standard deviation
-"Prior g".
+In the printed summary, the mean, variance and standard deviation of
+\eqn{g} are labeled "Prior g", because \eqn{g} is the prior distribution
+of each \eqn{\theta_i}{theta_i}.
 
-The definitions of \code{sd}, \code{map} and \code{effective_params} have changed
-between versions of the package, and a fit records which definitions its
-summaries follow, in the attribute \code{summary_definition_version} of
-\code{metadata}. For a fit that was saved by an earlier version, the methods
-on this page compute \code{sd} and \code{map} again from the stored draws, and
-\code{effective_params} too if it was stored under its first definition. They
-give a warning that names the quantities that changed and leave the
-saved object as it is. The result of \code{summary()} saved by an earlier
-version holds no draws and cannot be brought up to date; \code{print()} stops
-and asks for \code{summary()} to be called again on the fit. \code{\link[=diagnose]{diagnose()}},
-\code{\link[=predict.bef_fit_re]{predict.bef_fit_re()}} and \code{\link[=loo.bef_fit]{loo.bef_fit()}} need quantities that the
-first released version did not store, and stop for a fit saved by it.
+A fit saved by an earlier version of the package may contain a table of
+site effects or a value of \code{effective_params} computed under other
+definitions. The methods then recompute them from the stored draws of
+\eqn{g} and issue a warning that names the recomputed quantities. The
+saved object is not changed.
 }
 \section{Methods (by generic)}{
 \itemize{
-\item \code{print(bef_fit)}: Prints the number of sites, the grid method, the running time and
-the worst value of each convergence diagnostic.
+\item \code{print(bef_fit)}: Prints the number of sites, the number of draws,
+the worst value of each sampler diagnostic, the range of the standard
+errors, the grid and the method that chose its range, and the
+functions to call next.
 
-\item \code{summary(bef_fit)}: Returns a list of class \code{summary.bef_fit} with \code{prior_summary},
-the posterior means of the mean, variance and standard deviation of
-\eqn{g}, and \code{diagnostics}, the convergence diagnostics.
+\item \code{summary(bef_fit)}: Returns a list of class \code{summary.bef_fit} with the
+components \code{prior_summary} (the posterior means of the mean, variance
+and standard deviation of \eqn{g}) and \code{diagnostics} (the sampler
+diagnostics; see \code{\link[=diagnose]{diagnose()}}).
 
 \item \code{nobs(bef_fit)}: Returns the number of sites.
 
-\item \code{logLik(bef_fit)}: Returns the posterior mean of \code{log_marginal_likelihood},
-the log likelihood with the site effects summed out, as a \code{logLik}
-object whose degrees of freedom are the posterior mean of
-\code{effective_params}. It is not a maximized log likelihood, so \code{AIC()}
-and \code{BIC()} computed from it do not have their usual meaning; to
-compare fits, use \code{\link[=loo.bef_fit]{loo.bef_fit()}}.
+\item \code{logLik(bef_fit)}: Returns the posterior mean of
+\code{log_marginal_likelihood}, the marginal log likelihood with the site
+effects integrated out, as a \code{logLik} object. Its degrees of freedom
+are the posterior mean of \code{effective_params}. Note that this is not a
+maximized log likelihood, so \code{AIC()} and \code{BIC()} throw an error. Use
+\code{\link[=loo.bef_fit]{loo.bef_fit()}} to compare fits.
 
-\item \code{as_draws(bef_fit)}: Returns the draws as a \code{posterior::draws_array}.
+\item \code{as_draws(bef_fit)}: Returns the posterior draws as a
+\code{posterior::draws_array}.
 
-\item \code{format(bef_fit)}: Returns the lines that \code{print()} shows, as a character vector.
+\item \code{format(bef_fit)}: Returns the lines that \code{print()} shows as a
+character vector.
+
+\item \code{ndraws(bef_fit)}: Returns the number of posterior draws stored in the
+fit, summed over the chains.
+
+\item \code{variables(bef_fit)}: Returns the names of the variables in the draws.
+
+\item \code{AIC(bef_fit)}: \code{AIC()} and \code{BIC()} throw an error, for the reason
+given under \code{logLik()}.
 
 }}
 \section{Functions}{
 \itemize{
-\item \code{summary(bef_fit_re)}: Adds \code{theta_summary} to the summary, with the columns
-\code{hpdi_lower} and \code{hpdi_upper} computed for \code{level}.
+\item \code{summary(bef_fit_re)}: Adds the component \code{theta_summary} to the summary:
+the table of site effects described in Details, with equal-tailed
+intervals at \code{level}.
 
 \item \code{print(summary.bef_fit)}: Prints the summary.
 
-\item \code{coef(bef_fit_re)}: Returns the posterior means or the posterior modes of the
-site effects, the column \code{mean} or \code{map} of \code{theta_summary}, as a
-numeric vector named by site number.
+\item \code{coef(bef_fit_re)}: Returns the posterior means or the posterior modes
+of the site effects (the column \code{mean} or \code{mode} of \code{theta_summary})
+as a numeric vector. Its names are the site labels, or the site
+numbers if the data had no labels.
 
-\item \code{confint(bef_fit_re)}: Returns a data frame with the columns \code{site}, \code{lower}, \code{upper}
-and \code{point}. For \code{type = "theta"} the limits are equal-tailed quantiles
-of the \code{theta_rep} draws and \code{point} is the posterior mean. For
-\code{type = "g"} the rows are the mean, variance and standard deviation of
-\eqn{g}.
+\item \code{confint(bef_fit_re)}: Returns a data frame of posterior intervals with the
+attribute \code{level}. For \code{type = "theta"} it has one row per site and
+the columns \code{site}, \code{mean}, \code{lower} and \code{upper}. For \code{type = "g"} it
+has one row each for the mean, variance and standard deviation of
+\eqn{g} and the columns \code{parameter}, \code{mean}, \code{lower} and \code{upper}. The
+limits are computed as specified by \code{method} and \code{interval}. The
+column \code{point} and, for \code{type = "g"}, the column \code{site} repeat \code{mean}
+and \code{parameter}. They are deprecated and will be removed.
 
-\item \code{vcov(bef_fit_re)}: Returns a diagonal matrix with the posterior variances of the
-site effects, the squares of the column \code{sd} of \code{theta_summary}. The
-site effects are not independent in the posterior distribution,
-because all of them depend on \eqn{g}, and their covariances are not
-computed. The matrix therefore serves for one site at a time and not
-for the variance of a sum or a difference of site effects.
+\item \code{vcov(bef_fit_re)}: Returns the posterior variances of the site effects
+(the squares of the column \code{sd} of \code{theta_summary}) as a diagonal
+matrix. If \code{full = TRUE}, the matrix also contains the posterior
+covariances between sites. The site effects are independent given
+\eqn{g} but not in the posterior distribution, because all of them
+depend on \eqn{g}. Their covariances are the covariances, over the
+draws of \eqn{g}, of the means of the effects given \eqn{g}. The
+diagonal matrix is sufficient when sites are considered one at a
+time. Use \code{full = TRUE} for the variance of a sum or a difference of
+site effects.
 
 \item \code{fitted(bef_fit_re)}: Returns the posterior means of the site effects,
 as \code{coef(object)} does.
 
-\item \code{as.data.frame(bef_fit_re)}: Returns \code{theta_summary}.
+\item \code{as.data.frame(bef_fit_re)}: Returns \code{theta_summary}, the table of site effects
+described in Details, with 90\% intervals.
 
-\item \code{format(summary.bef_fit)}: Returns the lines of the printed summary.
+\item \code{quantile(bef_fit_re)}: Returns quantiles of the posterior distributions of
+the site effects as a matrix with one row per site and one column per
+probability in \code{probs}.
+
+\item \code{format(summary.bef_fit)}: Returns the lines of the printed summary as a
+character vector.
+
+\item \code{residuals(bef_fit_re)}: Returns the estimates minus the posterior means of
+the site effects, as a numeric vector named by the site labels.
+
+\item \code{simulate(bef_fit_re)}: Draws the site effects jointly from their posterior
+distribution. For each of the \code{nsim} draws, one posterior draw of
+\eqn{g} is taken and every site effect is drawn from its distribution
+given that \eqn{g}. Returns a matrix with one row per draw and one
+column per site. Each row is one joint draw, so functions of several
+sites (e.g., ranks or the largest effect) can be computed row by row.
 
 }}
 \examples{
-fit <- raudenbush_fit
+fit <- krw_fit
 fit
-summary(fit)
+summary(fit)$prior_summary
 
 # Posterior means, next to the estimates they are shrunk from.
-cbind(estimate = raudenbush1985$yi, posterior_mean = coef(fit))
+head(cbind(estimate = krw_discrimination$yi, posterior_mean = coef(fit)))
 
 # Intervals for three sites, and for the mean and spread of g.
-confint(fit, parm = c(4, 10, 18), level = 0.95)
+confint(fit, parm = c(29, 11, 65), level = 0.95)
 confint(fit, type = "g")
 
 # Posterior standard deviations and posterior modes, with the standard
 # errors of the estimates.
-head(cbind(se = raudenbush1985$sei, as.data.frame(fit)[c("mean", "sd", "map")]))
+head(cbind(se = krw_discrimination$sei, as.data.frame(fit)[c("mean", "sd", "mode")]))
 
 # Posterior variances as a diagonal matrix.
 diag(vcov(fit))[1:3]

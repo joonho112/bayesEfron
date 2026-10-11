@@ -146,7 +146,7 @@ test_that("the grid errors keep their classes", {
   )
 
   # A basis that has lost a column cannot be told apart from an intercept.
-  grid <- make_efron_grid(c(-1, 0, 2, 3), c(0.2, 0.3, 0.4, 0.5), M = 4L)
+  grid <- make_efron_grid(c(-1, 0, 2, 3), c(0.2, 0.3, 0.4, 0.5), M = 4L, grid_method = "paper_realdata")
   grid$B[, 4L] <- grid$B[, 1L]
   err <- condition_capture_error(
     condition_ns(".bef_validate_grid_return")(grid)
@@ -157,4 +157,69 @@ test_that("the grid errors keep their classes", {
   )
   expect_identical(err$expected_rank, 5L)
   expect_lt(err$rank, 5L)
+})
+
+test_that("missing values, infinite values and the length of the input are reported separately", {
+  problem <- getFromNamespace(".bef_vector_problem", "bayesEfron")
+  expect_null(problem(c(0.1, 0.2, 0.3, 0.4, 0.5), "theta_hat", min_len = 5L))
+  expect_identical(problem(c(1, NA, 3, NA, 5), "theta_hat", min_len = 5L),
+                   "`theta_hat` has 2 missing values (the first at position 2).")
+  expect_identical(problem(c(1, Inf, 3, 4, 5), "theta_hat", min_len = 5L),
+                   "`theta_hat` has 1 infinite value (the first at position 2).")
+  expect_identical(problem(1:4, "theta_hat", min_len = 5L),
+                   "`theta_hat` must have at least 5 values, one for each site; it has 4.")
+  expect_identical(problem(rep(0.2, 3L), "sigma", len = 5L, positive = TRUE),
+                   "`sigma` must have one value for each of the 5 estimates; it has 3.")
+  expect_identical(problem(c(0.2, 0, -1, 0.2, 0.2), "sigma", len = 5L, positive = TRUE),
+                   "`sigma` must be positive; it has 2 values that are not (the first at position 2).")
+  expect_identical(problem("a", "theta_hat"), "`theta_hat` must be a numeric vector, not character.")
+  expect_identical(problem(NULL, "sigma"), "`sigma` is missing; give one value for each site.")
+
+  # The message of another argument is one sentence without a parent error.
+  err <- tryCatch(
+    getFromNamespace(".bef_validate_fit_args", "bayesEfron")(1:5 / 10, rep(0.2, 5L), L = 20),
+    error = identity
+  )
+  expect_s3_class(err, "bef_invalid_args")
+  expect_null(err$parent)
+  expect_identical(conditionMessage(err),
+                   "`L` must be an integer scalar in [51, 401], or `NULL`: element 1 is not >= 51.")
+})
+
+test_that("every condition class that the package raises is registered", {
+  # Walk the body of every function of the package and collect the classes
+  # given as text to .bef_warn() and .bef_abort(). A class that is raised
+  # and not registered makes the condition itself fail with an internal
+  # error, which is how a failed fit stopped compare_efron_grids() in
+  # version 0.3.0.
+  ns <- asNamespace("bayesEfron")
+  registered <- getFromNamespace(".bef_condition_classes", "bayesEfron")
+  found <- character()
+  walk <- function(expr) {
+    if (is.call(expr)) {
+      head <- expr[[1L]]
+      if (is.name(head) && as.character(head) %in% c(".bef_warn", ".bef_abort")) {
+        args <- as.list(expr)[-1L]
+        class_arg <- if ("class" %in% names(args)) args[["class"]] else if (length(args) >= 2L) args[[2L]]
+        if (is.character(class_arg)) found <<- c(found, class_arg)
+      }
+      # An empty argument, as in x[, 1], is skipped.
+      for (i in seq_along(expr)) {
+        if (!identical(expr[[i]], quote(expr = ))) walk(expr[[i]])
+      }
+    }
+  }
+  for (name in ls(ns, all.names = TRUE)) {
+    object <- get(name, envir = ns)
+    if (is.function(object) && !is.primitive(object)) walk(body(object))
+  }
+  found <- unique(found)
+  expect_true("bef_grid_comparison_fit_failed" %in% found)
+  expect_gte(length(found), 5L)
+  for (class in found) {
+    expect_no_error(registered(class))
+  }
+  expect_identical(registered("bef_grid_comparison_fit_failed"),
+                   c("bef_grid_comparison_fit_failed", "bef_warning"))
+  expect_error(registered("bef_not_a_class"), "Unknown bayesEfron condition class")
 })

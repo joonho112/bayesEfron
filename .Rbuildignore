@@ -11,8 +11,12 @@
 ^bayesEfron[.]Rcheck$
 ^bayesEfron_.*[.]tar[.]gz$
 ^LICENSE[.]md$
+^README[.]Rmd$
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
 ^figure$
 ^inst/stan/efron_re$
+^inst/stan/efron_mix$
+^Rplots[.]pdf$
+^vignettes/articles$

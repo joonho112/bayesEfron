@@ -12,7 +12,7 @@ loo_stability_case <- function() {
   list(fit = fit, log_lik = log_lik, chain_id = rep(1:2, each = 200L))
 }
 
-test_that("LOO centering preserves ordinary results and forwarded methods", {
+test_that("loo() of a fit equals loo::loo() of its log likelihood matrix, for each is_method and save_psis", {
   skip_if_not_installed("loo")
   case <- loo_stability_case()
   r_eff <- loo::relative_eff(exp(case$log_lik), chain_id = case$chain_id)
@@ -27,7 +27,7 @@ test_that("LOO centering preserves ordinary results and forwarded methods", {
   }
 })
 
-test_that("LOO restores shifted scores, standard errors and saved weights", {
+test_that("loo() gives the right scores, standard errors and saved weights when exp(log_lik) underflows to zero", {
   skip_if_not_installed("loo")
   case <- loo_stability_case()
   offsets <- c(-1000, -1100, -1200, -1300, -1400)
@@ -98,7 +98,7 @@ test_that("LOO restores shifted scores, standard errors and saved weights", {
   }
 })
 
-test_that("LOO still rejects missing or nonfinite log likelihoods", {
+test_that("loo() is a bef_invalid_fit error when the log likelihood is missing or not finite", {
   skip_if_not_installed("loo")
   case <- loo_stability_case()
   missing <- case$fit

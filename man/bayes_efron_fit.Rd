@@ -2,19 +2,25 @@
 % Please edit documentation in R/fit.R
 \name{bayes_efron_fit}
 \alias{bayes_efron_fit}
-\title{Fit the Efron log-spline model to estimates and standard errors}
+\title{Fit the Bayesian Efron log-spline model to estimates and standard errors}
 \usage{
 bayes_efron_fit(
   theta_hat,
-  sigma,
+  sigma = NULL,
   ...,
-  grid_method = c("paper_realdata", "paper_simulation", "paper_sensitivity",
-    "kl_target_experimental"),
-  L = 101L,
+  grid = NULL,
+  grid_method = "pilot",
+  support = NULL,
+  L = NULL,
   expansion = 0.5,
+  margin = 0.1,
   M = 6L,
+  knots = "grid",
+  component = c("point", "normal"),
+  width = 2/3,
   theta_true = NULL,
   bound_expansion = NULL,
+  settings = NULL,
   model_family = "RE",
   chains = 4L,
   parallel_chains = chains,
@@ -24,170 +30,286 @@ bayes_efron_fit(
   max_treedepth = 10L,
   seed = NULL,
   keep_cmdstan_fit = FALSE,
-  store_grid_quantities = FALSE
+  store_grid_quantities = FALSE,
+  site_draws = FALSE,
+  thin = 1L,
+  refresh = NULL,
+  init = 0.5,
+  show_messages = NULL
 )
 }
 \arguments{
-\item{theta_hat}{Numeric vector of effect estimates, one for each site,
-all on the same scale (standardized mean differences or log odds
-ratios, for example). At least five are needed.}
+\item{theta_hat}{Numeric vector of effect estimates, one per site, all
+on the same scale (e.g., standardized mean differences or log odds
+ratios). Names, if present, are used as site labels. Can also be a
+data frame or a \code{bef_data} object that contains the estimates and
+their standard errors (see \code{\link[=as_bef_data]{as_bef_data()}}), in which case \code{sigma} is
+omitted. At least 5 sites are required.}
 
-\item{sigma}{Numeric vector of the standard errors of the estimates,
-positive and of the same length as \code{theta_hat}.}
+\item{sigma}{Numeric vector of standard errors of the estimates, the
+same length as \code{theta_hat}. All must be positive.}
 
 \item{...}{These dots are for future extensions and must be empty.}
 
-\item{grid_method}{Character string, the rule for the end points of the
-grid: \code{"paper_realdata"} (the default), \code{"paper_simulation"},
-\code{"paper_sensitivity"} or \code{"kl_target_experimental"}. The Details of
-\code{\link[=make_efron_grid]{make_efron_grid()}} describe them.}
+\item{grid}{A \code{bef_grid} object created by \code{\link[=make_efron_grid]{make_efron_grid()}}. If
+\code{NULL} (the default), the grid is built from the arguments that
+follow. If a grid is supplied, \code{grid_method}, \code{support}, \code{L},
+\code{expansion}, \code{margin}, \code{M}, \code{knots}, \code{component}, \code{width},
+\code{theta_true} and \code{bound_expansion} must not be specified.}
 
-\item{L}{Whole number between 51 and 300, the number of grid points.
-Defaults to \code{101L}.}
+\item{grid_method}{Method for choosing the limits of the grid:
+\code{"pilot"} (the default), \code{"paper_realdata"}, \code{"paper_simulation"} or
+\code{"paper_sensitivity"}. See the Details of \code{\link[=make_efron_grid]{make_efron_grid()}}. With
+\code{"pilot"}, the pilot fit uses this call's \code{seed} and
+\code{parallel_chains}, so the grid is the same as the one returned by
+\code{make_efron_grid()} with that seed.}
 
-\item{expansion}{Number between 0 and 5. With \code{"paper_realdata"} and
-\code{"kl_target_experimental"}, the range of \code{theta_hat} is widened on each
-side by \code{expansion} times its width. Defaults to \code{0.5}.}
+\item{support}{Numeric vector of length 2 with the lower and upper
+limits of the grid. If \code{NULL} (the default), the limits are chosen by
+\code{grid_method}.}
 
-\item{M}{Whole number between 3 and 10, the number of spline functions.
-Defaults to \code{6L}.}
+\item{L}{Number of grid points, an integer from 51 to 401. If \code{NULL}
+(the default), the number is chosen from the data: 101, or more if
+101 points are too few for the standard errors or for the spread of
+the effects. See the Details of \code{\link[=make_efron_grid]{make_efron_grid()}}.}
 
-\item{theta_true}{Numeric vector of the true effects, of the same length
-as \code{theta_hat}. Needed by \code{"paper_simulation"} and
-\code{"paper_sensitivity"}, which are for simulations.}
+\item{expansion}{Expansion factor, a number between 0 and 5. With
+\code{grid_method = "pilot"} or \code{"paper_realdata"}, the range of
+\code{theta_hat} is extended on each side by \code{expansion} times its width.}
 
-\item{bound_expansion}{Number greater than 0 and at most 5. With
-\code{"paper_sensitivity"}, the range of \code{theta_true} is widened on each
-side by \code{bound_expansion} times its width. \code{NULL} (the default) means
-0.5.}
+\item{margin}{Margin for \code{grid_method = "pilot"}, a number between 0
+and 1. The interval that contains the central 99.9\% of the pilot
+estimate of \eqn{g} is extended on each side by \code{margin} times its
+width.}
 
-\item{model_family}{Character string. \code{"RE"}, the model described in
-Details, is the only choice.}
+\item{M}{Number of spline functions, an integer from 3 to 10. More
+spline functions allow \eqn{g} to have narrower features. In
+simulated data sets of 1,500 sites, the site intervals contained
+somewhat fewer of the true effects with 8 functions than with 6 (see
+\code{vignette("twin-towers")}).}
 
-\item{chains}{Whole number between 1 and 16, the number of Markov
-chains. Defaults to \code{4L}.}
+\item{knots}{Method for placing the knots of the spline functions.
+Currently only \code{"grid"} is available; see the Details of
+\code{\link[=make_efron_grid]{make_efron_grid()}}.}
 
-\item{parallel_chains}{Whole number between 1 and \code{chains}, the number
-of chains to run at the same time. Defaults to \code{chains}.}
+\item{component}{Type of component at each grid point: \code{"point"} (the
+default) for a point mass, or \code{"normal"} for a normal distribution.}
 
-\item{iter_warmup}{Whole number, the number of warmup iterations in each
-chain. Defaults to \code{1000L}.}
+\item{width}{Standard deviation of the normal components in units of the
+grid spacing, a number greater than 0 and at most 2. Only used with
+\code{component = "normal"}.}
 
-\item{iter_sampling}{Whole number of at least 1, the number of iterations
-in each chain that are kept. Defaults to \code{3000L}.}
+\item{theta_true}{Numeric vector of true effects, the same length as
+\code{theta_hat}. Required by \code{"paper_simulation"} and
+\code{"paper_sensitivity"}, which are intended for simulations.}
 
-\item{adapt_delta}{Number between 0 and 1, the target acceptance rate of
-the sampler. Defaults to \code{0.9}. A value nearer 1 gives smaller steps,
-which can remove divergent transitions at the cost of a longer run.}
+\item{bound_expansion}{Expansion factor for
+\code{grid_method = "paper_sensitivity"}, a number greater than 0 and at
+most 5: the range of \code{theta_true} is extended on each side by
+\code{bound_expansion} times its width. \code{NULL} (the default) is equivalent
+to 0.5.}
 
-\item{max_treedepth}{Whole number between 1 and 20, the maximum tree
-depth of the sampler. Defaults to \code{10L}. Raise it if \code{\link[=diagnose]{diagnose()}}
-reports many iterations that reached the maximum.}
+\item{settings}{Set to \code{"0.3.0"} to fit the model as version 0.3.0 of
+the package did. The fit then uses that version's Stan program and its
+defaults for \code{grid_method} (\code{"paper_realdata"}), \code{L} (101) and
+\code{site_draws} (\code{TRUE}); arguments that you set yourself are kept. With
+\code{NULL} (the default), the same seed gives different draws than it did
+in version 0.3.0, and a message about the changed defaults is shown
+once per session. See \code{vignette("implementation")} for when the draws
+of version 0.3.0 are reproduced exactly.}
 
-\item{seed}{Whole number, the seed of the sampler, or \code{NULL} (the
-default), in which case a seed is taken from the clock. The seed that
-was used is stored in the result.}
+\item{model_family}{Model family. Currently only \code{"RE"}, the model
+described in Details, is available.}
 
-\item{keep_cmdstan_fit}{Logical. If \code{TRUE}, the \code{cmdstanr::CmdStanMCMC}
-object is kept as the element \code{cmdstan_fit} of the result. It refers to
-temporary files, so it is of use only in the session that made it.
-Defaults to \code{FALSE}.}
+\item{chains}{Number of Markov chains, an integer from 1 to 16.}
 
-\item{store_grid_quantities}{Logical. If \code{TRUE}, the draws also hold the
-grid probabilities \code{g} and their unnormalized logarithms \code{log_w},
-which adds \code{2 * L} variables. Defaults to \code{FALSE}; the methods compute
-both from the other draws when they need them.}
+\item{parallel_chains}{Number of chains to run in parallel, an integer
+from 1 to \code{chains}. By default all chains run in parallel.}
+
+\item{iter_warmup}{Number of warmup iterations per chain.}
+
+\item{iter_sampling}{Number of sampling (post-warmup) iterations per
+chain, at least 1.}
+
+\item{adapt_delta}{Target acceptance rate of the sampler, a number
+between 0 and 1. A higher value leads to a smaller step size, which
+can remove divergent transitions but makes sampling slower. With about
+20 sites, divergent transitions are common with the default of 0.9,
+and 0.99 is a better starting value (see
+\code{vignette("teacher-expectancy")}).}
+
+\item{max_treedepth}{Maximum tree depth of the sampler, an integer from
+1 to 20. Increase it if \code{\link[=diagnose]{diagnose()}} reports many iterations that
+reached the maximum.}
+
+\item{seed}{Integer seed for the sampler. If \code{NULL} (the default), a
+seed is taken from the clock. In either case the seed that was used
+is stored in the result.}
+
+\item{keep_cmdstan_fit}{If \code{TRUE}, the \code{cmdstanr::CmdStanMCMC} object is
+stored in the result as \code{cmdstan_fit}. It refers to temporary files,
+so it is only useful in the session that created it.}
+
+\item{store_grid_quantities}{If \code{TRUE}, the draws also include the grid
+probabilities \code{g} and their unnormalized logarithms \code{log_w}, which
+adds \code{2 * L} variables. This is not needed for the methods, which
+compute both from the other draws.}
+
+\item{site_draws}{If \code{TRUE}, the fit also stores five variables per
+site (\code{theta_mean}, \code{theta_sd}, \code{theta_map}, \code{theta_rep} and
+\code{log_lik}), which \code{confint(method = "draws")} requires. If \code{FALSE}
+(the default, except with \code{settings = "0.3.0"}), only the draws of the
+parameters and of \eqn{g} are stored, and all site summaries are
+computed from them when they are requested. Both choices give the
+same draws of \eqn{g} for the same seed.}
+
+\item{thin}{Thinning interval, an integer from 1 to \code{iter_sampling}.
+From each chain, one iteration out of every \code{thin} is stored, starting
+with the first. Thinning reduces the size of the result. It does not
+affect
+the sampler diagnostics reported by \code{\link[=diagnose]{diagnose()}} (e.g., R-hat and the
+effective sample sizes), which are computed from all iterations. The
+summaries and the grid diagnostics are computed from the stored
+draws.}
+
+\item{refresh}{Number of iterations between progress updates from
+CmdStan; \code{0} turns them off. If \code{NULL} (the default), 200 is used in
+an interactive session and 0 otherwise.}
+
+\item{init}{Initial values for the chains. A number \code{x} (default 0.5)
+draws the initial values uniformly between \code{-x} and \code{x} on the
+unconstrained scale, i.e., for the spline coefficients and for the
+logarithm of the precision. The default is narrower than CmdStan's
+default of 2. Can also be a list with one list of values of \code{alpha}
+and \code{lambda} per chain, or a function that returns such a list of
+values.}
+
+\item{show_messages}{If \code{TRUE}, the output of CmdStan and the messages
+of cmdstanr about the sampler are shown. If \code{NULL} (the default), they
+are shown in an interactive session only. The package's own warnings
+and \code{\link[=diagnose]{diagnose()}} do not depend on this argument.}
 }
 \value{
-An object of class \code{bef_fit_re}, which inherits from \code{bef_fit}.
-Its elements are \code{draws}, the posterior draws as a
-\code{posterior::draws_array}; \code{posterior}, the draws of the mean, variance
-and standard deviation of \eqn{g} and of two summaries of the fit; and
-\code{metadata}, the data, the settings and summaries of the draws.
-\link{bef_fit} describes the elements and the methods.
+An object of class \code{c("bef_fit_re", "bef_fit")}, which is a list
+with the following components.
+\describe{
+\item{\code{draws}}{The posterior draws, a \code{posterior::draws_array}.}
+\item{\code{posterior}}{A list with the draws of the mean, the variance
+and the standard deviation of \eqn{g}, of \code{effective_params} and
+of \code{log_marginal_likelihood}.}
+\item{\code{metadata}}{A list with the data, the settings and summaries
+of the draws.}
+\item{\code{cmdstan_fit}}{The \code{cmdstanr::CmdStanMCMC} object, only with
+\code{keep_cmdstan_fit = TRUE}.}
+}
+See \link{bef_fit} for the details of these components and for the
+available methods.
 }
 \description{
 A meta-analysis or a multisite trial gives an estimate
-\eqn{\hat\theta_i} and a standard error \eqn{\sigma_i} for each of
-\eqn{K} sites. \code{bayes_efron_fit()} treats the true effects
-\eqn{\theta_i} as draws from an unknown distribution \eqn{g} and
-estimates \eqn{g} and each \eqn{\theta_i} together. Unlike the usual
-random-effects model, it does not take \eqn{g} to be normal: \eqn{g}
-can be skewed or have more than one mode, and how far each estimate is
-shrunk depends on that shape.
+\eqn{\hat\theta_i}{theta_hat_i} and a standard error
+\eqn{\sigma_i}{sigma_i} for each of \eqn{K} sites. \code{bayes_efron_fit()}
+treats the true effects \eqn{\theta_i}{theta_i} as draws from an
+unknown distribution \eqn{g} and estimates \eqn{g} and each
+\eqn{\theta_i}{theta_i} together. Unlike the usual random-effects model,
+it does not assume that \eqn{g} is normal: \eqn{g} can be skewed or have
+more than one peak, and the amount of shrinkage for each estimate
+depends on that shape.
 
-The function returns posterior draws of \eqn{g}. For each site and each
-draw of \eqn{g} it also returns the mean, standard deviation and mode of
-\eqn{\theta_i} given that \eqn{g}, and one draw of \eqn{\theta_i}. The
-model is fitted by Markov chain Monte Carlo with CmdStan, so the cmdstanr
-package and CmdStan must be installed. The first call compiles the Stan
-model, which can take up to a minute; later calls reuse the compiled
-model (see \code{\link[=bayes_efron_compile]{bayes_efron_compile()}}).
+The result contains posterior draws of \eqn{g}. Functions such as
+\code{\link[=site_summary]{site_summary()}}, \code{\link[=g_summary]{g_summary()}} and \code{plot()} compute posterior means,
+intervals and probabilities for the sites and for \eqn{g} from these
+draws.
+
+The model is fitted by Markov chain Monte Carlo with CmdStan, so the
+cmdstanr package and CmdStan must be installed. The first call compiles
+the Stan program, which can take up to a minute. Later calls reuse the
+compiled model (see \code{\link[=bayes_efron_compile]{bayes_efron_compile()}}).
 }
 \details{
-For sites \eqn{i = 1, \ldots, K},
+The model for sites \eqn{i = 1, \ldots, K} is
 \deqn{\hat\theta_i \mid \theta_i \sim N(\theta_i, \sigma_i^2),
-  \qquad \theta_i \sim g.}
-The standard errors \eqn{\sigma_i} are taken as known and may differ
-between sites. The distribution \eqn{g} has probabilities
+  \qquad \theta_i \sim g.}{
+  theta_hat_i | theta_i ~ N(theta_i, sigma_i^2),   theta_i ~ g.}
+The standard errors \eqn{\sigma_i}{sigma_i} are treated as known and
+may differ between sites. The distribution \eqn{g} has probabilities
 \eqn{g_1, \ldots, g_L} on a grid of points
-\eqn{\tau_1 < \cdots < \tau_L}, with
-\deqn{\log g_j = B_j^\top \alpha - \log \sum_{l=1}^{L} \exp(B_l^\top \alpha),}
-where \eqn{B_j} holds the values of the \eqn{M} natural cubic spline
-functions at \eqn{\tau_j}. This is the log-spline family of Efron
-(2016). The coefficients have independent priors
-\eqn{\alpha_m \mid \lambda \sim N(0, 1/\lambda)}, which draw \eqn{g}
-toward the uniform distribution on the grid, and the precision has the
-prior \eqn{\lambda \sim \mbox{half-Cauchy}(0, 5)}, so that the strength
-of that pull is estimated along with the coefficients. Lee and Sui
-(2025) describe the model and compare it with the empirical Bayes
-estimator, in which \eqn{\alpha} is fixed at an estimate.
+\eqn{\tau_1 < \cdots < \tau_L}{tau_1 < ... < tau_L}, with
+\deqn{\log g_j = B_j^\top \alpha
+  - \log \sum_{l=1}^{L} \exp(B_l^\top \alpha),}{
+  log g_j = B_j' alpha - log sum_{l = 1, ..., L} exp(B_l' alpha),}
+where \eqn{B_j} is the vector of values of the \eqn{M} natural cubic
+spline functions at \eqn{\tau_j}{tau_j}. This is the log-spline family
+of Efron (2016). The coefficients have independent priors
+\eqn{\alpha_m \mid \lambda \sim N(0, 1/\lambda)}{
+alpha_m | lambda ~ N(0, 1/lambda)},
+which pull \eqn{g} toward the uniform distribution on the grid. The
+precision has the prior
+\eqn{\lambda \sim \mbox{half-Cauchy}(0, 5)}{lambda ~ half-Cauchy(0, 5)},
+so the strength of that pull is estimated along with the coefficients.
+See Lee and Sui (2025) for the model and for a comparison with the
+empirical Bayes estimator, in which \eqn{\alpha}{alpha} is fixed at an
+estimate. With \code{component = "normal"}, each grid point carries a normal
+distribution instead of a point mass, all with the same standard
+deviation, and \eqn{g} is their mixture with weights \eqn{g_j}.
 
-The grid and the spline basis are those of \code{\link[=make_efron_grid]{make_efron_grid()}}, and
-\code{grid_method}, \code{L}, \code{expansion} and \code{M} control them. The defaults, 101
-grid points and six spline functions on a grid that extends beyond the
-estimates by half their range on each side, follow the application in
-Lee and Sui (2025, Section 7.2) and its replication code.
-\code{vignette("choosing-a-grid")} discusses when to change them.
+The grid and the spline basis are built as in \code{\link[=make_efron_grid]{make_efron_grid()}}, which
+describes the arguments that control them: \code{grid_method} or \code{support}
+for the range, \code{L} for the number of points, \code{component} and \code{width} for
+what is placed at each point, and \code{M} and \code{knots} for the spline
+functions. Alternatively, a grid built in advance can be supplied as
+\code{grid}, in which case the other grid arguments must be omitted.
 
-Only \eqn{\alpha} and \eqn{\lambda} are sampled. Given \eqn{\alpha}, the
-posterior distribution of each \eqn{\theta_i} on the grid has a closed
-form, and its mean, standard deviation and mode and one draw from it are
-computed for every posterior draw of \eqn{\alpha}.
+With the default \code{grid_method = "pilot"}, the range is chosen in two
+steps. A short preliminary fit, the pilot fit, is run on the range of
+\code{"paper_realdata"}, that is, the range of the estimates extended on
+each side by \code{expansion} times its width. With the default \code{expansion}
+this is the range used in the code that accompanies Lee and Sui (2025).
+The range is then narrowed to the region where the pilot fit places
+\eqn{g}. It is never made wider than the initial range, and for some
+data, e.g., \link{raudenbush1985} and \link{krw_discrimination}, it is not
+narrowed at all. See \code{vignette("choosing-a-grid")} for a discussion of
+these choices.
 
-Each chain starts from spline coefficients drawn uniformly between -0.5
-and 0.5 and from a precision whose logarithm is drawn in the same way,
-a narrower interval than CmdStan's default of -2 to 2. Pass a \code{seed} to
-make a fit reproducible: with the same data, settings, versions of the
-packages and of CmdStan, and machine, the draws are the same. The seed
-and the settings of the sampler are stored with the result; \link{bef_fit}
-says where.
+Only \eqn{\alpha}{alpha} and \eqn{\lambda}{lambda} are sampled. Given
+\eqn{\alpha}{alpha}, the posterior distribution of each
+\eqn{\theta_i}{theta_i} has a closed form, and functions such as
+\code{\link[=site_summary]{site_summary()}} compute it from the draws of \eqn{g}. The fitted object
+stores those draws as one variable per grid point, so its size grows
+with \code{L}. With the default of 12,000 draws it takes about 12 MB of
+memory for 101 grid points and about 40 MB for 401.
 
-The function gives a warning if there are divergent transitions and, for
-a fit with at least 400 draws in all, if an R-hat value exceeds 1.05;
-\code{\link[=diagnose]{diagnose()}} returns all the diagnostics.
+To make a fit reproducible, specify \code{seed}. With the same seed, data and
+settings, the draws are the same on the same machine with the same
+versions of the packages and of CmdStan. The seed and the sampler
+settings are stored in the result (see \link{bef_fit}).
 
-CmdStan writes the draws with a limited number of significant digits,
-eight in recent versions. That is ample for effect sizes. Estimates that
-are very large compared with their standard errors, by a factor of
-100,000 or more, should be centered before they are passed, because the
-saved draws would otherwise lose the digits in which the sites differ.
+A warning is issued if there are divergent transitions, or if an R-hat
+value exceeds 1.05 (for fits with at least 400 draws in total). A
+warning is also issued if a quantity is constant within each chain but
+differs between chains, so that its R-hat is infinite. Use \code{\link[=diagnose]{diagnose()}}
+to see all the diagnostics.
 }
 \examples{
-# The call that produced `raudenbush_fit`. It needs CmdStan.
+# Estimates and standard errors as two vectors. The call needs CmdStan.
 \dontrun{
 fit <- bayes_efron_fit(
-  theta_hat = raudenbush1985$yi,
-  sigma = raudenbush1985$sei,
-  seed = 1985
+  theta_hat = krw_discrimination$yi,
+  sigma = krw_discrimination$sei,
+  seed = 20250807
 )
+
+# The call that made `krw_fit`: the firms' names as site labels, and
+# the draws thinned to every 15th.
+dat <- as_bef_data(krw_discrimination, site = "firm_name")
+fit <- bayes_efron_fit(dat, seed = 20250807, thin = 15)
 }
 
-# The stored result of that call.
-fit <- raudenbush_fit
+# The stored result of the second call.
+fit <- krw_fit
 fit
-summary(fit)
-confint(fit, parm = c(4, 10))
+summary(fit)$prior_summary
+confint(fit, parm = c(29, 65))
 plot(fit, type = "g")
 
 }

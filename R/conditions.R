@@ -52,6 +52,10 @@
     bef_invalid_fit = c("bef_invalid_fit", "bef_pipeline_error", "bef_error"),
     bef_diagnostic_skipped = c("bef_diagnostic_skipped", "bef_warning"),
     bef_sampler_diagnostics_failed = c("bef_sampler_diagnostics_failed", "bef_warning"),
+    bef_grid_comparison_fit_failed = c("bef_grid_comparison_fit_failed", "bef_warning"),
+    bef_warn_grid_resolution = c("bef_warn_grid_resolution", "bef_warning"),
+    bef_warn_grid_ends = c("bef_warn_grid_ends", "bef_warning"),
+    bef_deprecated = c("bef_deprecated", "bef_warning"),
     NULL
   )
 

@@ -13,7 +13,8 @@ new_bef_diagnostic <- function(rhat,
                                diagnostic_skipped = character(),
                                sampler_diagnostics_failed = character(),
                                sampler_diagnostics_warned = character(),
-                               ebfmi = NA_real_) {
+                               ebfmi = NA_real_,
+                               grid = NULL) {
   structure(
     list(
       rhat = rhat,
@@ -28,7 +29,10 @@ new_bef_diagnostic <- function(rhat,
       runtime_seconds = runtime_seconds,
       diagnostic_skipped = diagnostic_skipped,
       sampler_diagnostics_failed = sampler_diagnostics_failed,
-      sampler_diagnostics_warned = sampler_diagnostics_warned
+      sampler_diagnostics_warned = sampler_diagnostics_warned,
+      # What the fit says about its grid; `NULL` where it could not be
+      # computed.
+      grid = grid
     ),
     class = "bef_diagnostic"
   )
@@ -100,6 +104,13 @@ validate_bef_diagnostic <- function(x) {
       x$effective_params_summary, "effective_params_summary", class
     )
   }
+  if (!is.null(x$grid) && !(is.list(x$grid) && is.data.frame(x$grid$ends) &&
+                              nrow(x$grid$ends) == 2L)) {
+    .bef_abort_validate(
+      "`bef_diagnostic$grid` must be NULL or a list whose element `ends` has one row for each end of the grid.",
+      class
+    )
+  }
 
   x
 }
@@ -118,12 +129,57 @@ validate_bef_diagnostic <- function(x) {
     "runtime_seconds",
     "diagnostic_skipped",
     "sampler_diagnostics_failed",
-    "sampler_diagnostics_warned"
+    "sampler_diagnostics_warned",
+    "grid"
   )
 }
 
+# The lines that print() shows about the grid of a fit.
+.bef_format_grid_diagnostics <- function(grid, K = NA_integer_) {
+  if (is.null(grid)) {
+    return(character())
+  }
+  ends <- grid$ends
+  percent <- function(x) format(round(100 * x, 1), trim = TRUE)
+  end_line <- function(i) {
+    note <- switch(
+      ends$status[[i]],
+      warning = sprintf("; the result for that site depends on where the grid ends"),
+      note = sprintf("; that end was set %s", if (identical(ends$set_by[[i]], "pilot")) {
+        "by the pilot fit on a wider range"
+      } else {
+        "from the true effects"
+      }),
+      ""
+    )
+    sprintf("  %s end %s: at most %s%% of a site's posterior in the outer %s%% (site %s)%s",
+            ends$end[[i]], .bef_format_number(ends$value[[i]]), percent(ends$mass[[i]]),
+            format(100 * grid$share, trim = TRUE), .bef_quote_label(ends$label[[i]]), note)
+  }
+  lines <- c("Grid:", end_line(1L), end_line(2L))
+  lines <- c(lines, sprintf(
+    "  sd of g: posterior %s (%s to %s)%s",
+    .bef_format_number(grid$sd_g[["mean"]]), .bef_format_number(grid$sd_g[["q5"]]),
+    .bef_format_number(grid$sd_g[["q95"]]),
+    if (is.finite(grid$sd_g_prior[["q50"]])) {
+      sprintf("; prior %s (%s to %s)", .bef_format_number(grid$sd_g_prior[["q50"]]),
+              .bef_format_number(grid$sd_g_prior[["q5"]]),
+              .bef_format_number(grid$sd_g_prior[["q95"]]))
+    } else {
+      ""
+    }
+  ))
+  lines <- c(lines, sprintf("  the central 99.9%% of g spans %s%% of the grid",
+                            percent(grid$occupied)))
+  if (is.finite(grid$tau_c_over_sd_g)) {
+    lines <- c(lines, sprintf("  a normal component is %s times as wide as the sd of g",
+                              .bef_format_number(grid$tau_c_over_sd_g)))
+  }
+  lines
+}
+
 .bef_sampler_diagnostic_warning_fields <- function() {
-  c("rhat", "ess_bulk", "ess_tail", "max_treedepth", "ebfmi")
+  c("rhat", "ess_bulk", "ess_tail", "max_treedepth", "ebfmi", "grid_ends")
 }
 
 .bef_diagnostic_skipped_fields <- function() {

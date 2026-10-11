@@ -1,8 +1,17 @@
 # Summaries of a fit that an earlier version of the package saved.
+
+# The version of the definitions of the summaries that a fit stores. Fits of
+# versions 0.1 and 0.2 carry none; 1 is version 0.3.0; 2 is version 0.4, in
+# which the site intervals come from the posterior distribution averaged
+# over the draws of g and the table of site effects has more columns.
+.bef_summary_version <- function() {
+  2L
+}
+
 .bef_prepare_fit <- function(x) {
   .bef_require_inherits(x, "bef_fit", "object", "bef_invalid_fit")
   version <- .bef_fit_summary_version(x)
-  if (identical(version, 1L)) {
+  if (identical(version, .bef_summary_version())) {
     return(x)
   }
 
@@ -38,7 +47,9 @@
 
 .bef_fit_summary_version <- function(x) {
   version <- attr(x$metadata, "summary_definition_version", exact = TRUE)
-  if (!is.null(version) && !identical(version, 1L)) {
+  known <- is.numeric(version) && length(version) == 1L &&
+    version %in% seq_len(.bef_summary_version())
+  if (!is.null(version) && !known) {
     .bef_abort_invalid_fit(
       paste0(
         "This fit was made by a later version of bayesEfron than the one ",
@@ -65,38 +76,29 @@
   }
   .bef_validate_theta_summary(x$metadata$theta_summary, K, "bef_invalid_fit")
   dm <- .bef_draws_matrix(x$draws)
-  theta_mean <- .bef_draws_vector(dm, "theta_mean", K)
-  theta_sd <- .bef_draws_vector(dm, "theta_sd", K)
-  if (any(!is.finite(theta_mean)) || any(!is.finite(theta_sd)) ||
-      any(theta_sd < 0)) {
-    stop("The saved conditional means or standard deviations are invalid.")
-  }
-  log_names <- paste0("log_g[", seq_len(L), "]")
-  if (all(log_names %in% colnames(dm))) {
-    log_g <- dm[, log_names, drop = FALSE]
-  } else {
-    g <- .bef_draws_vector(dm, "g", L)
-    if (any(!is.finite(g)) || any(g < 0) || any(rowSums(g) <= 0)) {
-      stop("The saved grid probabilities are invalid.")
-    }
-    log_g <- log(g)
-  }
+  engine <- .bef_engine(x)
+  log_g <- engine$log_g
   if (anyNA(log_g) || any(log_g == Inf) || any(rowSums(is.finite(log_g)) == 0)) {
     stop("The saved log probabilities are invalid.")
   }
 
-  sd <- .bef_posterior_sd(theta_mean, theta_sd)
-  mode <- .bef_posterior_mode(log_g, data$theta_hat, data$sigma, data$grid)
+  old <- .bef_site_table(x)
+  new <- .bef_theta_summary(engine, labels = old$label)
+  if (any(!is.finite(new$mean)) || any(!is.finite(new$sd))) {
+    stop("The posterior means or standard deviations cannot be computed.")
+  }
+  differs <- function(a, b) any(abs(a - b) > 1e-10 * pmax(1, abs(b)))
   changed <- character()
-  old_sd <- x$metadata$theta_summary$sd
-  if (any(abs(old_sd - sd) > 1e-10 * pmax(1, abs(sd)))) {
-    x$metadata$theta_summary$sd <- sd
+  if (differs(old$sd, new$sd)) {
     changed <- c(changed, "posterior standard deviations")
   }
-  if (!identical(as.numeric(x$metadata$theta_summary$map), as.numeric(mode))) {
-    x$metadata$theta_summary$map <- as.numeric(mode)
+  if (differs(old$lower, new$lower) || differs(old$upper, new$upper)) {
+    changed <- c(changed, "interval limits")
+  }
+  if (!identical(as.numeric(old$mode), as.numeric(new$mode))) {
     changed <- c(changed, "posterior modes")
   }
+  x$metadata$theta_summary <- new
 
   if (old_v01) {
     # Version 0.1 stored K minus the sum of conditional variance ratios.
@@ -114,7 +116,7 @@
     x$posterior$effective_params <- effective
     x$metadata$effective_params_summary <- .bef_summary_vector(effective)
   }
-  attr(x$metadata, "summary_definition_version") <- 1L
+  attr(x$metadata, "summary_definition_version") <- .bef_summary_version()
   list(fit = x, changed = changed)
 }
 
@@ -129,11 +131,13 @@
 # A saved summary holds no draws from which it could be computed again.
 .bef_check_saved_summary <- function(x) {
   version <- attr(x, "summary_definition_version", exact = TRUE)
-  if (identical(version, 1L)) {
+  if (identical(version, .bef_summary_version())) {
     return(invisible(x))
   }
+  earlier <- is.null(version) ||
+    (is.numeric(version) && length(version) == 1L && version < .bef_summary_version())
   .bef_abort_invalid_fit(
-    if (is.null(version)) {
+    if (earlier) {
       paste0(
         "This summary was saved by an earlier version of bayesEfron and ",
         "cannot be brought up to date, because it holds no draws. Call ",

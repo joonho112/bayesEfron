@@ -25,6 +25,30 @@ test_that("predict() draws effects of a new site from the grid", {
   expect_false(all(jittered %in% grid))
 })
 
+test_that("with normal components predict() draws from the component at the grid point", {
+  fit <- plot_fit(12L, component = "normal")
+  grid <- fit$metadata$data_list$grid
+  tau_c <- fit$metadata$data_list$tau_c
+  expect_gt(tau_c, 0)
+
+  n <- 40000L
+  theta_new <- predict(fit, n = n, seed = 3)
+  expect_false(any(theta_new %in% grid))
+  # The draws have the mean and the variance of g, the mixture of the
+  # components, averaged over the posterior draws of g.
+  draws <- posterior::as_draws_matrix(fit$draws)
+  mean_g <- as.numeric(draws[, "mean_g"])
+  var_g <- as.numeric(draws[, "var_g"])
+  expect_equal(mean(theta_new), mean(mean_g), tolerance = 0.03)
+  expect_equal(stats::var(theta_new), mean(var_g) + stats::var(mean_g), tolerance = 0.03)
+  # `jitter` adds nothing to draws that are already continuous.
+  expect_identical(predict(fit, n = 50, jitter = TRUE, seed = 3),
+                   predict(fit, n = 50, seed = 3))
+  # The estimate of a new site has the sampling error on top.
+  estimate <- predict(fit, newdata = 0.5, type = "theta_hat", n = n, seed = 3)
+  expect_equal(stats::var(estimate), mean(var_g) + stats::var(mean_g) + 0.25, tolerance = 0.03)
+})
+
 test_that("predict(type = \"theta_hat\") adds the sampling error of the new site", {
   fit <- stored_fit()
   n_draws <- posterior::ndraws(fit$draws)

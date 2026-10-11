@@ -113,7 +113,7 @@ test_that("the model is retrieved and sampled with the arguments of the fit call
   )
 
   expect_s3_class(out, "bef_fit_context")
-  expect_identical(model_record$model_args, list(model_family = "RE"))
+  expect_identical(model_record$model_args, list(model_family = "RE", program = "efron_mix"))
   expect_identical(out$model, model)
   expect_s3_class(out$cmdstan_fit, "fake_cmdstan_mcmc")
   expect_equal(out$runtime_seconds, 2.5, tolerance = 1e-8)
@@ -131,6 +131,102 @@ test_that("the model is retrieved and sampled with the arguments of the fit call
   expect_identical(args$refresh, 0L)
   expect_equal(args$init, 0.5)
   expect_identical(out$sampler_settings, args[names(args) != "data"])
+})
+
+test_that("the program of this version is sampled with twelve significant digits", {
+  sample_record <- new.env(parent = emptyenv())
+  model_record <- new.env(parent = emptyenv())
+  model <- samp_fake_model(sample_record, chains_completed = 2L)
+  context <- samp_context()
+
+  out <- samp_run(context = context, model = model, model_record = model_record)
+  expect_identical(model_record$model_args, list(model_family = "RE", program = "efron_mix"))
+  args <- sample_record$sample_calls[[1L]]
+  expect_identical(args$sig_figs, 12L)
+  expect_identical(args$data$tau_c, 0)
+  expect_identical(out$sampler_settings, args[names(args) != "data"])
+
+  # The call for the program of version 0.3.0 is the call of that version:
+  # it has no such argument.
+  samp_run(context = samp_context(settings = "0.3.0"), model = model,
+           model_record = model_record)
+  expect_identical(model_record$model_args, list(model_family = "RE", program = "efron_re"))
+  expect_length(sample_record$sample_calls, 2L)
+  old <- sample_record$sample_calls[[2L]]
+  expect_identical(
+    old[c("chains", "parallel_chains", "iter_warmup", "iter_sampling", "adapt_delta",
+          "max_treedepth", "seed", "refresh", "init")],
+    list(chains = 2L, parallel_chains = 2L, iter_warmup = 7L, iter_sampling = 11L,
+         adapt_delta = 0.95, max_treedepth = 10L, seed = 987L, refresh = 0L, init = 0.5)
+  )
+  expect_false("sig_figs" %in% names(old))
+  expect_false("tau_c" %in% names(old$data))
+})
+
+test_that("a model function that takes the family only is called without the program", {
+  received <- NULL
+  model <- samp_fake_model(chains_completed = 2L)
+  samp_ns(".bef_fit_run_sampler")(
+    samp_context(),
+    model_fun = function(model_family) {
+      received <<- model_family
+      model
+    },
+    now = samp_clock(1),
+    interactive_fun = function() FALSE
+  )
+  expect_identical(received, "RE")
+})
+
+test_that("refresh, init and show_messages reach the sampler, and thin does not", {
+  sample_record <- new.env(parent = emptyenv())
+  model <- samp_fake_model(sample_record, chains_completed = 2L)
+  call_of <- function(..., interactive = FALSE) {
+    samp_run(context = samp_context(...), model = model, interactive = interactive)
+    sample_record$sample_calls[[length(sample_record$sample_calls)]]
+  }
+
+  # Outside an interactive session nothing is printed unless it is asked for.
+  quiet <- call_of()
+  expect_identical(quiet$refresh, 0L)
+  expect_false(quiet$show_messages)
+  expect_false(quiet$show_exceptions)
+  expect_true("diagnostics" %in% names(quiet))
+  expect_null(quiet$diagnostics)
+  expect_identical(quiet$init, 0.5)
+  expect_false("thin" %in% names(quiet))
+
+  loud <- call_of(show_messages = TRUE, refresh = 50L)
+  expect_identical(loud$refresh, 50L)
+  expect_false(any(c("show_messages", "show_exceptions", "diagnostics") %in% names(loud)))
+
+  # In an interactive session CmdStan reports its progress.
+  shown <- call_of(interactive = TRUE)
+  expect_identical(shown$refresh, 200L)
+  expect_false("show_messages" %in% names(shown))
+  hushed <- call_of(interactive = TRUE, show_messages = FALSE, refresh = 0L)
+  expect_identical(hushed$refresh, 0L)
+  expect_false(hushed$show_messages)
+
+  starts <- list(list(alpha = rep(0, 6), lambda = 1), list(alpha = rep(0.1, 6), lambda = 2))
+  expect_identical(call_of(init = starts)$init, starts)
+  expect_identical(call_of(init = 0)$init, 0)
+  fun <- function() list(alpha = rep(0, 6), lambda = 1)
+  expect_identical(call_of(init = fun)$init, fun)
+
+  # Thinning is done after sampling.
+  thinned <- call_of(thin = 5L)
+  expect_false("thin" %in% names(thinned))
+  expect_identical(thinned$iter_sampling, 11L)
+
+  for (bad in list(list(refresh = -1L), list(refresh = 1.5), list(refresh = "0"),
+                   list(init = -1), list(init = c(0.5, 1)), list(init = "random"),
+                   list(init = list(list(alpha = 0))), list(thin = 0L), list(thin = 12L),
+                   list(thin = 2.5), list(show_messages = NA), list(show_messages = "yes"))) {
+    err <- tryCatch(do.call(samp_context, bad), error = identity)
+    expect_s3_class(err, "bef_invalid_args")
+    expect_identical(err$arg, names(bad))
+  }
 })
 
 test_that("sampling leaves R's random number generator as it found it", {

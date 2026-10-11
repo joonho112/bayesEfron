@@ -317,10 +317,13 @@ test_that("posterior quantiles agree with stats::quantile", {
   )
 })
 
-# The generated quantities of the Stan program, recomputed in R from the
-# stored draws of alpha and of log g with the functions checked above.
+# The generated quantities of the Stan program of version 0.3.0, recomputed
+# in R from the stored draws of alpha and of log g with the functions
+# checked above. The fit is one that version 0.3.0 made, with the site-level
+# draws that it stored; test-stan-quantities.R does the same for the program
+# of this version.
 test_that("the quantities written by the Stan program agree with the R formulas", {
-  fit <- bayesEfron::raudenbush_fit
+  fit <- readRDS(test_path("_fixtures", "short_fit.rds"))
   data <- fit$metadata$data_list
   draws <- posterior::as_draws_matrix(fit$draws)
   indexed <- function(name, n) {
@@ -371,4 +374,87 @@ test_that("the quantities written by the Stan program agree with the R formulas"
   theta_rep <- unique(as.numeric(indexed("theta_rep", data$K)))
   distance_to_grid <- vapply(theta_rep, function(x) min(abs(x - data$grid)), numeric(1))
   expect_lt(max(distance_to_grid), 1e-8)
+})
+
+# The three tests below call the posterior engine of the package, the code
+# that computes every site summary from the draws of log_g.
+
+test_that("the engine puts the posterior on the point where g has all its mass", {
+  grid <- seq(-2, 2, length.out = 41L)
+  log_g <- matrix(-Inf, 2L, length(grid))
+  log_g[, 28L] <- 0
+  engine <- bef_internal(".bef_engine_from_parts")(
+    log_g, grid, theta_hat = c(-1.2, 0.3, 1.9), sigma = c(0.2, 0.7, 1.5)
+  )
+  weights <- bef_internal(".bef_site_weights")(engine)
+  expect_equal(weights[, 28L], rep(1, 3L))
+  expect_equal(rowSums(weights), rep(1, 3L))
+  moments <- bef_internal(".bef_site_moments")(engine)
+  expect_equal(moments$mean, rep(grid[28L], 3L))
+  expect_equal(moments$var, rep(0, 3L))
+  expect_equal(
+    bef_internal(".bef_site_quantile")(engine, c(0.05, 0.95), weights = weights,
+                                       reading = "step"),
+    matrix(grid[28L], 3L, 2L)
+  )
+})
+
+test_that("with one normal component the engine gives the normal-normal posterior exactly", {
+  mu <- 0.4
+  tau <- 0.6
+  theta_hat <- c(-1.1, 0.2, 0.9, 2.4)
+  sigma <- c(0.25, 0.4, 0.8, 1.3)
+  grid <- c(-1, mu, 3)
+  # All the mass on the component at mu; its width is tau.
+  log_g <- matrix(c(-Inf, 0, -Inf), 1L)
+  engine <- bef_internal(".bef_engine_from_parts")(log_g, grid, theta_hat, sigma, tau_c = tau)
+  shrink <- tau^2 / (tau^2 + sigma^2)
+  post_mean <- mu + shrink * (theta_hat - mu)
+  post_sd <- sqrt(shrink) * sigma
+  moments <- bef_internal(".bef_site_moments")(engine)
+  expect_equal(moments$mean, post_mean, tolerance = 1e-13)
+  expect_equal(sqrt(moments$var), post_sd, tolerance = 1e-13)
+  expect_equal(moments$var_between, rep(0, 4L), tolerance = 1e-13)
+  probs <- c(0.05, 0.5, 0.95)
+  expect_equal(
+    bef_internal(".bef_site_quantile")(engine, probs),
+    outer(post_mean, probs, function(m, p) m) + outer(post_sd, stats::qnorm(probs)),
+    tolerance = 1e-10
+  )
+  expect_equal(
+    bef_internal(".bef_site_exceedance")(engine, 0),
+    1 - stats::pnorm(0, post_mean, post_sd),
+    tolerance = 1e-12
+  )
+  # The marginal density of the estimates is normal with variance
+  # sigma^2 + tau^2.
+  expect_equal(
+    as.numeric(bef_internal(".bef_log_lik")(engine)),
+    stats::dnorm(theta_hat, mu, sqrt(sigma^2 + tau^2), log = TRUE),
+    tolerance = 1e-13
+  )
+})
+
+test_that("normal weights on a wide fine grid give the normal-normal posterior", {
+  # With point masses on a grid that reaches 8 standard deviations on each
+  # side, the error of the posterior mean is not a power of the spacing: it
+  # is exponentially small in (sd / spacing)^2, and what remains is the
+  # truncation of the range. So the test asks for agreement to 1e-8 and not
+  # for convergence as the spacing shrinks.
+  mu <- 0.3
+  tau <- 0.8
+  grid <- seq(mu - 8 * tau, mu + 8 * tau, length.out = 1601L)
+  log_g <- matrix(stats::dnorm(grid, mu, tau, log = TRUE), 1L)
+  log_g <- log_g - log(sum(exp(log_g)))
+  theta_hat <- c(-0.9, 0.1, 0.5, 1.7)
+  sigma <- c(0.3, 0.5, 0.9, 1.4)
+  engine <- bef_internal(".bef_engine_from_parts")(log_g, grid, theta_hat, sigma)
+  shrink <- tau^2 / (tau^2 + sigma^2)
+  moments <- bef_internal(".bef_site_moments")(engine)
+  expect_lt(max(abs(moments$mean - (mu + shrink * (theta_hat - mu)))), 1e-8)
+  expect_lt(max(abs(sqrt(moments$var) - sqrt(shrink) * sigma)), 1e-8)
+  limits <- bef_internal(".bef_site_quantile")(engine, c(0.05, 0.95), reading = "interpolated")
+  exact <- outer(mu + shrink * (theta_hat - mu), c(1, 1)) +
+    outer(sqrt(shrink) * sigma, stats::qnorm(c(0.05, 0.95)))
+  expect_lt(max(abs(limits - exact)), 1e-4)
 })

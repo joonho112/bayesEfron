@@ -6,36 +6,39 @@
 \title{Model fitted to the teacher expectancy studies}
 \format{
 An object of class \code{bef_fit_re}; see \link{bef_fit} for its
-components.
+components and methods.
 }
 \source{
-Fitted with CmdStan 2.38.0 on 2026-10-02. The script is
-\code{data-raw/raudenbush.R} in the source repository.
+Fitted with CmdStan 2.38.0 on 2026-10-10. The script is
+\code{data-raw/example-fits.R} in the source repository.
 }
 \usage{
 raudenbush_fit
 }
 \description{
-The object returned by \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} for the \link{raudenbush1985} data
-with the default settings. The examples and the vignettes use it, so
-that they run without CmdStan.
+A fitted model for the 19 studies in \link{raudenbush1985}, as returned by
+\code{\link[=bayes_efron_fit]{bayes_efron_fit()}} with the default settings. It is thinned to 800
+posterior draws, is used in \code{vignette("teacher-expectancy")}, and was
+created with
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{bayes_efron_fit(raudenbush1985, seed = 1985, thin = 15)
+}\if{html}{\out{</div>}}
 }
 \details{
-The model was fitted with
-\code{bayes_efron_fit(raudenbush1985$yi, raudenbush1985$sei, seed = 1985)},
-that is, with four chains of 1,000 warmup and 3,000 sampling iterations
-each. To keep the package small, one draw in fifteen is stored, so the
-object holds 800 of the 12,000 draws, and its posterior summaries are
-computed from those 800. The convergence diagnostics that \code{\link[=diagnose]{diagnose()}}
-returns are those of the full run. One of the 12,000 iterations reached
-the maximum tree depth, which \code{\link[=diagnose]{diagnose()}} reports as a warning;
-\code{vignette("diagnostics")} explains how to read it.
+Each of the 4 chains ran 1,000 warmup and 3,000 sampling iterations,
+and one draw out of every 15 was stored. Summaries are computed from
+the 800 stored draws, whereas the sampler diagnostics reported by
+\code{\link[=diagnose]{diagnose()}} are computed from all 12,000. For these 19 studies the
+\code{"pilot"} method does not narrow the range, so the grid is the same as
+with \code{grid_method = "paper_realdata"}. The object contains the draws of
+\eqn{g} but no site-level draws, and it can be used without CmdStan.
 }
 \examples{
 raudenbush_fit
 summary(raudenbush_fit)
 }
 \seealso{
-\link{raudenbush1985}, \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}
+\link{raudenbush1985}, \code{\link[=bayes_efron_fit]{bayes_efron_fit()}},
+\code{vignette("teacher-expectancy")}
 }
 \keyword{datasets}

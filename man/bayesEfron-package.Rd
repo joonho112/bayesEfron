@@ -4,44 +4,68 @@
 \name{bayesEfron-package}
 \alias{bayesEfron-package}
 \alias{bayesEfron}
-\title{bayesEfron: Fully Bayesian Inference for the Empirical-Bayes Deconvolution Problem}
+\title{bayesEfron: Fully Bayesian Deconvolution with Efron's Log-Spline Prior}
 \description{
 \if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
 
-Estimates the distribution of true effects from a set of estimates with known standard errors, as in a meta-analysis or a multisite trial, using the fully Bayesian version of Efron's log-spline prior described in Lee and Sui (2025) \doi{10.3390/math13162639}. The fit returns posterior draws and summaries for each effect and for the effect distribution, with sampler diagnostics, plots, and model comparison by approximate leave-one-out cross-validation. The model is written in 'Stan' and is fitted with 'CmdStan' through the 'cmdstanr' package.
+Estimates the distribution of true effects from a set of estimates with known standard errors, as in a meta-analysis or a multisite trial, using the fully Bayesian version of Efron's log-spline prior described in Lee and Sui (2025) \doi{10.3390/math13162639}. The fit returns posterior draws of the distribution of effects, from which the summaries of each effect are computed. The package also provides sampler and grid diagnostics, plots made with 'ggplot2', and model comparison by approximate leave-one-out cross-validation. The estimated distribution can be passed to the 'ebnm' package for comparison with empirical Bayes estimates. The model is written in 'Stan' and is fitted with 'CmdStan' through the 'cmdstanr' package.
 }
 \details{
-For sites \eqn{i = 1, \ldots, K} the model is
-\deqn{\hat\theta_i \mid \theta_i \sim N(\theta_i, \sigma_i^2),
-  \qquad \theta_i \sim g,}
-where the standard errors \eqn{\sigma_i} are taken as known and may
-differ between sites. The distribution \eqn{g} is represented on a
-grid, with log probabilities that are a combination of natural cubic
-spline functions; the spline coefficients have a normal prior whose
-precision has a half-Cauchy prior. \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} gives the
-details.
+To get started, read \code{vignette("bayesEfron")}, which walks through a
+complete analysis of the callback gaps of 97 firms. The model, its prior
+distributions and the way it is fitted are described in
+\code{\link[=bayes_efron_fit]{bayes_efron_fit()}}.
 }
-\section{Main functions}{
+\section{Functions}{
 
 \itemize{
-\item \code{\link[=as_bef_data]{as_bef_data()}} takes the estimates and standard errors out of a list,
-a data frame or a \code{metafor::escalc()} object and checks them.
+\item \code{\link[=as_bef_data]{as_bef_data()}} extracts the estimates and their standard errors from
+a list, a data frame or a \code{metafor::escalc()} object and checks them.
+\item \code{\link[=make_efron_grid]{make_efron_grid()}} builds the grid and the spline basis, and
+\link[=plot.bef_grid]{plot()} shows them together with the estimates.
 \item \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} fits the model and returns a \link{bef_fit} object,
 which has \code{summary()}, \code{coef()}, \code{confint()} and other methods.
-\item \code{\link[=diagnose]{diagnose()}} returns the convergence diagnostics of a fit.
-\item \link[=plot.bef_fit_re]{plot()} draws the site effects, the estimated
-distribution of effects, the diagnostics or the Pareto k values.
-\item \link[=predict.bef_fit_re]{predict()} draws the effect or the estimate of a
-new site.
-\item \code{\link[=make_efron_grid]{make_efron_grid()}} builds the grid and the spline basis, and
-\code{\link[=compare_efron_grids]{compare_efron_grids()}} compares several of them by leave-one-out
-cross-validation.
-\item \code{\link[=bayes_efron_compile]{bayes_efron_compile()}} compiles the Stan model before the first fit,
-and \code{\link[=bayes_efron_clear_cache]{bayes_efron_clear_cache()}} removes the compiled model.
+\item \code{\link[=diagnose]{diagnose()}} returns sampler and grid diagnostics.
+\item \code{\link[=g_summary]{g_summary()}} summarizes the estimated distribution of effects, and
+\code{\link[=site_summary]{site_summary()}} and \code{\link[=exceedance_prob]{exceedance_prob()}} summarize the site effects.
+\item \link[=plot.bef_fit_re]{plot()} plots a fit. The functions that it calls can
+also be called directly: \code{\link[=plot_g]{plot_g()}}, \code{\link[=plot_sites]{plot_sites()}},
+\code{\link[=plot_shrinkage]{plot_shrinkage()}}, \code{\link[=plot_exceedance]{plot_exceedance()}}, \code{\link[=plot_site_posterior]{plot_site_posterior()}},
+\code{\link[=plot_diagnostics]{plot_diagnostics()}}, \code{\link[=plot_loo]{plot_loo()}}, \code{\link[=plot_ppc]{plot_ppc()}}, \code{\link[=plot_mcmc]{plot_mcmc()}} and,
+for simulated data, \code{\link[=plot_recovery]{plot_recovery()}}.
+\item \link[=predict.bef_fit_re]{predict()} returns draws of the effect or of the
+estimate of a new site.
+\item \link[=loo.bef_fit]{loo()} estimates how well a fit predicts the estimate of
+a site that is left out, and \code{\link[=compare_efron_grids]{compare_efron_grids()}} compares fits on
+several grids by that measure.
+\item \code{\link[=as_normalmix]{as_normalmix()}} returns the estimate of \eqn{g} as a \code{normalmix}
+object for the ebnm package.
+\item \code{\link[=bayes_efron_compile]{bayes_efron_compile()}} compiles the two Stan programs before the first
+fit, and \code{\link[=bayes_efron_clear_cache]{bayes_efron_clear_cache()}} deletes the compiled models.
+}
 }
 
-The examples use the data set \link{raudenbush1985} and the fit
-\link{raudenbush_fit}. \code{vignette("bayesEfron")} is the place to start.
+\section{Data sets and vignettes}{
+
+The following data sets come with a stored fit, which can be used
+without CmdStan.
+\itemize{
+\item \link{krw_discrimination} and \link{krw_fit}: the callback gaps of 97 firms,
+analyzed in \code{vignette("bayesEfron")}.
+\item \link{raudenbush1985} and \link{raudenbush_fit}: a meta-analysis of 19 studies,
+analyzed in \code{vignette("teacher-expectancy")}.
+\item \link{twin_towers} and \link{twin_towers_fit}: a simulated data set with known
+true effects, analyzed in \code{vignette("twin-towers")}.
+}
+
+The data set \link{star_schools} contains estimates of the effect of small
+classes in kindergarten in 79 schools of Project STAR, a multisite
+trial.
+
+The other vignettes cover data input, the choice of the grid,
+diagnostics, plots, a comparison with empirical Bayes methods, the
+model, and the implementation. \code{browseVignettes("bayesEfron")} lists
+them all.
 }
 
 \section{Funding}{

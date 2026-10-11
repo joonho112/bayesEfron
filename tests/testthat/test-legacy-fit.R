@@ -16,7 +16,8 @@ legacy_notice <- function(expr) {
   list(value = value, notices = notices)
 }
 
-# Independent calculations from the historical draws, rather than the repair.
+# The summaries of the sites computed here from the draws of the saved fit,
+# and not by the code of the package that computes them again.
 legacy_reference <- function(fit) {
   dm <- as.matrix(posterior::as_draws_matrix(fit$draws))
   data <- fit$metadata$data_list
@@ -39,28 +40,42 @@ legacy_reference <- function(fit) {
   )
 }
 
-test_that("actual historical fits return current definitions with one notice", {
+test_that("a fit saved by version 0.1 or 0.2 is summarized with the definitions of this version, and warns once per call", {
   for (version in c("v01", "v02")) {
     fit <- legacy_fit(version)
     unchanged <- fit
     reference <- legacy_reference(fit)
+    # The table that this version computes from the draws of g in the fit.
+    current <- legacy_ns(".bef_theta_summary")(legacy_ns(".bef_engine")(fit))
     result <- legacy_notice(as.data.frame(fit))
     expect_length(result$notices, 1L)
     expect_match(result$notices, "definitions of this version")
-    expect_equal(result$value$sd, reference$sd, tolerance = 1e-12)
-    expect_equal(result$value$map, reference$mode, tolerance = 1e-12)
-    expect_identical(result$value$mean, fit$metadata$theta_summary$mean)
-    expect_identical(result$value$hpdi_lower, fit$metadata$theta_summary$hpdi_lower)
-    expect_identical(result$value$hpdi_upper, fit$metadata$theta_summary$hpdi_upper)
+    expect_equal(result$value$sd, current$sd, tolerance = 1e-12)
+    # The standard deviation of version 0.3.0 divides the variance between
+    # draws by one less than their number.
+    expect_equal(result$value$sd, reference$sd, tolerance = 0.02)
+    expect_equal(result$value$mode, reference$mode, tolerance = 1e-12)
+    expect_identical(result$value$map, result$value$mode)
+    expect_equal(result$value$mean, fit$metadata$theta_summary$mean, tolerance = 1e-6)
+    expect_equal(result$value$lower, current$lower)
+    expect_equal(result$value$upper, current$upper)
+    expect_identical(result$value$hpdi_lower, result$value$lower)
 
     result <- legacy_notice(summary(fit, level = 0.95))
     expect_length(result$notices, 1L)
-    expect_equal(result$value$theta_summary$sd, reference$sd)
+    expect_equal(result$value$theta_summary$sd, current$sd)
     expect_equal(result$value$theta_summary$map, reference$mode)
+    # At a level other than the stored one the limits come from the posterior
+    # distribution; the quantiles of the theta_rep draws are still available
+    # with method = "draws".
+    exact <- suppressWarnings(confint(fit, level = 0.95))
+    expect_equal(result$value$theta_summary$hpdi_lower, exact$lower)
+    expect_equal(result$value$theta_summary$hpdi_upper, exact$upper)
     expected <- apply(reference$theta_rep, 2L, stats::quantile, c(0.025, 0.975))
-    expect_equal(result$value$theta_summary$hpdi_lower, unname(expected[1L, ]))
-    expect_equal(result$value$theta_summary$hpdi_upper, unname(expected[2L, ]))
-    expect_identical(attr(result$value, "summary_definition_version"), 1L)
+    from_draws <- suppressWarnings(confint(fit, level = 0.95, method = "draws"))
+    expect_equal(from_draws$lower, unname(expected[1L, ]))
+    expect_equal(from_draws$upper, unname(expected[2L, ]))
+    expect_identical(attr(result$value, "summary_definition_version"), 2L)
     expect_warning(format(result$value), NA)
 
     for (method in list(
@@ -74,12 +89,12 @@ test_that("actual historical fits return current definitions with one notice", {
       expect_length(legacy_notice(method())$notices, 1L)
     }
     expect_equal(unname(legacy_notice(coef(fit, type = "map"))$value), reference$mode)
-    expect_equal(unname(diag(legacy_notice(vcov(fit))$value)), reference$sd^2)
+    expect_equal(unname(diag(legacy_notice(vcov(fit))$value)), current$sd^2)
     expect_identical(fit, unchanged)
   }
 })
 
-test_that("version 0.1 effective parameters are repaired in every returned form", {
+test_that("a fit saved by version 0.1 has its effective parameters computed again, and diagnose() and predict() refuse it", {
   fit <- legacy_fit("v01")
   reference <- legacy_reference(fit)
   repaired <- legacy_notice(legacy_ns(".bef_prepare_fit")(fit))$value
@@ -101,7 +116,7 @@ test_that("version 0.1 effective parameters are repaired in every returned form"
   }
 })
 
-test_that("historical plots use repaired copies on both backends", {
+test_that("plots of a fit saved by version 0.1 or 0.2 give one warning each with either backend, or ask for a refit", {
   path <- tempfile(fileext = ".pdf")
   grDevices::pdf(path)
   on.exit({ grDevices::dev.off(); unlink(path) }, add = TRUE)
@@ -111,7 +126,12 @@ test_that("historical plots use repaired copies on both backends", {
       result <- legacy_notice(plot(fit, type = type, backend = "base"))
       expect_length(result$notices, 1L)
       expect_null(result$value)
-      if (requireNamespace("ggplot2", quietly = TRUE)) {
+      if (identical(version, "v01") && identical(type, "diagnostic")) {
+        # The ggplot2 plot draws what diagnose() reports, which a fit of
+        # version 0.1 does not hold.
+        expect_error(suppressWarnings(plot(fit, type = type)), "Refit",
+                     class = "bef_invalid_fit")
+      } else {
         result <- legacy_notice(plot(fit, type = type, backend = "ggplot2"))
         expect_length(result$notices, 1L)
         expect_s3_class(result$value, "ggplot")
@@ -120,7 +140,7 @@ test_that("historical plots use repaired copies on both backends", {
   }
 })
 
-test_that("unmarked current fits are unchanged and do not warn", {
+test_that("a fit made by this version keeps its summaries and gives no warning, even without its version attribute", {
   fit <- raudenbush_fit
   attr(fit$metadata, "summary_definition_version") <- NULL
   unchanged <- fit
@@ -133,12 +153,12 @@ test_that("unmarked current fits are unchanged and do not warn", {
   expect_identical(fit, unchanged)
 })
 
-test_that("incomplete and future fits cannot silently return old summaries", {
+test_that("the methods refuse a fit saved by version 0.2 that lacks its draws of g and a fit made by a later version", {
   incomplete <- legacy_fit("v02")
   keep <- !grepl("^(log_g|g)\\[", dimnames(incomplete$draws)[[3L]])
   incomplete$draws <- incomplete$draws[, , keep, drop = FALSE]
   future <- legacy_fit("v02")
-  attr(future$metadata, "summary_definition_version") <- 2L
+  attr(future$metadata, "summary_definition_version") <- 3L
   expect_error(diagnose(future), "later version", class = "bef_invalid_fit")
   for (method in list(summary, coef, vcov, as.data.frame, logLik, format,
                       posterior::as_draws, function(x) confint(x),
@@ -149,13 +169,16 @@ test_that("incomplete and future fits cannot silently return old summaries", {
   }
 })
 
-test_that("saved summaries retain definitions or request the original fit", {
+test_that("a summary saved by this version prints the same, and one saved by an earlier or a later version is an error", {
   current <- summary(raudenbush_fit)
   serialized <- unserialize(serialize(current, NULL))
   expect_identical(format(serialized, use_cli = FALSE), format(current, use_cli = FALSE))
   attr(serialized, "summary_definition_version") <- NULL
   expect_error(format(serialized), "again on the fit", class = "bef_invalid_fit")
   expect_error(print(serialized), "again on the fit", class = "bef_invalid_fit")
-  attr(serialized, "summary_definition_version") <- 2L
+  # A summary saved by version 0.3.0 has summary_definition_version 1.
+  attr(serialized, "summary_definition_version") <- 1L
+  expect_error(format(serialized), "again on the fit", class = "bef_invalid_fit")
+  attr(serialized, "summary_definition_version") <- 3L
   expect_error(format(serialized), "later version", class = "bef_invalid_fit")
 })

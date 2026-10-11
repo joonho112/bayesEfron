@@ -1,8 +1,8 @@
 .bef_validate_fit_args <- function(theta_hat,
                                    sigma,
                                    ...,
-                                   grid_method = .bef_grid_methods(),
-                                   L = 101L,
+                                   grid_method = "paper_realdata",
+                                   L = NULL,
                                    expansion = 0.5,
                                    M = 6L,
                                    theta_true = NULL,
@@ -16,7 +16,12 @@
                                    max_treedepth = 10L,
                                    seed = NULL,
                                    keep_cmdstan_fit = FALSE,
-                                   store_grid_quantities = FALSE) {
+                                   store_grid_quantities = FALSE,
+                                   site_draws = FALSE,
+                                   thin = 1L,
+                                   refresh = NULL,
+                                   init = 0.5,
+                                   show_messages = NULL) {
   .bef_check_no_dots(list(...))
 
   theta_hat <- .bef_validate_theta_hat(theta_hat)
@@ -24,13 +29,16 @@
   grid_method <- .bef_validate_grid_method(grid_method)
   model_family <- .bef_validate_fit_model_family(model_family)
 
-  L <- .bef_validate_fit_int(
-    L,
-    arg = "L",
-    lower = 51L,
-    upper = 300L,
-    predicate = "integer scalar in [51, 300]"
-  )
+  # `NULL` leaves the number of grid points to the rule of the grid.
+  if (!is.null(L)) {
+    L <- .bef_validate_fit_int(
+      L,
+      arg = "L",
+      lower = 51L,
+      upper = 401L,
+      predicate = "integer scalar in [51, 401], or `NULL`"
+    )
+  }
   expansion <- .bef_validate_fit_number(
     expansion,
     arg = "expansion",
@@ -87,6 +95,35 @@
   store_grid_quantities <- .bef_validate_store_grid_quantities(
     store_grid_quantities
   )
+  .bef_check_fit_arg(
+    checkmate::assert_flag(site_draws),
+    arg = "site_draws",
+    predicate = "single TRUE/FALSE value"
+  )
+  thin <- .bef_validate_fit_int(
+    thin,
+    arg = "thin",
+    lower = 1L,
+    upper = iter_sampling,
+    predicate = "integer scalar between 1 and `iter_sampling`"
+  )
+  if (!is.null(refresh)) {
+    refresh <- .bef_validate_fit_int(
+      refresh,
+      arg = "refresh",
+      lower = 0L,
+      upper = .Machine$integer.max,
+      predicate = "non-negative integer scalar, or `NULL`"
+    )
+  }
+  init <- .bef_validate_init(init, chains = chains)
+  if (!is.null(show_messages)) {
+    .bef_check_fit_arg(
+      checkmate::assert_flag(show_messages),
+      arg = "show_messages",
+      predicate = "single TRUE/FALSE value, or `NULL`"
+    )
+  }
 
   list(
     theta_hat = theta_hat,
@@ -106,8 +143,29 @@
     max_treedepth = max_treedepth,
     seed = seed,
     keep_cmdstan_fit = keep_cmdstan_fit,
-    store_grid_quantities = store_grid_quantities
+    store_grid_quantities = store_grid_quantities,
+    site_draws = site_draws,
+    thin = thin,
+    refresh = refresh,
+    init = init,
+    show_messages = show_messages
   )
+}
+
+# The starting values of the chains: one number, the half-width of the
+# interval from which CmdStan draws them on the unconstrained scale; a list
+# with one list of values for each chain; or a function that returns such a
+# list of values.
+.bef_validate_init <- function(init, chains) {
+  number <- is.numeric(init) && length(init) == 1L && is.finite(init) && init >= 0
+  per_chain <- is.list(init) && length(init) == chains && all(vapply(init, is.list, logical(1L)))
+  if (!number && !per_chain && !is.function(init)) {
+    .bef_abort_invalid_args(
+      "`init` must be a single number that is not negative, a list with one list of starting values for each chain, or a function that returns such values.",
+      arg = "init"
+    )
+  }
+  init
 }
 
 .bef_check_no_dots <- function(dots) {
@@ -130,40 +188,62 @@
 }
 
 .bef_validate_theta_hat <- function(theta_hat) {
-  .bef_check_fit_arg(
-    checkmate::assert_numeric(
-      theta_hat,
-      finite = TRUE,
-      any.missing = FALSE,
-      min.len = 5L
-    ),
-    arg = "theta_hat",
-    predicate = "finite numeric vector of length 5 or more"
-  )
-
+  problem <- .bef_vector_problem(theta_hat, "theta_hat", min_len = .bef_min_sites())
+  if (!is.null(problem)) {
+    .bef_abort_invalid_args(problem, arg = "theta_hat")
+  }
   .bef_drop_storage_mode(theta_hat)
 }
 
 .bef_validate_sigma <- function(sigma, K) {
-  .bef_check_fit_arg(
-    checkmate::assert_numeric(
-      sigma,
-      finite = TRUE,
-      any.missing = FALSE,
-      len = K,
-      lower = .Machine$double.eps
-    ),
-    arg = "sigma",
-    predicate = "finite positive numeric vector matching theta_hat length"
-  )
-
+  problem <- .bef_vector_problem(sigma, "sigma", len = K, positive = TRUE)
+  if (!is.null(problem)) {
+    .bef_abort_invalid_args(problem, arg = "sigma")
+  }
   .bef_drop_storage_mode(sigma)
+}
+
+# What is wrong with a vector of estimates or standard errors, as one
+# sentence, or NULL. The type, missing values, infinite values, the length
+# and the sign are reported separately, the first that applies.
+.bef_vector_problem <- function(x, arg, min_len = NULL, len = NULL, positive = FALSE) {
+  count <- function(n, what) sprintf("%d %s%s", n, what, if (n == 1L) "" else "s")
+  if (is.null(x)) {
+    return(sprintf("`%s` is missing; give one value for each site.", arg))
+  }
+  if (!is.numeric(x)) {
+    return(sprintf("`%s` must be a numeric vector, not %s.", arg,
+                   paste(class(x), collapse = "/")))
+  }
+  if (anyNA(x)) {
+    return(sprintf("`%s` has %s (the first at position %d).", arg,
+                   count(sum(is.na(x)), "missing value"), which(is.na(x))[1L]))
+  }
+  if (any(is.infinite(x))) {
+    return(sprintf("`%s` has %s (the first at position %d).", arg,
+                   count(sum(is.infinite(x)), "infinite value"), which(is.infinite(x))[1L]))
+  }
+  if (!is.null(min_len) && length(x) < min_len) {
+    return(sprintf("`%s` must have at least %d values, one for each site; it has %d.",
+                   arg, min_len, length(x)))
+  }
+  if (!is.null(len) && length(x) != len) {
+    return(sprintf("`%s` must have one value for each of the %d estimates; it has %d.",
+                   arg, len, length(x)))
+  }
+  if (isTRUE(positive) && any(x < .Machine$double.eps)) {
+    bad <- x < .Machine$double.eps
+    return(sprintf("`%s` must be positive; it has %s that %s not (the first at position %d).",
+                   arg, count(sum(bad), "value"), if (sum(bad) == 1L) "is" else "are",
+                   which(bad)[1L]))
+  }
+  NULL
 }
 
 .bef_validate_grid_method <- function(grid_method) {
   methods <- .bef_grid_methods()
-  if (identical(grid_method, methods)) {
-    return(methods[[1L]])
+  if (identical(grid_method, "kl_target_experimental")) {
+    .bef_abort_invalid_args(.bef_kl_target_removed(), arg = "grid_method")
   }
 
   .bef_check_fit_arg(
@@ -175,11 +255,12 @@
 }
 
 .bef_validate_fit_model_family <- function(model_family) {
-  .bef_check_fit_arg(
-    checkmate::assert_choice(model_family, choices = "RE"),
-    arg = "model_family",
-    predicate = '"RE"'
-  )
+  if (!identical(model_family, "RE")) {
+    .bef_abort_invalid_args(
+      "`model_family` must be \"RE\", the only model that the package fits.",
+      arg = "model_family"
+    )
+  }
   model_family
 }
 
@@ -309,15 +390,15 @@
       invisible(TRUE)
     },
     error = function(err) {
+      # One sentence: what the argument must be and what was found. The
+      # message of the check is not repeated as a parent error.
+      found <- sub("^Assertion on '[^']*' failed: ", "", conditionMessage(err))
+      found <- sub("[.]$", "", found)
+      found <- paste0(tolower(substr(found, 1L, 1L)), substr(found, 2L, nchar(found)))
       .bef_abort_invalid_args(
-        sprintf(
-          "`%s` failed validation (%s): %s",
-          arg,
-          predicate,
-          conditionMessage(err)
-        ),
-        arg = arg,
-        parent = err
+        sprintf("`%s` must be %s %s: %s.", arg,
+                if (grepl("^[aeiou]", predicate)) "an" else "a", predicate, found),
+        arg = arg
       )
     }
   )
@@ -327,4 +408,28 @@
   out <- as.numeric(x)
   names(out) <- names(x)
   out
+}
+
+# The estimates and standard errors of a call. The first argument is the
+# numeric vector of estimates, with `sigma` their standard errors, or a
+# `bef_data` object or a data frame that holds both, with `sigma` left out.
+# The labels of the sites, when there are any, are returned as the names of
+# the estimates.
+.bef_resolve_data_args <- function(theta_hat, sigma = NULL) {
+  if (!inherits(theta_hat, "bef_data") && !is.data.frame(theta_hat)) {
+    return(list(theta_hat = theta_hat, sigma = sigma))
+  }
+  if (!is.null(sigma)) {
+    .bef_abort_invalid_args(
+      paste0(
+        "`sigma` must be left out when the first argument is a data frame or a ",
+        "`bef_data` object, which holds the standard errors."
+      ),
+      arg = "sigma"
+    )
+  }
+  data <- as_bef_data(theta_hat)
+  estimates <- data$theta_hat
+  names(estimates) <- data$names
+  list(theta_hat = estimates, sigma = data$sigma)
 }

@@ -9,7 +9,11 @@ test_that("the model compiles and a short fit returns a complete object", {
   model <- bayes_efron_compile(quiet = TRUE, force_recompile = TRUE)
   expect_s3_class(model, "CmdStanModel")
   expect_true(file.exists(model$exe_file()))
-  expect_match(basename(model$exe_file()), "^efron_re-[0-9a-f]{12}-cmdstan")
+  expect_match(basename(model$exe_file()), "^efron_mix-[0-9a-f]{12}-cmdstan")
+  # The same call compiles the program of version 0.3.0.
+  old <- getFromNamespace(".bef_model", "bayesEfron")(program = "efron_re")
+  expect_true(file.exists(old$exe_file()))
+  expect_match(basename(old$exe_file()), "^efron_re-[0-9a-f]{12}-cmdstan")
 
   # A second call attaches to the same file without compiling again.
   compiled_at <- file.mtime(model$exe_file())
@@ -26,7 +30,8 @@ test_that("the model compiles and a short fit returns a complete object", {
     iter_warmup = 150L,
     iter_sampling = 4L,
     seed = 4701L,
-    keep_cmdstan_fit = FALSE
+    keep_cmdstan_fit = FALSE,
+    site_draws = TRUE
   ))
 
   expect_s3_class(fit, c("bef_fit_re", "bef_fit"), exact = TRUE)
@@ -75,7 +80,7 @@ test_that("an escalc object goes through as_bef_data(), a short fit and the meth
   expect_s3_class(diagnose(fit), "bef_diagnostic")
 
   intervals <- confint(fit, level = 0.9, type = "theta")
-  expect_named(intervals, c("site", "lower", "upper", "point"))
+  expect_named(intervals, c("site", "mean", "lower", "upper", "point"))
   expect_equal(nrow(intervals), K)
   expect_true(all(is.finite(intervals$lower)))
   expect_true(all(intervals$lower <= intervals$upper))
@@ -123,6 +128,7 @@ test_that("a short fit to one K = 50 benchmark replication gives a coverage in [
     M = replication$M,
     grid_method = replication$grid_method,
     expansion = replication$expansion,
+    site_draws = TRUE,
     chains = 1L,
     iter_warmup = 150L,
     iter_sampling = 20L,
@@ -135,4 +141,70 @@ test_that("a short fit to one K = 50 benchmark replication gives a coverage in [
   expect_true(is.finite(coverage))
   expect_gte(coverage, 0)
   expect_lte(coverage, 1)
+})
+
+test_that("a fit keeps the draws of g by default, and the same ones as a fit with site-level draws", {
+  skip_if_no_cmdstan()
+  call <- function(site_draws) {
+    suppressWarnings(bayes_efron_fit(
+      theta_hat = c(north = -0.45, south = -0.1, east = 0, west = 0.25, centre = 0.55),
+      sigma = c(0.12, 0.18, 0.15, 0.22, 0.2),
+      L = 51L, M = 3L, chains = 2L, iter_warmup = 150L, iter_sampling = 40L,
+      seed = 4702L, site_draws = site_draws
+    ))
+  }
+  compact <- call(FALSE)
+  full <- call(TRUE)
+  blocks <- function(fit) unique(sub("\\[.*$", "", dimnames(fit$draws)[[3L]]))
+  expect_setequal(
+    blocks(compact),
+    c("lp__", "alpha", "lambda", "log_g", "mean_g", "var_g", "sd_g",
+      "effective_params", "log_marginal_likelihood")
+  )
+  expect_true(all(c("theta_mean", "theta_sd", "theta_map", "theta_rep", "log_lik") %in%
+                    blocks(full)))
+  shared <- dimnames(compact$draws)[[3L]]
+  expect_identical(compact$draws[, , shared], full$draws[, , shared])
+  expect_equal(site_summary(compact), site_summary(full))
+  expect_lt(as.numeric(object.size(compact)), as.numeric(object.size(full)))
+  # The labels of the sites follow the estimates into the fit.
+  expect_named(coef(compact), c("north", "south", "east", "west", "centre"))
+  expect_identical(rownames(confint(compact, parm = "east")), "east")
+  # Every method works on a fit without site-level draws.
+  expect_s3_class(summary(compact), "summary.bef_fit_re")
+  expect_s3_class(diagnose(compact), "bef_diagnostic")
+  expect_length(predict(compact, n = 5L, seed = 1L), 5L)
+  expect_equal(dim(vcov(compact)), c(5L, 5L))
+  expect_output(print(compact), "site-level draws not kept")
+  if (requireNamespace("loo", quietly = TRUE)) {
+    expect_equal(suppressWarnings(loo::loo(compact))$estimates,
+                 suppressWarnings(loo::loo(full))$estimates)
+    expect_equal(suppressWarnings(loo::waic(compact))$estimates,
+                 suppressWarnings(loo::waic(full))$estimates)
+    # The log likelihood computed from log_g is the one that Stan wrote.
+    expect_equal(
+      .bef_log_lik(.bef_engine(full)),
+      unname(unclass(.bef_log_lik_draws(full))),
+      tolerance = 1e-6, ignore_attr = TRUE
+    )
+  }
+  grDevices::pdf(tempfile(fileext = ".pdf"))
+  withr::defer(grDevices::dev.off())
+  for (type in c("caterpillar", "g", "diagnostic")) {
+    expect_no_error(plot(compact, type = type, backend = "base"))
+  }
+  # The sampler's quantities of every iteration are kept for bayesplot.
+  nuts <- attr(compact$metadata, "nuts")
+  expect_equal(dim(nuts)[1:2], c(40L, 2L))
+  expect_true(all(c("divergent__", "treedepth__", "energy__", "accept_stat__",
+                    "stepsize__", "n_leapfrog__") %in% dimnames(nuts)[[3L]]))
+  if (requireNamespace("bayesplot", quietly = TRUE)) {
+    np <- bayesplot::nuts_params(compact)
+    expect_named(np, c("Chain", "Iteration", "Parameter", "Value"))
+    expect_identical(nrow(np), 40L * 2L * dim(nuts)[[3L]])
+    expect_s3_class(
+      bayesplot::mcmc_nuts_energy(np),
+      "ggplot"
+    )
+  }
 })

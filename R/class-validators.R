@@ -60,7 +60,8 @@
       class
     )
   }
-  if (!metadata$grid_method %in% .bef_grid_methods()) {
+  # "support" is recorded when the end points of the grid were given.
+  if (!metadata$grid_method %in% c(.bef_grid_methods(), "support")) {
     .bef_abort_validate(
       "`metadata$grid_method` must be one of the supported grid methods.",
       class
@@ -88,7 +89,7 @@
     c("K", "theta_hat", "sigma", "L", "grid", "M", "B", "store_grid_quantities"),
     "`metadata$data_list`", class
   )
-  if (!.bef_is_whole_number(data_list$K) || data_list$K < 5L) {
+  if (!.bef_is_whole_number(data_list$K) || data_list$K < .bef_min_sites()) {
     .bef_abort_validate("`metadata$data_list$K` must be an integer scalar >= 5.", class)
   }
   if (!.bef_is_whole_number(data_list$L) || data_list$L < 1L) {
@@ -253,12 +254,32 @@
       class
     )
   }
-  .bef_require_exact_fields(
-    x,
-    c("site", "mean", "sd", "hpdi_lower", "hpdi_upper", "map"),
-    "`metadata$theta_summary`",
-    class
-  )
+  # The limits and the mode may carry the names of this version, those of
+  # version 0.3.0, or both.
+  new_names <- c("lower", "upper", "mode")
+  old_names <- c("hpdi_lower", "hpdi_upper", "map")
+  if (!all(new_names %in% names(x)) && !all(old_names %in% names(x))) {
+    .bef_abort_validate(
+      paste0(
+        "`metadata$theta_summary` must have the columns `site`, `mean`, `sd`, ",
+        "`lower`, `upper` and `mode`."
+      ),
+      class,
+      missing_fields = setdiff(new_names, names(x))
+    )
+  }
+  .bef_require_fields(x, c("site", "mean", "sd"), "`metadata$theta_summary`", class)
+  unknown <- setdiff(names(x), .bef_site_table_columns())
+  if (length(unknown) > 0L) {
+    .bef_abort_validate(
+      sprintf(
+        "`metadata$theta_summary` has unknown columns: %s.",
+        paste(sprintf("`%s`", unknown), collapse = ", ")
+      ),
+      class,
+      unknown_fields = unknown
+    )
+  }
   if (!is.integer(x$site) && !is.numeric(x$site)) {
     .bef_abort_validate("`metadata$theta_summary$site` must be numeric.", class)
   }
@@ -268,59 +289,99 @@
       class
     )
   }
-  .bef_validate_numeric_column(x$mean, "`metadata$theta_summary$mean`", class)
-  .bef_validate_numeric_column(x$sd, "`metadata$theta_summary$sd`", class, lower = 0)
-  .bef_validate_numeric_column(x$hpdi_lower, "`metadata$theta_summary$hpdi_lower`", class)
-  .bef_validate_numeric_column(x$hpdi_upper, "`metadata$theta_summary$hpdi_upper`", class)
-  if (any(x$hpdi_lower > x$hpdi_upper)) {
+  if (!is.null(x$label) &&
+      (!is.character(x$label) || anyNA(x$label) || anyDuplicated(x$label) > 0L)) {
     .bef_abort_validate(
-      "`metadata$theta_summary$hpdi_lower` must be <= `hpdi_upper`.",
+      "`metadata$theta_summary$label` must hold one distinct label per site.",
       class
     )
   }
-  .bef_validate_numeric_column(x$map, "`metadata$theta_summary$map`", class)
+  .bef_validate_numeric_column(x$mean, "`metadata$theta_summary$mean`", class)
+  .bef_validate_numeric_column(x$sd, "`metadata$theta_summary$sd`", class, lower = 0)
+  lower <- if (is.null(x$lower)) x$hpdi_lower else x$lower
+  upper <- if (is.null(x$upper)) x$hpdi_upper else x$upper
+  mode <- if (is.null(x$mode)) x$map else x$mode
+  .bef_validate_numeric_column(lower, "`metadata$theta_summary$lower`", class)
+  .bef_validate_numeric_column(upper, "`metadata$theta_summary$upper`", class)
+  if (any(lower > upper)) {
+    .bef_abort_validate(
+      "`metadata$theta_summary$lower` must be <= `upper`.",
+      class
+    )
+  }
+  .bef_validate_numeric_column(mode, "`metadata$theta_summary$mode`", class)
+  for (pair in list(c("lower", "hpdi_lower"), c("upper", "hpdi_upper"), c("mode", "map"))) {
+    if (all(pair %in% names(x)) && !isTRUE(all.equal(x[[pair[1L]]], x[[pair[2L]]]))) {
+      .bef_abort_validate(
+        sprintf("`metadata$theta_summary$%s` and `$%s` must hold the same values.",
+                pair[1L], pair[2L]),
+        class
+      )
+    }
+  }
 }
 
 # The table of site effects must agree with the draws that it summarizes:
-# `mean` with the mean of `theta_mean`, `sd` with the posterior standard
-# deviation computed from `theta_mean` and `theta_sd`, and `map` must be a
-# grid point.
-.bef_validate_theta_summary_consistency <- function(theta_summary,
-                                                    theta_mean_draws,
-                                                    theta_sd_draws,
-                                                    grid,
-                                                    class) {
+# `mean` and `sd` with the mean and the standard deviation of the posterior
+# distribution computed from `log_g`, and, with point masses, `mode` must be
+# a grid point. The moments are computed again for a few sites only, so that
+# the check stays cheap for a fit with many sites.
+.bef_validate_theta_summary_consistency <- function(fit, class) {
+  table <- .bef_site_table(fit)
+  data <- fit$metadata$data_list
+  grid <- as.numeric(data$grid)
+  scale <- max(1, abs(grid))
+  tau_c <- if (is.null(data$tau_c)) 0 else data$tau_c
+  if (tau_c == 0) {
+    distance <- vapply(
+      table$mode,
+      function(value) min(abs(value - grid)),
+      numeric(1L)
+    )
+    if (any(distance > sqrt(.Machine$double.eps) * scale)) {
+      .bef_abort_validate(
+        "`metadata$theta_summary$mode` must hold points of the grid.",
+        class
+      )
+    }
+  }
+  # The moments can be checked only against the draws of g, and only for a
+  # table with the definitions of this version: one saved by an earlier
+  # version is computed again when a method uses the fit.
+  variables <- dimnames(fit$draws)[[3L]]
+  current <- identical(
+    attr(fit$metadata, "summary_definition_version", exact = TRUE),
+    .bef_summary_version()
+  )
+  if (!current || !any(c("log_g[1]", "g[1]") %in% variables)) {
+    return(invisible(TRUE))
+  }
+  engine <- .bef_engine(fit)
+  K <- engine$K
+  check <- unique(round(seq(1, K, length.out = min(K, 5L))))
+  moments <- .bef_site_moments(engine, sites = check)
   .bef_expect_close(
-    theta_summary$mean,
-    colMeans(theta_mean_draws),
-    "`metadata$theta_summary$mean` must match `theta_mean` column means in `draws`.",
+    table$mean[check] / scale,
+    moments$mean / scale,
+    "`metadata$theta_summary$mean` must match the posterior means computed from `log_g` in `draws`.",
     class
   )
   .bef_expect_close(
-    theta_summary$sd,
-    .bef_posterior_sd(theta_mean_draws, theta_sd_draws),
+    table$sd[check] / scale,
+    sqrt(moments$var) / scale,
     paste0(
       "`metadata$theta_summary$sd` must be the posterior standard deviation ",
-      "computed from `theta_mean` and `theta_sd` in `draws`."
+      "computed from `log_g` in `draws`."
     ),
     class
   )
-  grid <- as.numeric(grid)
-  distance <- vapply(
-    theta_summary$map,
-    function(value) min(abs(value - grid)),
-    numeric(1L)
-  )
-  if (any(distance > sqrt(.Machine$double.eps) * max(1, abs(grid)))) {
-    .bef_abort_validate(
-      "`metadata$theta_summary$map` must hold points of the grid.",
-      class
-    )
-  }
+  invisible(TRUE)
 }
 
 .bef_expect_close <- function(x, y, message, class) {
-  tolerance <- sqrt(.Machine$double.eps)
+  # Looser than the precision of the arithmetic: a table computed from the
+  # values that CmdStan wrote with eight significant digits must pass.
+  tolerance <- 1e-6
   if (length(x) != length(y) || any(abs(x - y) > tolerance)) {
     .bef_abort_validate(message, class)
   }
@@ -345,17 +406,31 @@
 }
 
 # The site-level generated quantities must be in the draws array.
-.bef_validate_site_draws_present <- function(draws, K, class) {
+# The site-level draws are optional. A fit that keeps any of them must keep
+# each kept block whole, one variable for each site.
+.bef_validate_site_draws <- function(draws, K, class) {
   available <- dimnames(draws)[[3L]]
-  for (field in .bef_site_generated_quantity_fields()) {
+  blocks <- sub("\\[.*$", "", available)
+  for (field in c(.bef_site_generated_quantity_fields(), "log_lik")) {
+    if (!field %in% blocks) next
     expected <- paste0(field, "[", seq_len(K), "]")
     if (!all(expected %in% available)) {
       .bef_abort_validate(
-        sprintf("`bef_fit_re$draws` must contain %s[1:K].", field),
+        sprintf("`bef_fit_re$draws` must contain %s[1:K] or none of it.", field),
         class
       )
     }
   }
+}
+
+# Does the fit keep the site-level draws of version 0.3.0?
+.bef_has_site_draws <- function(fit) {
+  K <- as.integer(fit$metadata$data_list$K)
+  wanted <- unlist(lapply(
+    .bef_site_generated_quantity_fields(),
+    function(field) paste0(field, "[", c(1L, K), "]")
+  ))
+  all(wanted %in% dimnames(fit$draws)[[3L]])
 }
 
 .bef_validate_numeric_column <- function(x, field, class, lower = -Inf) {

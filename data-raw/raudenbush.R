@@ -1,19 +1,17 @@
-# Builds the two data sets in data/: `raudenbush1985`, the teacher expectancy
-# studies, and `raudenbush_fit`, the model fitted to them with the default
-# settings. Needs CmdStan. Run from the package root:
+# Builds `raudenbush1985`, the teacher expectancy studies, in data/. Run from
+# the package root:
 #
 #   Rscript data-raw/raudenbush.R
 #
-# The fit takes a few seconds once the model is compiled. To keep the package
-# small, one draw in fifteen is kept (800 of 12,000). The convergence
-# diagnostics stored in the object are those of the full run.
+# The model fitted to these data, `raudenbush_fit`, is built by
+# data-raw/example-fits.R together with the other two stored fits.
 
 devtools::load_all(".", quiet = TRUE)
 
 # ---- the data ----------------------------------------------------------------
 # Raudenbush and Bryk (1985, Table 1); `setting` and `tester` from Raudenbush
 # (1984). The same data are distributed as `dat.raudenbush1985` in the metadat
-# package, which is where the values were checked.
+# package; if it is installed, the script compares the values with it.
 raudenbush1985 <- data.frame(
   study = 1:19,
   author = c(
@@ -64,78 +62,7 @@ if (requireNamespace("metadat", quietly = TRUE)) {
   message("raudenbush1985: ", length(shared), " columns equal to metadat::dat.raudenbush1985")
 }
 
-# ---- the fit -----------------------------------------------------------------
-full <- bayes_efron_fit(
-  theta_hat = raudenbush1985$yi,
-  sigma = raudenbush1985$sei,
-  seed = 1985L,
-  keep_cmdstan_fit = TRUE
-)
-# The run must have converged: no failed check, every Rhat below 1.01, every
-# bulk effective sample size above 400 and no divergent transition. A few
-# transitions that reach the maximum tree depth are common with these data
-# and are reported by diagnose(); they are left as they are.
-full_diagnostic <- diagnose(full)
-print(summary(full_diagnostic))
-stopifnot(
-  length(full_diagnostic$sampler_diagnostics_failed) == 0L,
-  length(full_diagnostic$diagnostic_skipped) == 0L,
-  max(full_diagnostic$rhat) < 1.01,
-  min(full_diagnostic$ess_bulk) > 400,
-  full_diagnostic$divergences == 0
-)
-
-# One draw in fifteen. The summaries are computed again from the kept draws,
-# so that they agree with what is stored; the diagnostics are carried over
-# from the full run.
-kept <- posterior::thin_draws(full$draws, thin = 15L)
-stand_in <- list(
-  draws = function(format = "draws_array", ...) kept,
-  diagnostic_summary = function(...) full$cmdstan_fit$diagnostic_summary(...)
-)
-processed <- postprocess_stan_draws(
-  cmdstan_fit = stand_in,
-  stan_data = full$metadata$data_list,
-  model_family = "RE"
-)
-metadata <- full$metadata
-for (field in c(
-  "mean_g_summary", "var_g_summary", "theta_summary",
-  "effective_params_summary", "log_marginal_likelihood_summary"
-)) {
-  metadata[[field]] <- processed[[field]]
-}
-attr(metadata, "sd_g_summary") <- processed$sd_g_summary
-raudenbush_fit <- validate_bef_fit_re(new_bef_fit_re(
-  draws = processed$draws,
-  metadata = metadata,
-  posterior = processed$posterior
-))
-# The posterior means from the kept draws agree with those of the full run to
-# within Monte Carlo error.
-mc_error <- apply(.bef_site_draws(raudenbush_fit, "theta_mean"), 2L, stats::sd) / sqrt(800)
-shift <- abs(coef(raudenbush_fit) - coef(full))
-message(sprintf(
-  "largest change in a posterior mean after thinning: %.4f (%.1f Monte Carlo standard errors)",
-  max(shift), max(shift / mc_error)
-))
-stopifnot(
-  identical(attr(raudenbush_fit$metadata, "diagnostics"), attr(full$metadata, "diagnostics")),
-  posterior::ndraws(raudenbush_fit$draws) == 800L,
-  all(shift < 4 * mc_error)
-)
-
 # ---- save --------------------------------------------------------------------
 dir.create("data", showWarnings = FALSE)
 save(raudenbush1985, file = "data/raudenbush1985.rda", compress = "xz", version = 3)
-save(raudenbush_fit, file = "data/raudenbush_fit.rda", compress = "xz", version = 3)
-message(sprintf(
-  "data/raudenbush1985.rda %d bytes; data/raudenbush_fit.rda %d bytes (%s in memory)",
-  file.size("data/raudenbush1985.rda"), file.size("data/raudenbush_fit.rda"),
-  format(utils::object.size(raudenbush_fit), units = "MB")
-))
-message(sprintf(
-  "CmdStan %s, cmdstanr %s, %s, seed %d, runtime %.1f s",
-  raudenbush_fit$metadata$cmdstan_version, utils::packageVersion("cmdstanr"),
-  format(Sys.Date()), raudenbush_fit$metadata$seed, raudenbush_fit$metadata$runtime_seconds
-))
+message(sprintf("data/raudenbush1985.rda %d bytes", file.size("data/raudenbush1985.rda")))

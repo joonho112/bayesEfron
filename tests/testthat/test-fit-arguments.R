@@ -48,12 +48,20 @@ test_that("the fit context holds the call, the normalized arguments, the data, t
   expect_equal(ctx$bef_data$names, names(prep_theta_hat()))
   expect_equal(ctx$bef_data$source, "list")
 
-  expect_named(ctx$grid, c("grid", "B", "M", "L", "expansion", "kappa", "grid_method", "attribution"))
+  expect_s3_class(ctx$grid, "bef_grid")
+  expect_true(all(c("grid", "B", "M", "L", "expansion", "grid_method", "attribution",
+                    "support", "component", "tau_c", "knots", "resolution") %in% names(ctx$grid)))
   expect_identical(ctx$grid$L, 101L)
   expect_identical(ctx$grid$M, 6L)
   expect_equal(ctx$grid$grid_method, "paper_realdata")
 
-  expect_named(ctx$stan_data, c("K", "theta_hat", "sigma", "L", "grid", "M", "B", "store_grid_quantities"))
+  expect_named(ctx$stan_data, c("K", "theta_hat", "sigma", "L", "grid", "M", "B", "tau_c",
+                                "store_grid_quantities"))
+  expect_identical(ctx$stan_data$tau_c, 0)
+  # The arguments record what was used.
+  expect_identical(ctx$args$L, 101L)
+  expect_identical(ctx$args$M, 6L)
+  expect_null(ctx$args$settings)
   expect_identical(ctx$stan_data$K, 5L)
   expect_identical(ctx$stan_data$L, 101L)
   expect_identical(ctx$stan_data$M, 6L)
@@ -166,11 +174,13 @@ test_that("Stan data are prepared for the simulation and sensitivity grid method
 
   expect_equal(sim$args$theta_true, theta_true)
   expect_equal(sim$grid$grid_method, "paper_simulation")
-  expect_named(sim$stan_data, c("K", "theta_hat", "sigma", "L", "grid", "M", "B", "store_grid_quantities"))
+  expect_named(sim$stan_data, c("K", "theta_hat", "sigma", "L", "grid", "M", "B", "tau_c",
+                                "store_grid_quantities"))
 
   expect_equal(sens$args$bound_expansion, 0.25)
   expect_equal(sens$grid$grid_method, "paper_sensitivity")
-  expect_named(sens$stan_data, c("K", "theta_hat", "sigma", "L", "grid", "M", "B", "store_grid_quantities"))
+  expect_named(sens$stan_data, c("K", "theta_hat", "sigma", "L", "grid", "M", "B", "tau_c",
+                                 "store_grid_quantities"))
 })
 
 test_that("the fit context carries everything that sampling needs", {
@@ -178,8 +188,25 @@ test_that("the fit context carries everything that sampling needs", {
 
   expect_named(
     ctx,
-    c("call", "args", "effective_seed", "grid", "bef_data", "stan_data")
+    c("call", "args", "effective_seed", "grid", "bef_data", "stan_data", "program")
   )
+  # The program is that of this version unless the settings of 0.3.0 are
+  # asked for; the data of the two differ by tau_c.
+  expect_identical(ctx$program, "efron_mix")
+  expect_identical(ctx$stan_data$tau_c, 0)
+  old <- prep_context(seed = 123L, settings = "0.3.0")
+  expect_identical(old$program, "efron_re")
+  expect_identical(old$args$settings, "0.3.0")
+  expect_false("tau_c" %in% names(old$stan_data))
+  expect_identical(
+    ctx$stan_data[setdiff(names(ctx$stan_data), "tau_c")],
+    old$stan_data
+  )
+  for (bad in list("0.2.0", "0.3", TRUE, c("0.3.0", "0.3.0"), NA_character_)) {
+    err <- tryCatch(prep_context(settings = bad), error = identity)
+    expect_prep_invalid_args(err)
+    expect_identical(err$arg, "settings")
+  }
   expect_false("cmdstan_fit" %in% names(ctx))
   expect_false("runtime_seconds" %in% names(ctx))
 })
@@ -192,4 +219,10 @@ test_that("max_treedepth must be a whole number between 1 and 20", {
   }
   expect_identical(prep_context()$args$max_treedepth, 10L)
   expect_identical(prep_context(max_treedepth = 15)$args$max_treedepth, 15L)
+})
+
+test_that("a model family other than the one that is fitted is an error in plain words", {
+  err <- tryCatch(prep_context(model_family = "FE"), error = identity)
+  expect_s3_class(err, "bef_invalid_args")
+  expect_match(conditionMessage(err), "must be \"RE\", the only model", fixed = TRUE)
 })

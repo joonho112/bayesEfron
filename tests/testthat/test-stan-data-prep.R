@@ -1,7 +1,7 @@
-test_that("prepare_stan_data returns the exact locked Stan data shape", {
+test_that("prepare_stan_data() returns the list that Stan reads, with its names in order and K, L and M as integers", {
   theta_hat <- c(-1, 0, 2)
   sigma <- c(0.2, 0.3, 0.4)
-  grid <- make_efron_grid(theta_hat, sigma)
+  grid <- make_efron_grid(theta_hat, sigma, grid_method = "paper_realdata")
   prepare_stan_data <- getFromNamespace("prepare_stan_data", "bayesEfron")
 
   stan_data <- prepare_stan_data(
@@ -26,10 +26,10 @@ test_that("prepare_stan_data returns the exact locked Stan data shape", {
   expect_equal(dim(stan_data$B), c(stan_data$L, stan_data$M))
 })
 
-test_that("prepare_stan_data rejects invalid inputs with typed conditions", {
+test_that("prepare_stan_data() gives bef_invalid_args errors for a wrong sigma, a wrong basis and another model family", {
   theta_hat <- c(-1, 0, 2)
   sigma <- c(0.2, 0.3, 0.4)
-  grid <- make_efron_grid(theta_hat, sigma)
+  grid <- make_efron_grid(theta_hat, sigma, grid_method = "paper_realdata")
   prepare_stan_data <- getFromNamespace("prepare_stan_data", "bayesEfron")
 
   bad_grid <- grid

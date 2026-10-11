@@ -1,4 +1,4 @@
-test_that("plot payload contains backend-independent caterpillar numeric content", {
+test_that("the base caterpillar plot has sorted means and nested intervals, and drawing does not change its data", {
   fit <- plot_test_fit()
   payload <- plot_test_ns(".bef_plot_payload_bef_fit_re")(
     fit,
@@ -27,14 +27,31 @@ test_that("plot payload contains backend-independent caterpillar numeric content
   })
   expect_identical(payload, before)
 
-  if (requireNamespace("ggplot2", quietly = TRUE)) {
-    gg <- plot_test_ns(".bef_plot_ggplot2")(payload)
-    expect_s3_class(gg, "ggplot")
-    expect_identical(attr(gg, "bef_plot_payload", exact = TRUE), payload)
-  }
 })
 
-test_that("plot payload uses grid-level g density draws when available", {
+test_that("the base plots and the ggplot2 plots draw the same numbers", {
+  fit <- bayesEfron::raudenbush_fit
+  payload <- plot_test_ns(".bef_plot_payload_bef_fit_re")
+  sites <- payload(fit, type = "caterpillar", level = 0.8, sort_by = "sigma")$data
+  drawn <- plot_sites(fit, level = 0.8, sort_by = "sigma")
+  # The same sites, intervals and means; plot_sites() puts the most precise
+  # estimate at the top and the base plot at the bottom.
+  expect_identical(rev(drawn$data$site), sites$site)
+  expect_equal(rev(drawn$data$lower), sites$lower)
+  expect_equal(rev(drawn$data$upper), sites$upper)
+  expect_equal(rev(drawn$data$mean), sites$point)
+  expect_equal(rev(drawn$data$inner_lower), sites$inner_lower)
+  expect_equal(plot_layer_data(drawn, 1L)$xintercept,
+               payload(fit, type = "caterpillar", level = 0.8, sort_by = "sigma")$reference)
+
+  mass <- payload(fit, type = "g", level = 0.8, sort_by = "mean")$data
+  drawn <- plot_g(fit, type = "mass", level = 0.8, xlim = range(mass$grid))
+  expect_equal(plot_layer_data(drawn, 2L)$y, mass$point)
+  expect_equal(plot_layer_data(drawn, 1L)$ymin, mass$lower)
+  expect_equal(plot_layer_data(drawn, 1L)$ymax, mass$upper)
+})
+
+test_that("for a fit with draws of g, the base plot of g has a mean inside an interval at each grid point", {
   fit <- plot_test_fit(L = 13L)
   payload <- plot_test_ns(".bef_plot_payload_bef_fit_re")(
     fit,
@@ -71,7 +88,7 @@ test_that("type = \"g\" draws the density band for a fit made with the default s
   expect_equal(sum(payload$data$point), 1, tolerance = 1e-8)
 })
 
-test_that("plot payload falls back to prior-moment g summaries without g draws", {
+test_that("for a fit with neither g nor log_g, the base plot of g has the intervals of the moments of g", {
   fit <- plot_test_fit()
   fit$draws <- fit$draws[, , c("mean_g", "var_g"), drop = FALSE]
 
@@ -87,15 +104,14 @@ test_that("plot payload falls back to prior-moment g summaries without g draws",
   expect_equal(payload$data$site, c("mean_g", "var_g", "sd_g"))
 })
 
-test_that("plot.bef_fit_re returns ggplot objects when ggplot2 backend is active", {
-  skip_if_not_installed("ggplot2")
+test_that("plot() of a fit returns ggplot objects without the attribute of version 0.3", {
   fit <- plot_test_fit()
 
   gg <- plot(fit, type = "caterpillar", level = 0.8)
   expect_s3_class(gg, "ggplot")
-  expect_equal(attr(gg, "bef_plot_payload", exact = TRUE)$type, "caterpillar")
+  expect_null(attr(gg, "bef_plot_payload", exact = TRUE))
 
   g_plot <- plot(fit, type = "g", level = 0.8)
   expect_s3_class(g_plot, "ggplot")
-  expect_equal(attr(g_plot, "bef_plot_payload", exact = TRUE)$type, "g")
+  expect_null(attr(g_plot, "bef_plot_payload", exact = TRUE))
 })

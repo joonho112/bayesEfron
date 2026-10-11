@@ -8,14 +8,29 @@ test_that("the base backend draws every plot type and returns NULL", {
   })
 })
 
-test_that("backend picks ggplot2 when it is installed and can be set to base", {
-  use_ggplot2 <- plot_test_ns(".bef_plot_use_ggplot2")
-  expect_equal(use_ggplot2(), requireNamespace("ggplot2", quietly = TRUE))
-  expect_false(use_ggplot2("base", explicit = TRUE))
+test_that("the base backend is deprecated and draws the four plots of version 0.3 only", {
+  fit <- plot_test_fit()
+  shown <- plot_test_ns(".bayesEfron_msgs_emitted")
+  shown[["plot_backend_base"]] <- NULL
+  withr::defer(shown[["plot_backend_base"]] <- TRUE)
+  plot_test_with_pdf_device({
+    expect_warning(plot(fit, type = "g", backend = "base"), "deprecated",
+                   class = "bef_deprecated")
+    # The warning is given once in a session.
+    expect_no_warning(plot(fit, type = "g", backend = "base"))
+    expect_null(plot(fit, type = "sites", backend = "base"))
+    expect_null(plot(fit, type = "diagnostics", backend = "base"))
+  })
+  expect_error(plot(fit, type = "shrinkage", backend = "base"), "draws only the types",
+               class = "bef_invalid_args")
+  expect_error(plot(fit, type = "g", scale = 100, backend = "base"),
+               "only further arguments are `level` and `sort_by`", class = "bef_invalid_args")
 
   err <- tryCatch(plot(plot_test_fit(), backend = "lattice"), error = identity)
   expect_s3_class(err, "bef_invalid_args")
   expect_identical(err$arg, "backend")
+  # `backend = "ggplot2"`, which version 0.3 took, is what is drawn anyway.
+  expect_s3_class(plot(bayesEfron::raudenbush_fit, backend = "ggplot2"), "ggplot")
 })
 
 test_that("the sensitivity type is no longer accepted", {

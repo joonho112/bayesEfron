@@ -6,8 +6,13 @@
 \alias{diagnose.bef_fit}
 \alias{print.bef_diagnostic}
 \alias{summary.bef_diagnostic}
+\alias{as.data.frame.bef_diagnostic}
 \alias{format.bef_diagnostic}
-\title{Convergence diagnostics of a fitted model}
+\alias{nuts_params.bef_fit}
+\alias{log_posterior.bef_fit}
+\alias{rhat.bef_fit}
+\alias{neff_ratio.bef_fit}
+\title{MCMC convergence and grid diagnostics for a fitted model}
 \usage{
 diagnose(fit, ...)
 
@@ -19,86 +24,246 @@ diagnose(fit, ...)
 
 \method{summary}{bef_diagnostic}(object, ...)
 
+\method{as.data.frame}{bef_diagnostic}(x, row.names = NULL, optional = FALSE, ...)
+
 \method{format}{bef_diagnostic}(x, ..., use_cli = NULL)
+
+\method{nuts_params}{bef_fit}(object, pars = NULL, ...)
+
+\method{log_posterior}{bef_fit}(object, ...)
+
+\method{rhat}{bef_fit}(object, pars = NULL, ...)
+
+\method{neff_ratio}{bef_fit}(object, pars = NULL, ...)
 }
 \arguments{
-\item{fit}{A \code{bef_fit} object from \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}.}
+\item{fit}{A \code{bef_fit} object created by \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}.}
 
 \item{...}{For \code{diagnose()}, these dots are for future extensions and
 must be empty. The \code{print()} method passes them on to \code{format()};
-\code{format()} and \code{summary()} do not use them.}
+\code{format()} and \code{summary()} ignore them.}
 
-\item{x, object}{A \code{bef_diagnostic} object.}
+\item{x, object}{A \code{bef_diagnostic} object returned by \code{diagnose()}. For
+the bayesplot methods (\code{nuts_params()}, \code{log_posterior()}, \code{rhat()}
+and \code{neff_ratio()}), \code{object} is a \code{bef_fit} object.}
 
-\item{use_cli}{Logical or \code{NULL}. With \code{TRUE} and the cli package
-installed, the first line is set in bold and section titles in
-color; \code{FALSE} gives plain text. \code{NULL} (the default) takes the value
-of \code{getOption("bayesEfron.use_cli", TRUE)}.}
+\item{row.names, optional}{Ignored. They are arguments of the
+\code{as.data.frame()} generic.}
+
+\item{use_cli}{If \code{TRUE} and the cli package is installed, the first
+line is formatted in bold; \code{FALSE} gives plain text. If \code{NULL} (the
+default), the value of \code{getOption("bayesEfron.use_cli", TRUE)} is
+used.}
+
+\item{pars}{An optional character vector. For \code{nuts_params()}, the
+names of the sampler quantities to return; for \code{rhat()} and
+\code{neff_ratio()}, the names of the variables. If \code{NULL} (the default),
+all are returned.}
 }
 \value{
-A list of class \code{bef_diagnostic}. \code{rhat}, \code{ess_bulk} and
-\code{ess_tail} are numeric vectors with one value for each quantity in the
-draws. \code{divergences} and \code{max_treedepth} are the numbers of divergent
-transitions and of iterations that reached the maximum tree depth,
-totaled over the chains, and \code{ebfmi} has one value for each chain; the
-three are \code{NA} if CmdStan did not report them. \code{model_family},
-\code{stan_file_sha256}, \code{runtime_seconds} and \code{effective_params_summary}
-repeat values from \code{fit$metadata}. \code{sampler_diagnostics_failed},
-\code{sampler_diagnostics_warned} and \code{diagnostic_skipped} are character
-vectors that name the diagnostics that fail a check, those that
-deserve a warning, and those that could not be computed or were not
-checked (see Details). All three are empty for a fit of 400 or more
-draws without problems.
+An object of class \code{bef_diagnostic}, which is a list with the
+following components.
+\describe{
+\item{\code{rhat}}{R-hat for each variable in the draws, a named numeric
+vector.}
+\item{\code{ess_bulk}, \code{ess_tail}}{The bulk and tail effective sample
+sizes, in the same form.}
+\item{\code{divergences}, \code{max_treedepth}}{The number of divergent
+transitions and the number of iterations that reached the maximum
+tree depth, each summed over the chains.}
+\item{\code{ebfmi}}{The E-BFMI of each chain. Like the two counts, it is
+\code{NA} if CmdStan did not report it.}
+\item{\code{sampler_diagnostics_failed}}{Names of the diagnostics that
+fail a check.}
+\item{\code{sampler_diagnostics_warned}}{Names of the diagnostics that
+lead to a warning. \code{"grid_ends"} is among them if an end of the
+grid has the status \code{"warning"}.}
+\item{\code{diagnostic_skipped}}{Names of the diagnostics that could not
+be computed or were not checked. These three character vectors
+are empty if the run has at least 400 draws and there are no
+problems.}
+\item{\code{grid}}{A list with the grid diagnostics (see below), or
+\code{NULL} if they cannot be computed for the fit.}
+\item{\code{model_family}, \code{stan_file_sha256}, \code{runtime_seconds},
+\code{effective_params_summary}}{Values copied from \code{fit$metadata} (see
+\link{bef_fit}).}
+}
+The list \code{grid} has the following components.
+\describe{
+\item{\code{ends}}{A data frame with one row per end of the grid (see
+below).}
+\item{\code{share}}{The outer fraction of the grid's range that is
+examined at each end (0.02).}
+\item{\code{threshold}}{The posterior probability above which an end is
+flagged (0.05).}
+\item{\code{sd_g}}{The posterior mean and the 5\% and 95\% quantiles of the
+standard deviation of \eqn{g}.}
+\item{\code{sd_g_prior}}{The 5\%, 50\% and 95\% quantiles of the prior
+distribution of that standard deviation on this grid.}
+\item{\code{occupied}}{The proportion of the grid's range that contains
+the central 99.9\% of the estimate of \eqn{g}.}
+\item{\code{tau_c_over_sd_g}}{The standard deviation of a normal
+component divided by the standard deviation of \eqn{g} (\code{NA} for
+point masses).}
+}
+The data frame \code{grid$ends} has the following columns.
+\describe{
+\item{\code{end}}{\code{"lower"} or \code{"upper"}.}
+\item{\code{value}}{The grid point at that end.}
+\item{\code{set_by}}{How the end was set: \code{"support"}, \code{"estimates"},
+\code{"pilot"} or \code{"true effects"}.}
+\item{\code{mass}}{The largest posterior probability that any site has
+in the outer 2\% of the range at that end.}
+\item{\code{site}, \code{label}}{The position in the data and the label of
+that site.}
+\item{\code{estimate_beyond}}{How far the estimate of that site lies
+beyond the end, in units of its standard error (negative if it
+lies inside the grid).}
+\item{\code{sites_over}}{The number of sites for which this probability
+exceeds 0.05.}
+\item{\code{limits_at_end}}{The number of sites whose 90\% interval has
+a limit at the grid point at that end when \code{reading = "step"} is
+used, because that grid point alone has at least the tail
+probability of the interval.}
+\item{\code{status}}{\code{"ok"}, \code{"warning"} or \code{"note"}.}
+}
 }
 \description{
-\code{diagnose()} collects the diagnostics of the sampler that
-\code{\link[=bayes_efron_fit]{bayes_efron_fit()}} computed when the model was fitted and names those
-that fail a check. It computes nothing new from the draws.
+\code{diagnose()} returns the MCMC diagnostics of a fit (R-hat, effective
+sample sizes, divergent transitions, tree depth and E-BFMI) and flags
+those that indicate a problem. The diagnostics were computed by
+\code{\link[=bayes_efron_fit]{bayes_efron_fit()}} when the model was fitted, so no sampling is done.
+\code{diagnose()} also checks the grid, in particular whether the result for
+any site depends on where the grid ends.
 }
 \details{
-A diagnostic is named in \code{sampler_diagnostics_failed} if an R-hat value
-exceeds 1.05 or if there is a divergent transition. It is named in
-\code{sampler_diagnostics_warned} if an R-hat value lies between 1.01 and
-1.05, a bulk or tail effective sample size is below 400, an iteration
-reached the maximum tree depth, or the E-BFMI of a chain is below 0.2.
+A diagnostic fails its check and is named in \code{sampler_diagnostics_failed}
+in two cases.
+\itemize{
+\item An R-hat value exceeds 1.05.
+\item There is a divergent transition.
+}
+
+A diagnostic leads to a warning and is named in
+\code{sampler_diagnostics_warned} in the following cases.
+\itemize{
+\item An R-hat value is between 1.01 and 1.05.
+\item A bulk or tail effective sample size is below 400.
+\item An iteration reached the maximum tree depth.
+\item The energy Bayesian fraction of missing information (E-BFMI) of a
+chain is below 0.3.
+}
+
 R-hat below 1.01 and effective sample sizes above 400 are the
-recommendations of Vehtari et al. (2021); the other thresholds are
-choices of this package.
+recommendations of Vehtari et al. (2021), and 0.3 is the value below
+which CmdStan warns about E-BFMI. The other thresholds are choices of
+this package. See \code{vignette("diagnostics")} for what to do about each
+kind of warning.
 
-With fewer than 400 draws in all, R-hat and the effective sample sizes
-are too unreliable to act on. Their values are still returned, but they
-are not compared with the thresholds, and \code{diagnostic_skipped} holds
-\code{"rhat_check"}, \code{"ess_bulk_check"} and \code{"ess_tail_check"} to say so.
-Divergent transitions, the maximum tree depth and E-BFMI are checked
-however short the run.
+The sampler diagnostics describe the whole run, even if the fit was
+thinned. If the run has fewer than 400 draws in total, R-hat and the
+effective sample sizes are too unreliable to act on. Their values are
+still returned, but they are not compared with the thresholds, and
+\code{diagnostic_skipped} contains \code{"rhat_check"}, \code{"ess_bulk_check"} and
+\code{"ess_tail_check"}. Divergent transitions, the maximum tree depth and
+E-BFMI are checked regardless of the length of the run.
 
-R-hat and the effective sample sizes are undefined for a quantity that
-takes the same value in every draw, such as the posterior mode of a site
-whose mode never moves from one grid point, and are \code{NA} for it. If one
-of the three diagnostics cannot be computed at all, or comes out
-infinite for some quantity, all its values are \code{NA} and its name is in
-\code{diagnostic_skipped}. \code{vignette("diagnostics")} discusses what to do
-about each kind of warning.
+R-hat and the effective sample sizes are \code{NA} for a quantity that has
+the same value in every draw, e.g., the posterior mode of a site that
+never leaves one grid point in a fit with \code{site_draws = TRUE}. If a
+quantity is constant within each chain but differs between chains, the
+chains have not mixed and its R-hat is infinite. That R-hat is stored as
+\code{NA}, and \code{"rhat"} is named in \code{sampler_diagnostics_failed} even for a
+run of fewer than 400 draws. If R-hat or an effective sample size
+cannot be computed at all, or an effective sample size is infinite, all
+values of that diagnostic are \code{NA} and it is named in
+\code{diagnostic_skipped}.
+
+The \code{grid} component contains the grid diagnostics. The main one is a
+check of the ends of the grid, i.e., its lower and upper limits. With
+point masses, the model places no effect beyond them. For each end,
+\code{grid$ends} gives the largest posterior probability that any site has in
+the outer 2\% of the grid's range (\code{mass}). If this probability exceeds
+0.05, the result for that site depends on where the grid ends, and the
+\code{status} of the end depends on how the end was set (\code{set_by}).
+Otherwise the status is \code{"ok"}.
+\itemize{
+\item The status is \code{"warning"} if the end was specified in \code{support} or
+follows from the estimates alone (\code{set_by} is \code{"support"} or
+\code{"estimates"}). \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} then issues a warning of class
+\code{bef_warn_grid_ends} that names the site, and \code{"grid_ends"} is added
+to \code{sampler_diagnostics_warned}, although it concerns the grid and not
+the sampler. A wider range may change the result, and
+\code{\link[=compare_efron_grids]{compare_efron_grids()}} shows whether it does.
+\item The status is \code{"note"} if the \code{"pilot"} method moved the end in
+(\code{set_by} is \code{"pilot"}). The pilot fit, which used a wider range,
+placed at most 0.05\% of \eqn{g} beyond that end. A site with a large
+probability there has an estimate beyond the end of \eqn{g} and is
+shrunk to it, so the probability is reported without a warning. The
+same applies to a range around the true effects of a simulation
+(\code{set_by} is \code{"true effects"}).
+}
+
+See the examples of \code{\link[=plot.bef_grid_comparison]{plot.bef_grid_comparison()}} for a comparison in
+which the narrowest range gives a probability above 0.05.
+
+No single number shows whether a range is wider than necessary. If
+there are few sites, the data carry little information about the parts
+of the range that contain no estimates, and \eqn{g} is determined by the
+prior there. The \code{grid} component therefore gives the posterior mean and
+90\% interval of the standard deviation of \eqn{g} (\code{sd_g}) next to the
+5\%, 50\% and 95\% quantiles of its prior distribution on the same grid
+(\code{sd_g_prior}). If the two are close, the data have hardly determined
+the tails of \eqn{g}, and it is worth comparing fits with other ranges.
+The proportion of the grid's range that contains the central 99.9\% of
+the estimate of \eqn{g} (\code{occupied}) is informative only if there are
+many sites.
 }
 \section{Functions}{
 \itemize{
 \item \code{print(bef_diagnostic)}: Prints the worst value of each diagnostic.
 
-\item \code{summary(bef_diagnostic)}: Returns a list in which \code{rhat}, \code{ess_bulk} and \code{ess_tail} are
-reduced to their worst value, with the name of the quantity that has
-it.
+\item \code{summary(bef_diagnostic)}: Returns a list in which \code{rhat}, \code{ess_bulk} and
+\code{ess_tail} are reduced to their worst value (the largest R-hat and
+the smallest effective sample sizes), with the name of the variable
+that has it.
 
-\item \code{format(bef_diagnostic)}: Returns the lines that \code{print()} shows, as a character vector.
+\item \code{as.data.frame(bef_diagnostic)}: Returns a data frame with one row per diagnostic
+and the columns \code{diagnostic}, \code{value} (the worst value), \code{threshold},
+\code{rule} (whether \code{value} should be \code{"at most"} or \code{"at least"} the
+threshold) and \code{status} (\code{"ok"}, \code{"warning"}, \code{"failed"} or
+\code{"not checked"}). The last row, \code{grid_ends}, is for the end of the
+grid at which a site has the largest posterior probability in the
+outer 2\% of the range. Its status is \code{"note"} if that probability
+exceeds the threshold at an end set by the \code{"pilot"} method or from
+the true effects.
+
+\item \code{format(bef_diagnostic)}: Returns the lines that \code{print()} shows as a
+character vector.
+
+\item \code{nuts_params(bef_fit)}: Methods for bayesplot generics, so that the
+bayesplot plots of sampler diagnostics can be made from a fit.
+\code{nuts_params()} returns the divergence indicator, the tree depth, the
+energy, the acceptance statistic, the step size and the number of
+leapfrog steps for every stored iteration, and \code{log_posterior()}
+returns the log density for every stored iteration. \code{rhat()} and
+\code{neff_ratio()} return, for each variable, R-hat and the bulk effective
+sample size divided by the number of iterations of the whole run. In a
+thinned fit (see \code{thin} in \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}) the stored iterations
+are not consecutive, so a plot that compares each iteration with the
+previous one, such as \code{bayesplot::mcmc_nuts_energy()}, should not be
+made from it. \code{nuts_params()} throws an error if the fit does not
+contain the sampler quantities.
 
 }}
 \examples{
-diag <- diagnose(raudenbush_fit)
+diag <- diagnose(krw_fit)
 diag
 
-# The worst value of R-hat and the quantity that has it.
+# The largest R-hat and the variable that has it.
 summary(diag)$rhat
 
-# The three quantities with the smallest bulk effective sample size.
+# The three variables with the smallest bulk effective sample size.
 head(sort(diag$ess_bulk), 3)
 
 }

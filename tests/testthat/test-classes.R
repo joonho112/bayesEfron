@@ -73,16 +73,17 @@ synthetic_posterior <- function(K = 5L, S = 4L) {
 }
 
 synthetic_fit_re <- function(K = 5L, L = 51L, M = 3L, S = 4L) {
-  bef_ns("new_bef_fit_re")(
+  fixture_consistent(bef_ns("new_bef_fit_re")(
     draws = bef_fixture_draws(
       theta_map = matrix(0, nrow = S, ncol = K),
       theta_mean = matrix(0, nrow = S, ncol = K),
       theta_sd = matrix(0.1, nrow = S, ncol = K),
-      theta_rep = matrix(0, nrow = S, ncol = K)
+      theta_rep = matrix(0, nrow = S, ncol = K),
+      grid_points = L
     ),
     metadata = synthetic_metadata(K = K, L = L, M = M, S = S),
     posterior = synthetic_posterior(K = K, S = S)
-  )
+  ))
 }
 
 expect_bef_invalid_args <- function(err) {
@@ -164,7 +165,7 @@ test_that("validators accept minimal valid objects", {
   expect_identical(bef_ns("validate_bef_diagnostic")(diag), diag)
 })
 
-test_that("validator failures carry the package condition classes", {
+test_that("the validators give bef_invalid_args errors for data and bef_invalid_fit errors for a fit or diagnostics", {
   bad_data <- bef_ns("new_bef_data")(
     theta_hat = 1:4,
     sigma = rep(0.2, 4L)
@@ -257,17 +258,46 @@ test_that("the fit validator rejects malformed summaries and site-level output",
   expect_bef_invalid_fit(err)
   expect_match(conditionMessage(err), "posterior standard deviation")
 
-  # `map` must be a grid point.
+  # The mode must be a grid point, and the columns that repeat it and the
+  # limits under the names of version 0.3.0 must hold the same values.
   bad_fit <- synthetic_fit_re()
   grid <- bad_fit$metadata$data_list$grid
+  bad_fit$metadata$theta_summary$mode[1] <- mean(grid[1:2])
   bad_fit$metadata$theta_summary$map[1] <- mean(grid[1:2])
   err <- tryCatch(bef_ns("validate_bef_fit_re")(bad_fit), error = identity)
   expect_bef_invalid_fit(err)
   expect_match(conditionMessage(err), "points of the grid")
 
   bad_fit <- synthetic_fit_re()
-  bad_fit$metadata$theta_summary$hpdi_lower[1] <-
-    bad_fit$metadata$theta_summary$hpdi_upper[1] + 1
+  bad_fit$metadata$theta_summary$map[1] <- bad_fit$metadata$theta_summary$map[1] + 1
+  err <- tryCatch(bef_ns("validate_bef_fit_re")(bad_fit), error = identity)
+  expect_bef_invalid_fit(err)
+  expect_match(conditionMessage(err), "same values")
+
+  bad_fit <- synthetic_fit_re()
+  bad_fit$metadata$theta_summary$lower[1] <- bad_fit$metadata$theta_summary$upper[1] + 1
+  bad_fit$metadata$theta_summary$hpdi_lower[1] <- bad_fit$metadata$theta_summary$lower[1]
+  err <- tryCatch(bef_ns("validate_bef_fit_re")(bad_fit), error = identity)
+  expect_bef_invalid_fit(err)
+
+  # A table with only the six columns of version 0.3.0 is accepted, and a
+  # table with an unknown column is refused.
+  old_table <- synthetic_fit_re()
+  old_table$metadata$theta_summary <- old_table$metadata$theta_summary[
+    , c("site", "mean", "sd", "hpdi_lower", "hpdi_upper", "map")
+  ]
+  expect_no_error(bef_ns("validate_bef_fit_re")(old_table))
+  expect_named(bef_ns(".bef_site_table")(old_table),
+               c("site", "label", "estimate", "se", "mean", "sd", "lower", "upper",
+                 "mode", "hpdi_lower", "hpdi_upper", "map"))
+  bad_fit <- synthetic_fit_re()
+  bad_fit$metadata$theta_summary$extra <- 1
+  err <- tryCatch(bef_ns("validate_bef_fit_re")(bad_fit), error = identity)
+  expect_bef_invalid_fit(err)
+
+  # Labels must be distinct.
+  bad_fit <- synthetic_fit_re()
+  bad_fit$metadata$theta_summary$label[2] <- bad_fit$metadata$theta_summary$label[1]
   err <- tryCatch(bef_ns("validate_bef_fit_re")(bad_fit), error = identity)
   expect_bef_invalid_fit(err)
 
@@ -303,7 +333,7 @@ test_that("the fit validator rejects malformed summaries and site-level output",
   expect_bef_invalid_fit(err)
 })
 
-test_that("fit argument validation normalizes valid inputs", {
+test_that("valid arguments of a fit come back with their defaults: the estimates as doubles, M and a given L as integers", {
   out <- bef_ns(".bef_validate_fit_args")(
     theta_hat = c(a = 1L, b = 2L, c = 3L, d = 4L, e = 5L),
     sigma = c(0.2, 0.3, 0.4, 0.3, 0.2),
@@ -317,27 +347,38 @@ test_that("fit argument validation normalizes valid inputs", {
       "theta_true", "bound_expansion", "model_family", "chains",
       "parallel_chains", "iter_warmup", "iter_sampling", "adapt_delta",
       "max_treedepth", "seed",
-      "keep_cmdstan_fit", "store_grid_quantities"
+      "keep_cmdstan_fit", "store_grid_quantities", "site_draws",
+      "thin", "refresh", "init", "show_messages"
     )
   )
   expect_type(out$theta_hat, "double")
   expect_equal(names(out$theta_hat), c("a", "b", "c", "d", "e"))
   expect_equal(out$grid_method, "paper_realdata")
-  expect_type(out$L, "integer")
+  # Without `L` the number of grid points is left to the rule of the grid.
+  expect_null(out$L)
+  expect_identical(
+    bef_ns(".bef_validate_fit_args")(1:5 / 10, rep(0.2, 5), L = 401)$L,
+    401L
+  )
   expect_type(out$M, "integer")
   expect_equal(out$model_family, "RE")
   expect_equal(out$seed, 7L)
   expect_false(out$keep_cmdstan_fit)
 })
 
-test_that("fit argument validation failures are typed and payloaded", {
+test_that("an invalid argument of a fit is a bef_invalid_args error; the one for sigma names it and says what is wrong", {
   err <- tryCatch(
     bef_ns(".bef_validate_fit_args")(1:5 / 10, c(0.1, 0.2, 0.1, 0.2, 0)),
     error = identity
   )
   expect_bef_invalid_args(err)
   expect_equal(err$arg, "sigma")
-  expect_s3_class(err$parent, "error")
+  # One sentence that says what is wrong, with no parent error behind it.
+  expect_null(err$parent)
+  expect_identical(
+    conditionMessage(err),
+    "`sigma` must be positive; it has 1 value that is not (the first at position 5)."
+  )
 
   err <- tryCatch(
     bef_ns(".bef_validate_fit_args")(1:5 / 10, rep(0.2, 5), foo = 1),
@@ -347,7 +388,7 @@ test_that("fit argument validation failures are typed and payloaded", {
   expect_equal(err$arg, "...")
 
   bad_cases <- list(
-    function() bef_ns(".bef_validate_fit_args")(1:5 / 10, rep(0.2, 5), L = NULL),
+    function() bef_ns(".bef_validate_fit_args")(1:5 / 10, rep(0.2, 5), L = 402L),
     function() bef_ns(".bef_validate_fit_args")(1:5 / 10, rep(0.2, 5), L = 50L),
     function() bef_ns(".bef_validate_fit_args")(1:5 / 10, rep(0.2, 5), M = 11L),
     function() bef_ns(".bef_validate_fit_args")(1:5 / 10, rep(0.2, 5), chains = 17L),
@@ -412,7 +453,7 @@ test_that("as_bef_data converts escalc-class data without metafor", {
   expect_null(x$names)
 })
 
-test_that("as_bef_data conversion failures are typed", {
+test_that("as_bef_data gives bef_invalid_args errors for what it cannot read, and reads variances with a message", {
   err <- tryCatch(as_bef_data(1:5), error = identity)
   expect_bef_invalid_args(err)
 
@@ -436,7 +477,14 @@ test_that("as_bef_data conversion failures are typed", {
   expect_bef_invalid_args(err)
   expect_equal(err$arg, "x$vi")
 
-  err <- tryCatch(as_bef_data(data.frame(yi = 1:5, vi = rep(0.04, 5L))), error = identity)
+  # A data frame with estimates and variances only is read, with a message;
+  # one with neither standard errors nor variances is an error.
+  expect_message(
+    data <- as_bef_data(data.frame(yi = 1:5, vi = rep(0.04, 5L))),
+    "square roots of the variances"
+  )
+  expect_equal(data$sigma, rep(0.2, 5L))
+  err <- tryCatch(as_bef_data(data.frame(yi = 1:5, weight = rep(0.04, 5L))), error = identity)
   expect_bef_invalid_args(err)
 })
 

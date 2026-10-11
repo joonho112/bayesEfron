@@ -2,143 +2,323 @@
 % Please edit documentation in R/grid.R
 \name{make_efron_grid}
 \alias{make_efron_grid}
-\title{Build the grid and spline basis for the effect distribution}
+\alias{format.bef_grid}
+\alias{print.bef_grid}
+\title{Build the grid and spline basis for the distribution of effects}
 \usage{
 make_efron_grid(
   theta_hat,
-  sigma,
+  sigma = NULL,
+  ...,
   L = NULL,
   expansion = 0.5,
-  kappa = NULL,
   M = 6L,
-  grid_method = "paper_realdata",
+  grid_method = "pilot",
   theta_true = NULL,
-  bound_expansion = NULL
+  bound_expansion = NULL,
+  support = NULL,
+  component = c("point", "normal"),
+  width = 2/3,
+  knots = "grid",
+  margin = 0.1,
+  seed = NULL
 )
+
+\method{format}{bef_grid}(x, digits = 3L, ...)
+
+\method{print}{bef_grid}(x, ...)
 }
 \arguments{
-\item{theta_hat}{Numeric vector of effect estimates, one for each site.}
+\item{theta_hat}{Numeric vector of effect estimates, one per site. Can
+also be a data frame or a \code{bef_data} object that contains the
+estimates and their standard errors (see \code{\link[=as_bef_data]{as_bef_data()}}), in which
+case \code{sigma} is omitted.}
 
-\item{sigma}{Numeric vector of the standard errors of the estimates. All
+\item{sigma}{Numeric vector of standard errors of the estimates. All
 must be positive.}
 
-\item{L}{Whole number between 51 and 300, the number of grid points, or
-\code{NULL} (the default) for 101.}
+\item{...}{For \code{make_efron_grid()}, these dots are for future extensions
+and must be empty; the arguments after them must be named. The
+\code{print()} method passes them on to \code{format()}.}
 
-\item{expansion}{Number between 0 and 5. With \code{"paper_realdata"} and
-\code{"kl_target_experimental"}, the range of \code{theta_hat} is widened on each
-side by \code{expansion} times its width. Defaults to \code{0.5}.}
+\item{L}{Number of grid points, an integer from 51 to 401. If \code{NULL}
+(the default), the number is chosen from the data: 101, or more if
+101 points are too few for the standard errors or for the spread of
+the effects. See Details.}
 
-\item{kappa}{Number greater than 0 and less than 1, used by
-\code{"kl_target_experimental"} only: it sets the spacing that the method
-aims at, as described in Details. \code{NULL} (the default) means
-\code{1 / length(theta_hat)}.}
+\item{expansion}{Expansion factor, a number between 0 and 5. With
+\code{grid_method = "pilot"} or \code{"paper_realdata"}, the range of
+\code{theta_hat} is extended on each side by \code{expansion} times its width.}
 
-\item{M}{Whole number between 3 and 10, the number of spline functions.
-Defaults to \code{6L}.}
+\item{M}{Number of spline functions, an integer from 3 to 10. More
+spline functions allow \eqn{g} to have narrower features. In
+simulated data sets of 1,500 sites, the site intervals contained
+somewhat fewer of the true effects with 8 functions than with 6 (see
+\code{vignette("twin-towers")}).}
 
-\item{grid_method}{Character string, the rule for the end points of the
-grid: \code{"paper_realdata"} (the default), \code{"paper_simulation"},
-\code{"paper_sensitivity"} or \code{"kl_target_experimental"}. The Details of
-\code{\link[=make_efron_grid]{make_efron_grid()}} describe them.}
+\item{grid_method}{Method for choosing the limits of the grid:
+\code{"pilot"} (the default), \code{"paper_realdata"}, \code{"paper_simulation"} or
+\code{"paper_sensitivity"}. See Details. \code{"pilot"} requires CmdStan; the
+others do not.}
 
-\item{theta_true}{Numeric vector of the true effects, of the same length
-as \code{theta_hat}. Needed by \code{"paper_simulation"} and
-\code{"paper_sensitivity"}, which are for simulations.}
+\item{theta_true}{Numeric vector of true effects, the same length as
+\code{theta_hat}. Required by \code{"paper_simulation"} and
+\code{"paper_sensitivity"}, which are intended for simulations.}
 
-\item{bound_expansion}{Number greater than 0 and at most 5. With
-\code{"paper_sensitivity"}, the range of \code{theta_true} is widened on each
-side by \code{bound_expansion} times its width. \code{NULL} (the default) means
-0.5.}
+\item{bound_expansion}{Expansion factor for
+\code{grid_method = "paper_sensitivity"}, a number greater than 0 and at
+most 5: the range of \code{theta_true} is extended on each side by
+\code{bound_expansion} times its width. \code{NULL} (the default) is equivalent
+to 0.5.}
+
+\item{support}{Numeric vector of length 2 with the lower and upper
+limits of the grid. If \code{NULL} (the default), the limits are chosen by
+\code{grid_method}.}
+
+\item{component}{Type of component at each grid point: \code{"point"} (the
+default) for a point mass, or \code{"normal"} for a normal distribution.}
+
+\item{width}{Standard deviation of the normal components in units of the
+grid spacing, a number greater than 0 and at most 2. Only used with
+\code{component = "normal"}.}
+
+\item{knots}{Method for placing the knots of the spline functions.
+Currently only \code{"grid"} is available; see Details.}
+
+\item{margin}{Margin for \code{grid_method = "pilot"}, a number between 0
+and 1. The interval that contains the central 99.9\% of the pilot
+estimate of \eqn{g} is extended on each side by \code{margin} times its
+width.}
+
+\item{seed}{Integer seed for the pilot fit, only used with
+\code{grid_method = "pilot"}. If \code{NULL} (the default), a seed is taken from
+the clock.}
+
+\item{x}{A \code{bef_grid} object created by \code{make_efron_grid()}.}
+
+\item{digits}{Number of significant digits to print.}
 }
 \value{
-A list. \code{grid} holds the grid points and \code{B} the spline basis, a
-matrix with one row for each grid point and \code{M} columns. \code{L} and \code{M}
-are the numbers of grid points and spline functions, and \code{grid_method}
-is the method. \code{expansion} is the factor by which the range was widened
-(\code{NA} for \code{"paper_simulation"}), and \code{kappa} is \code{NULL} unless the method
-is \code{"kl_target_experimental"}. \code{attribution} is a list with the rule,
-\code{formula}, and where it comes from, \code{source}.
+An object of class \code{bef_grid}, which is a list with the
+following components.
+\describe{
+\item{\code{grid}}{The grid points.}
+\item{\code{B}}{The spline basis, a matrix with one row per grid point
+and \code{M} columns.}
+\item{\code{L}, \code{M}}{The number of grid points and the number of spline
+functions.}
+\item{\code{support}}{The lower and upper limits of the grid.}
+\item{\code{spacing}}{The distance between neighboring grid points.}
+\item{\code{grid_method}}{The method that chose the limits, or
+\code{"support"} if they were specified directly.}
+\item{\code{expansion}}{The factor by which the range was extended (\code{NA}
+if the method does not use one).}
+\item{\code{component}}{\code{"point"} or \code{"normal"}.}
+\item{\code{width}}{The value of \code{width} (\code{NA} for point masses).}
+\item{\code{tau_c}}{The standard deviation of a component (0 for point
+masses).}
+\item{\code{knots}}{A list with the method and the positions of the
+interior and boundary knots.}
+\item{\code{resolution}}{A list that compares the grid spacing with the
+data, as described in Details. It contains the two ratios,
+\code{sigma_min_over_spacing} and \code{scale_over_spacing}; \code{L_needed},
+the smallest number of points for which both are large enough;
+\code{adequate}, which is \code{TRUE} if they are large enough for this
+grid; \code{L_chosen}, which is \code{TRUE} if the number of points was
+chosen from the data; \code{share_outside_estimates}, the proportion
+of grid points outside the range of the estimates; and
+\code{width_over_sigma}, the width of the grid divided by the median
+standard error.}
+\item{\code{attribution}}{A list with the formula of the method
+(\code{formula}) and its source (\code{source}).}
+\item{\code{pilot}}{Only for \code{grid_method = "pilot"}: a list that
+records what the method did. \code{wide} is the initial range and
+\code{core} is the interval that contained the central 99.9\% of the
+pilot estimate of \eqn{g}. \code{narrowed} is \code{TRUE} if the range was
+narrowed, \code{share} is the proportion of the initial range that
+remains, and \code{protected} contains the sites whose estimates
+caused a limit to be moved outward. \code{margin} and \code{seed} are the
+values that were used. \code{chains}, \code{iter_warmup} and
+\code{iter_sampling} give the length of the pilot fit (zero if none
+was run), \code{diagnostics}
+contains its sampler diagnostics, and \code{seconds} is its run
+time.}
+\item{\code{data}}{A list with the estimates and standard errors from
+which the grid was built, used by \code{\link[=plot.bef_grid]{plot.bef_grid()}}. It is not
+included in the grid stored in a fit.}
+}
 }
 \description{
 The model represents the distribution of true effects, \eqn{g}, by its
-probabilities on a grid of equally spaced points, and takes the logarithm
-of those probabilities to be a combination of natural cubic spline
-functions. \code{make_efron_grid()} builds the grid and the spline basis from
-the estimates. \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} calls it with its arguments
-\code{grid_method}, \code{L}, \code{expansion}, \code{M}, \code{theta_true} and \code{bound_expansion},
-so the function is needed on its own only to look at a grid before
-fitting.
+probabilities on a grid of equally spaced points. The logarithm of
+these probabilities is, up to a normalizing constant, a linear
+combination of natural cubic spline functions (see
+\code{\link[=bayes_efron_fit]{bayes_efron_fit()}}). \code{make_efron_grid()} builds the grid and the
+spline basis from
+the estimates. \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} builds its grid in the same way from
+its own arguments, so you only need to call this function yourself to
+inspect a grid before fitting, or to use one grid in several fits by
+passing it as \code{grid}.
 }
 \details{
-\code{grid_method} chooses where the grid begins and ends. Three of the
-methods are the rules of Lee and Sui (2025) and of the code that
-accompanies the paper, and one is experimental.\tabular{lll}{
-   \code{grid_method} \tab End points of the grid \tab Needs \code{theta_true} \cr
-   \code{"paper_realdata"} \tab The range of \code{theta_hat}, widened on each side by \code{expansion} times its width. \tab No \cr
-   \code{"paper_simulation"} \tab The range of \code{theta_true}, widened by 0.5 on each side. \tab Yes \cr
-   \code{"paper_sensitivity"} \tab The range of \code{theta_true}, widened on each side by \code{bound_expansion} times its width. \tab Yes \cr
-   \code{"kl_target_experimental"} \tab As for \code{"paper_realdata"}; the number of points is set by \code{kappa}. \tab No \cr
+The grid is determined by four choices.
+\itemize{
+\item The range, which is either chosen by the method named in \code{grid_method}
+or specified directly as \code{support}.
+\item The number of grid points, \code{L}.
+\item What \eqn{g} places at each grid point, \code{component}. With \code{"point"}
+(the default, and the model of Lee and Sui, 2025) it is a point mass.
+With \code{"normal"} it is a normal distribution whose standard deviation
+is \code{width} times the grid spacing, as in the penalized Gaussian
+mixture of Sui and Tipton (2026).
+\item The flexibility of \eqn{g}, which depends on the number of spline
+functions, \code{M}, and on the placement of their knots, \code{knots}.
+}
+
+There are four methods for choosing the range. Three of them come from
+the code that accompanies Lee and Sui (2025), and \code{"pilot"} narrows the
+range of the first of them.\tabular{lll}{
+   \code{grid_method} \tab Limits of the grid \tab Needs \code{theta_true} \cr
+   \code{"paper_realdata"} \tab The range of \code{theta_hat}, extended on each side by \code{expansion} times its width. \tab No \cr
+   \code{"pilot"} \tab The range of \code{"paper_realdata"}, narrowed to the region where a short preliminary fit on that range (the pilot fit) places \eqn{g}. \tab No \cr
+   \code{"paper_simulation"} \tab The range of \code{theta_true}, extended by 0.5 (in the units of the effects) on each side. \tab Yes \cr
+   \code{"paper_sensitivity"} \tab The range of \code{theta_true}, extended on each side by \code{bound_expansion} times its width. \tab Yes \cr
 }
 
 
-\code{"paper_realdata"} is the method for the analysis of data. The two
-methods that need \code{theta_true}, the true effects, can be used only in a
-simulation, where the true effects are known; they are provided so that
-the simulations of the paper can be repeated.
+Use \code{"pilot"} (the default) or \code{"paper_realdata"} for real data;
+\code{"paper_realdata"} does not require a model fit. The other two methods
+need the true effects, so they can only be used in simulations. They
+are provided so that the paper's simulations can be reproduced.
 
-\code{"kl_target_experimental"} chooses the number of grid points from the
-smallest standard error; \code{L} is not used. It takes the smallest number
-for which the spacing is no more than
-\eqn{2 \min_i(\sigma_i) \sqrt{\exp(2\kappa) - 1}}, but never fewer than
-51 or more than 300, so that with small standard errors and a wide range
-of estimates the spacing is larger than the formula asks for. The
-formula is the one that \code{ebnm::ebnm_scale_npmle()} uses with
-\code{pointmass = FALSE}. There the distribution is a mixture of normal
-components, each with a standard deviation of half the spacing, and
-\eqn{\kappa}, the argument \code{kappa}, bounds the Kullback-Leibler
-divergence that this approximation costs when the standard errors are
-equal. The model of this package differs in three ways: the distribution
-is a set of probabilities on the grid points, for which ebnm has another
-formula; it is restricted to the family that the spline functions
-define; and the standard errors are in general unequal. The bound has
-not been shown to hold under these conditions, so here \code{kappa} only sets
-how fine the grid is: a smaller value gives a finer grid. A message says
-so the first time the method is used in a session. \code{kappa} can be set
-only in \code{make_efron_grid()}; \code{\link[=bayes_efron_fit]{bayes_efron_fit()}} uses its default.
-
-The basis is \code{splines::ns(grid, df = M, intercept = FALSE)}. If the
-basis and a constant column together do not have full column rank, the
-function stops with an error; a smaller \code{M} avoids this.
+With the default \code{expansion}, the range of \code{"paper_realdata"} is twice
+as wide as the range of the estimates, and the estimates are themselves
+more spread out than the true effects. With many sites, \eqn{g} then
+occupies only a small part of the grid, most of the spline functions
+describe the empty part, and sampling is inefficient. The \code{"pilot"}
+method avoids this in two steps.
+\enumerate{
+\item A pilot fit is run on the range of \code{"paper_realdata"}, with 4 chains
+of 500 warmup and 500 sampling iterations, 101 grid points and 6
+spline functions. The pilot fit always uses point masses, even when
+the final grid has normal components.
+\item The method finds the grid points that enclose the central 99.9\% of
+the pilot estimate of \eqn{g} and extends this interval on each side
+by \code{margin} times its width, and by at least one grid spacing of the
+pilot fit. If an estimate lies more than 4 of its standard errors
+outside a limit, the limit is moved out to that estimate plus or
+minus 2 standard errors.
 }
+
+The limits never go beyond the range of \code{"paper_realdata"}, so the
+method either narrows that range or leaves it unchanged. It leaves the
+range unchanged for \link{raudenbush1985} and \link{krw_discrimination} and
+narrows it for \link{twin_towers}; see \code{vignette("choosing-a-grid")}. If the
+range of \code{"paper_realdata"} is narrower than the median standard error,
+no pilot fit is run. The method requires CmdStan. Specify \code{seed} to
+make the result reproducible. The \code{pilot} component of the result
+records what the method did.
+
+If \code{support = c(lower, upper)} is specified, the grid runs from \code{lower}
+to \code{upper} and no method is applied, so \code{grid_method} must not be
+specified. With point masses, \eqn{g} has no probability outside the
+support, so the support is the set of values that an effect can take in
+the model. With normal components, the support is the range of the
+component centers, and \eqn{g} extends about 2 component standard
+deviations further on each side. If the effects must stay within given
+bounds, use point masses together with \code{reading = "step"} in the
+summaries, because with the default \code{reading} a summary can extend half
+a grid spacing beyond a limit (see \code{\link[=g_summary]{g_summary()}}).
+
+With \code{knots = "grid"}, the spline basis is
+\code{splines::ns(grid, df = M, intercept = FALSE)}. The interior knots are
+at quantiles of the grid points, which makes them equally spaced over
+the grid, and the boundary knots are at its limits. An error is thrown
+if the basis together with a constant column does not have full column
+rank; a smaller \code{M} avoids this.
+
+The grid must also be fine enough for the data. With point masses, the
+likelihood of a site is evaluated only at the grid points, so a site
+whose standard error is much smaller than the grid spacing is
+represented poorly. In addition, a grid with only a few points across
+the bulk of the effects cannot show the shape of \eqn{g}. The function
+computes two ratios to check this.
+\itemize{
+\item The smallest standard error divided by the grid spacing, which should
+be at least 0.75.
+\item A rough estimate of the standard deviation of the effects divided by
+the grid spacing, which should be at least 4. With \eqn{m} the median
+absolute deviation of the estimates (scaled as in \code{\link[stats:mad]{stats::mad()}}, so
+that it estimates a standard deviation) and \eqn{v} the median
+sampling variance, this estimate is
+\eqn{\sqrt{m^2 - v}}{sqrt(m^2 - v)}, or \eqn{\sqrt{v}}{sqrt(v)} if
+\eqn{m^2 - v} is not positive.
+}
+
+With \code{L = NULL}, the grid has 101 points if both ratios are large
+enough, and otherwise the smallest number of points, up to 401, for
+which they are. With normal components only the second ratio is used,
+in an equivalent form: the standard deviation of a component should be
+at most one sixth of the estimated standard deviation of the effects. A
+standard error smaller than the grid spacing is not a problem in that
+case. A warning of class \code{bef_warn_grid_resolution} is issued if a ratio
+is too small for the returned grid, or if the whole grid is narrower
+than the median standard error. The warning message suggests
+what to change. The ratios are stored in the \code{resolution} component of
+the result.
+}
+\section{Functions}{
+\itemize{
+\item \code{format(bef_grid)}: Returns the lines that \code{print()} shows as a
+character vector.
+
+\item \code{print(bef_grid)}: Prints the limits and the spacing of the
+grid, the method that chose the limits, the components, the spline
+functions with their knots, and how the spacing compares with the
+data.
+
+}}
 \examples{
-grid <- make_efron_grid(raudenbush1985$yi, raudenbush1985$sei)
-range(raudenbush1985$yi)
-range(grid$grid)
+# The default method runs the pilot fit, which needs CmdStan.
+\dontrun{
+make_efron_grid(twin_towers$yi, twin_towers$sei, seed = 20250627)
+}
+
+# The method "paper_realdata" needs no fit.
+grid <- make_efron_grid(krw_discrimination, grid_method = "paper_realdata")
+grid
+range(krw_discrimination$yi)
+grid$support
 dim(grid$B)
 
-# The six spline functions on the grid.
-matplot(grid$grid, grid$B, type = "l", lty = 1,
-        xlab = "Effect", ylab = "Spline function")
+# The six spline functions and the knots over the estimates, in
+# percentage points.
+plot(grid, scale = 100)
 
 # A wider grid with more spline functions.
-wide <- make_efron_grid(raudenbush1985$yi, raudenbush1985$sei,
+wide <- make_efron_grid(krw_discrimination, grid_method = "paper_realdata",
                         expansion = 1, M = 8)
-range(wide$grid)
+wide$support
+
+# The limits specified directly, and a normal distribution at each grid
+# point.
+make_efron_grid(krw_discrimination, support = c(-0.05, 0.15),
+                component = "normal")
 
 # In a simulation the true effects can set the range.
-set.seed(1)
-theta <- rnorm(50)
-theta_hat <- rnorm(50, mean = theta, sd = 0.5)
-sim <- make_efron_grid(theta_hat, rep(0.5, 50),
-                       grid_method = "paper_simulation", theta_true = theta)
-range(sim$grid)
+sim <- make_efron_grid(twin_towers, grid_method = "paper_simulation",
+                       theta_true = twin_towers$theta_true)
+sim$support
 
 }
 \references{
 Lee, J. and Sui, D. (2025). Fully Bayesian inference for meta-analytic
 deconvolution using Efron's log-spline prior. \emph{Mathematics}, 13(16),
 2639. \doi{10.3390/math13162639}
+
+Sui, D. and Tipton, E. (2026). Meta-analysis without normality:
+estimating the true effect distribution with penalized Gaussian mixtures.
+arXiv:2604.27887.
 }
 \seealso{
 \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}, \code{\link[=compare_efron_grids]{compare_efron_grids()}},

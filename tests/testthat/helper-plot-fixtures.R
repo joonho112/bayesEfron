@@ -73,7 +73,7 @@ plot_test_fit <- function(K = 5L, S = 6L, L = 11L) {
   attr(metadata, "sampler_diagnostics_failed") <- character()
 attr(metadata, "sampler_diagnostics_warned") <- character()
 
-  plot_test_ns("validate_bef_fit_re")(
+  plot_test_ns("validate_bef_fit_re")(fixture_consistent(
     plot_test_ns("new_bef_fit_re")(
       draws = bef_fixture_draws(
         theta_map = theta_map, theta_mean = theta_mean,
@@ -93,7 +93,7 @@ attr(metadata, "sampler_diagnostics_warned") <- character()
         log_marginal_likelihood = rep(-10, S)
       )
     )
-  )
+  ))
 }
 
 plot_test_with_pdf_device <- function(code) {

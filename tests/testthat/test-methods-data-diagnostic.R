@@ -81,7 +81,7 @@ diag_methods_fit <- function(K = 5L, S = 4L) {
   )
 }
 
-test_that("bef_data summary, format, and print expose compact input diagnostics", {
+test_that("summary() of a bef_data object summarizes both vectors, and print() shows the lines of format()", {
   data <- as_bef_data(list(
     theta_hat = stats::setNames(seq(-0.4, 0.4, length.out = 5L), LETTERS[1:5]),
     sigma = rep(0.2, 5L)
@@ -107,7 +107,7 @@ test_that("bef_data summary, format, and print expose compact input diagnostics"
   expect_identical(out, data)
 })
 
-test_that("diagnose returns a validated bef_diagnostic from fit metadata attributes", {
+test_that("diagnose() returns the diagnostics that the fit stores, as a bef_diagnostic object", {
   fit <- diag_methods_fit()
   diagnostic <- diagnose(fit)
 
@@ -124,7 +124,7 @@ test_that("diagnose returns a validated bef_diagnostic from fit metadata attribu
   expect_identical(diagnostic$sampler_diagnostics_failed, character())
 })
 
-test_that("diagnose preserves skipped and failed diagnostic flags", {
+test_that("diagnose() keeps the skipped diagnostics and the failed checks, and format() lists the failed checks once", {
   fit <- diag_methods_fit()
   diagnostics <- attr(fit$metadata, "diagnostics", exact = TRUE)
   diagnostics$rhat <- NA_real_
@@ -149,7 +149,7 @@ test_that("diagnose preserves skipped and failed diagnostic flags", {
   expect_false(any(grepl("SHA", lines, fixed = TRUE)))
 })
 
-test_that("bef_diagnostic summary, format, and print expose sampler health", {
+test_that("summary() of the diagnostics gives Rhat and each ESS as one value, and print() shows the lines of format()", {
   diagnostic <- diagnose(diag_methods_fit())
   diagnostic_summary <- summary(diagnostic)
 
@@ -158,7 +158,8 @@ test_that("bef_diagnostic summary, format, and print expose sampler health", {
     c(
       "rhat", "ess_bulk", "ess_tail", "divergences", "max_treedepth", "ebfmi",
       "effective_params", "model_family", "stan_file_sha256",
-      "runtime_seconds", "diagnostic_skipped", "sampler_diagnostics_failed", "sampler_diagnostics_warned"
+      "runtime_seconds", "diagnostic_skipped", "sampler_diagnostics_failed", "sampler_diagnostics_warned",
+      "grid"
     )
   )
   expect_equal(diagnostic_summary$rhat$value, 1.01)
@@ -178,7 +179,7 @@ test_that("bef_diagnostic summary, format, and print expose sampler health", {
   expect_identical(out, diagnostic)
 })
 
-test_that("diagnose argument failures are typed", {
+test_that("diagnose() of what is not a fit is a bef_invalid_fit error, and an extra argument is a bef_invalid_args error", {
   err <- tryCatch(diagnose(list()), error = identity)
   expect_s3_class(err, "bef_invalid_fit")
 
@@ -187,7 +188,7 @@ test_that("diagnose argument failures are typed", {
   expect_equal(err$arg, "...")
 })
 
-test_that("bef_data and bef_diagnostic format expose optional cli path with escape hatch", {
+test_that("format() of data and of diagnostics checks use_cli, and options(bayesEfron.use_cli = FALSE) gives plain text", {
   data <- as_bef_data(list(
     theta_hat = stats::setNames(seq(-0.4, 0.4, length.out = 5L), LETTERS[1:5]),
     sigma = rep(0.2, 5L)

@@ -52,6 +52,6 @@ head(raudenbush1985)
 as_bef_data(raudenbush1985)
 }
 \seealso{
-\link{raudenbush_fit}, the model fitted to these data.
+\link{raudenbush_fit}, \code{vignette("teacher-expectancy")}
 }
 \keyword{datasets}

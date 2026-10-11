@@ -4,71 +4,76 @@
 \alias{plot.bef_fit_re}
 \title{Plot a fitted model}
 \usage{
-\method{plot}{bef_fit_re}(
-  x,
-  type = c("caterpillar", "g", "diagnostic", "loo"),
-  level = 0.9,
-  sort_by = c("mean", "sigma", "none"),
-  ...,
-  backend = c("ggplot2", "base")
-)
+\method{plot}{bef_fit_re}(x, type = "sites", ..., backend = NULL)
 }
 \arguments{
-\item{x}{A \code{bef_fit_re} object from \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}.}
+\item{x}{A \code{bef_fit} object created by \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}.}
 
-\item{type}{Character string, the plot to draw. \code{"caterpillar"}
-(the default) shows for each site the posterior mean of
-\eqn{\theta_i}, an interval of probability \code{level} as a thin line and
-the central 50\% interval as a thick line; a dashed vertical line marks
-the posterior mean of the mean of \eqn{g}. \code{"g"} shows the posterior
-mean of the probability that \eqn{g} gives to each grid point, with a
-pointwise band of probability \code{level}. \code{"diagnostic"} shows the
-largest R-hat, the smallest bulk and tail effective sample sizes and
-the numbers of divergent transitions and of iterations at the maximum
-tree depth, as \code{\link[=diagnose]{diagnose()}} reports them; E-BFMI is not drawn.
-\code{"loo"} shows the Pareto k value of each site from \code{\link[=loo.bef_fit]{loo.bef_fit()}},
-with reference lines at 0.5 and 0.7; it needs the loo package.}
+\item{type}{The plot to show, e.g., \code{"sites"} (the default), \code{"g"} or
+\code{"shrinkage"}. See Details for all types.}
 
-\item{level}{Number between 0 and 1, the probability content of the
-intervals and of the band. Defaults to \code{0.9}.}
+\item{...}{Further arguments passed to the plot function for \code{type},
+such as \code{level}, \code{sort_by} or \code{scale}.}
 
-\item{sort_by}{Character string, the order of the sites in the
-caterpillar plot: \code{"mean"} (the default) for the order of the
-posterior means, \code{"sigma"} for the order of the standard errors, or
-\code{"none"} for the order of the data.}
-
-\item{...}{Not used.}
-
-\item{backend}{Character string, \code{"ggplot2"} or \code{"base"}. If it is not
-given, ggplot2 is used when it is installed and base graphics
-otherwise.}
+\item{backend}{Deprecated. \code{backend = "base"} plots the types
+\code{"caterpillar"}, \code{"g"}, \code{"diagnostic"} and \code{"loo"} with base graphics
+instead of ggplot2 and issues a warning. This option will be removed.}
 }
 \value{
-With ggplot2, a \code{ggplot} object, to which layers can be added.
-With base graphics the plot is drawn and \code{NULL} is returned invisibly.
+A \code{ggplot} object, which can be modified with ggplot2 functions,
+e.g., by adding layers. For \code{type = "mcmc"}, the value returned by
+\code{\link[=plot_mcmc]{plot_mcmc()}}. With \code{backend = "base"}, the plot is shown on the
+current graphics device and \code{NULL} is returned invisibly.
 }
 \description{
-\code{plot()} draws one of four plots of a fitted model: the site effects
-with their intervals, the estimated distribution of effects, the
-convergence diagnostics, or the Pareto k values of leave-one-out
-cross-validation.
+The \code{plot()} method for a fitted model shows the plot selected by
+\code{type}. Each type is produced by one of the package's plot functions,
+e.g., \code{"sites"} by \code{\link[=plot_sites]{plot_sites()}} and \code{"g"} by \code{\link[=plot_g]{plot_g()}}, and further
+arguments are passed on to that function. See Details for all types.
+}
+\details{
+\code{type} can be one of the following. The help page of each function
+describes the plot and its arguments.
+\itemize{
+\item \code{"sites"} (the default): \code{\link[=plot_sites]{plot_sites()}}, a caterpillar plot of the
+site effects with their posterior intervals
+\item \code{"g"}: \code{\link[=plot_g]{plot_g()}}, the estimated distribution of effects
+\item \code{"shrinkage"}: \code{\link[=plot_shrinkage]{plot_shrinkage()}}, a shrinkage plot of posterior means
+against estimates
+\item \code{"exceedance"}: \code{\link[=plot_exceedance]{plot_exceedance()}}, the probability that each effect
+exceeds a threshold
+\item \code{"site_posterior"}: \code{\link[=plot_site_posterior]{plot_site_posterior()}}, the posterior
+distribution of the effect of each site specified in \code{sites}
+\item \code{"diagnostics"}: \code{\link[=plot_diagnostics]{plot_diagnostics()}}, sampler and grid diagnostics
+\item \code{"loo"}: \code{\link[=plot_loo]{plot_loo()}}, the Pareto k values of the sites from
+leave-one-out cross-validation
+\item \code{"ppc"}: \code{\link[=plot_ppc]{plot_ppc()}}, a posterior predictive check of the model
+against the estimates
+\item \code{"mcmc"}: \code{\link[=plot_mcmc]{plot_mcmc()}}, trace plots and other plots of the posterior
+draws
+\item \code{"grid"}: \code{\link[=plot.bef_grid]{plot.bef_grid()}}, the grid in relation to the estimates
+\item \code{"recovery"}: \code{\link[=plot_recovery]{plot_recovery()}}, a comparison of the fit with the
+known true effects specified in \code{truth}
+}
+
+\code{"caterpillar"} and \code{"diagnostic"} are accepted as aliases for \code{"sites"}
+and \code{"diagnostics"}.
+
+\code{type = "g"} shows the density of \eqn{g}. To plot the probabilities of
+the grid points instead, call \code{plot_g(x, type = "mass")}. Note that
+their heights depend on the number of grid points.
 }
 \examples{
-plot(raudenbush_fit)
-plot(raudenbush_fit, sort_by = "sigma", level = 0.95)
-plot(raudenbush_fit, type = "g")
-plot(raudenbush_fit, type = "diagnostic", backend = "base")
+plot(krw_fit, n_extreme = 10, scale = 100)
+plot(krw_fit, type = "g", scale = 100)
+plot(krw_fit, type = "diagnostics")
 
-# With ggplot2 the result can be extended.
-p <- plot(raudenbush_fit, type = "g")
-if (inherits(p, "ggplot")) {
-  p + ggplot2::labs(title = "Teacher expectancy effects")
-}
+# The result is a ggplot object, so labels and layers can be added.
+plot(krw_fit, type = "shrinkage", scale = 100) +
+  ggplot2::labs(x = "Estimated gap (percentage points)")
 
-\dontshow{if (requireNamespace("loo", quietly = TRUE)) withAutoprint(\{ # examplesIf}
-plot(raudenbush_fit, type = "loo")
-\dontshow{\}) # examplesIf}
 }
 \seealso{
-\link{bef_fit}, \code{\link[=diagnose]{diagnose()}}, \code{\link[=loo.bef_fit]{loo.bef_fit()}}
+\code{\link[=plot_sites]{plot_sites()}}, \code{\link[=plot_g]{plot_g()}}, \link{bef_fit}, \code{\link[=diagnose]{diagnose()}},
+\code{vignette("plots")}
 }

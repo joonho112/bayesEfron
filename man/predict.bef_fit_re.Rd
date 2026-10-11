@@ -2,7 +2,7 @@
 % Please edit documentation in R/predict.R
 \name{predict.bef_fit_re}
 \alias{predict.bef_fit_re}
-\title{Predict the effect or the estimate at a new site}
+\title{Posterior predictive distribution for a new site}
 \usage{
 \method{predict}{bef_fit_re}(
   object,
@@ -11,64 +11,126 @@
   type = c("theta", "theta_hat"),
   n = NULL,
   jitter = FALSE,
-  seed = NULL
+  seed = NULL,
+  level = 0.9
 )
 }
 \arguments{
-\item{object}{A \code{bef_fit_re} object from \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}.}
+\item{object}{A \code{bef_fit} object created by \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}.}
 
-\item{newdata}{Numeric vector of positive standard errors, one for each
-new site. It is needed for \code{type = "theta_hat"} and not used
-otherwise.}
+\item{newdata}{For \code{type = "theta_hat"}, a numeric vector of positive
+standard errors, one per new site. It is required for that type and
+not used for \code{type = "theta"}. Can also be a data frame with the
+columns \code{estimate} and \code{se}, for new sites whose estimates are known;
+see Details.}
 
 \item{...}{These dots are for future extensions and must be empty.}
 
-\item{type}{Character string: \code{"theta"} (the default) for the true
-effect of a new site, or \code{"theta_hat"} for its estimate.}
+\item{type}{Quantity to draw for a new site: \code{"theta"} (the default)
+for its true effect, or \code{"theta_hat"} for its estimate.}
 
-\item{n}{Whole number, the number of draws. \code{NULL} (the default) means
-the number of posterior draws in the fit. If \code{n} is larger than that,
-posterior draws of \eqn{g} are used more than once.}
+\item{n}{Number of draws, a positive integer. If \code{NULL} (the default),
+the number of posterior draws in the fit is used. If \code{n} is larger
+than that, posterior draws of \eqn{g} are used more than once.}
 
-\item{jitter}{Logical. If \code{TRUE}, the draws are spread between the grid
-points, as described in Details. Defaults to \code{FALSE}.}
+\item{jitter}{If \code{TRUE}, the draws from a fit with point masses are
+spread between the grid points; see Details.}
 
-\item{seed}{Whole number, a seed for the draws, or \code{NULL} (the default).
-When a seed is given, R's random number generator is left afterward in
-the state in which it was found.}
+\item{seed}{Integer seed for the draws. If \code{NULL} (the default), no
+seed is set. If a seed is specified, the state of R's random number
+generator is restored afterward.}
+
+\item{level}{Posterior probability of the interval in
+the columns \code{lower} and \code{upper}, a number between 0 and 1. Only used
+if \code{newdata} is a data frame.}
 }
 \value{
-A numeric vector of \code{n} draws. For \code{type = "theta_hat"} with
-more than one standard error in \code{newdata}, a matrix with \code{n} rows and
-one column for each standard error.
+For \code{type = "theta"}, and for \code{type = "theta_hat"} with one
+standard error in \code{newdata}, a numeric vector of \code{n} draws. For
+\code{type = "theta_hat"} with more than one standard error, a matrix with
+\code{n} rows and one column per standard error.
+
+If \code{newdata} is a data frame, a data frame with one row per row of
+\code{newdata} and the following columns.
+\describe{
+\item{\code{estimate}, \code{se}}{The estimate and its standard error, as
+given.}
+\item{\code{mean}, \code{sd}}{The posterior mean and the posterior standard
+deviation of the effect.}
+\item{\code{lower}, \code{upper}}{The limits of the posterior interval at
+\code{level}.}
+\item{\code{mode}}{The posterior mode.}
+}
 }
 \description{
-\code{predict()} draws from the predictive distribution for a site that was
-not in the data. With \code{type = "theta"} it draws the true effect of the
-new site from \eqn{g}, using a different posterior draw of \eqn{g} each
-time, so that the draws describe the distribution of effects with the
-uncertainty about \eqn{g} included. With \code{type = "theta_hat"} it adds
-sampling error with the standard error given in \code{newdata}, and so draws
-the estimate that a new study of that precision would give.
+Draws from the posterior predictive distribution for a site that was
+not in the data: either its true effect, or the estimate that a new
+study with a given standard error would produce. For a new site whose
+estimate is already known, \code{predict()} instead returns the mean,
+standard deviation, interval and mode of the posterior distribution of
+its effect.
 }
 \details{
-\eqn{g} is a distribution on the grid, so a draw of the effect is one of
-the grid points. With \code{jitter = TRUE} a uniform random number of up to
-half the grid spacing is added or subtracted, which spreads the draws
-over the intervals between the grid points.
+\code{predict()} has three uses, which are selected by \code{type} and \code{newdata}.
+\itemize{
+\item \code{type = "theta"} (the default) draws the true effect of a new site
+from \eqn{g}. Each draw uses a different posterior draw of \eqn{g},
+so the draws describe the distribution of effects and include the
+uncertainty about \eqn{g}.
+\item \code{type = "theta_hat"} draws the estimate that a new study would
+produce: sampling error with the standard error given in \code{newdata} is
+added to a draw of the effect. If \code{newdata} contains several standard
+errors, the result has one column per new site. Each row then uses
+one posterior draw of \eqn{g} for all sites and draws a separate
+effect and sampling error for each site, so the sites in a row are
+independent given that draw.
+\item If \code{newdata} is a data frame with the columns \code{estimate} and \code{se},
+the estimates of the new sites are known. Nothing is drawn, and for
+each row \code{predict()} returns the posterior mean, the posterior
+standard deviation, the interval at \code{level} and the posterior mode of
+the effect. \code{type}, \code{n}, \code{jitter} and \code{seed} are
+not used.
+}
+
+For a fit with point masses, \eqn{g} is a distribution on the grid, so
+each draw of an effect is one of the grid points. If \code{jitter = TRUE}, a
+uniform random number between minus and plus half the grid spacing is
+added to the draw, which spreads the draws over the intervals between
+the grid points. For a fit with \code{component = "normal"}, a draw comes
+from the normal component at the grid point that was drawn, and
+\code{jitter} is not used.
+
+A new site with a known estimate was not in the data, so before its
+estimate is observed the distribution of its effect is the posterior
+mean of \eqn{g}. Bayes' rule with the estimate then gives the posterior
+distribution that \code{predict()} summarizes. The summaries are those that
+the site would have in a fit of the data with that site added, on the
+same grid, up to Monte Carlo error. They differ from the summaries that
+\code{\link[=site_summary]{site_summary()}} gives for a site in the fit with the same estimate and
+standard error, because that site's estimate was already used to
+estimate \eqn{g}. The difference is small when there are many sites and
+is largest for an estimate in a tail of the distribution. Each row of
+\code{newdata} is treated as the only new site, so the other rows do not
+affect its result. For a fit with point masses, the interval limits
+are computed as in \code{\link[=site_summary]{site_summary()}} with its default \code{reading}.
 }
 \examples{
-# The effect in a new study.
-theta_new <- predict(raudenbush_fit, seed = 1)
+# The callback gap of a firm that was not in the data.
+theta_new <- predict(krw_fit, seed = 1)
 quantile(theta_new, c(0.05, 0.5, 0.95))
 mean(theta_new > 0)
 
-# The estimate that a new study with standard error 0.15 would give.
-estimate_new <- predict(raudenbush_fit, newdata = 0.15, type = "theta_hat",
+# An estimate with a standard error of 1 percentage point.
+estimate_new <- predict(krw_fit, newdata = 0.01, type = "theta_hat",
                         seed = 1)
 quantile(estimate_new, c(0.05, 0.5, 0.95))
 
+# Two new firms whose estimates are known: gaps of 0 and of 5 percentage
+# points, with standard errors of 1 and 2 points.
+predict(krw_fit, newdata = data.frame(estimate = c(0, 0.05),
+                                      se = c(0.01, 0.02)))
+
 }
 \seealso{
-\link{bef_fit}, \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}
+\code{\link[=site_summary]{site_summary()}}, \link{bef_fit}, \code{\link[=bayes_efron_fit]{bayes_efron_fit()}}
 }

@@ -81,7 +81,7 @@ methods_fit <- function(K = 5L, S = 4L) {
   )
 }
 
-test_that("parent bef_fit methods expose portable universal summaries", {
+test_that("summary() of a fit of class bef_fit alone has the moments of g and the diagnostics, and no site table", {
   fit <- methods_fit()
   class(fit) <- "bef_fit"
   fit_summary <- summary(fit)
@@ -108,7 +108,7 @@ test_that("parent bef_fit methods expose portable universal summaries", {
   expect_equal(fit_summary$diagnostics$log_marginal_likelihood$mean, -10)
 })
 
-test_that("parent bef_fit print and format return stable character surfaces", {
+test_that("print() of a fit and of its summary shows the lines of format() and returns the object", {
   fit <- methods_fit()
   class(fit) <- "bef_fit"
   lines <- format(fit)
@@ -132,7 +132,7 @@ test_that("parent bef_fit print and format return stable character surfaces", {
   expect_identical(out, fit_summary)
 })
 
-test_that("parent bef_fit nobs, logLik, and as_draws use universal fields", {
+test_that("nobs() counts the sites, logLik() is the mean log marginal likelihood, and as_draws() gives the draws", {
   fit <- methods_fit()
   class(fit) <- "bef_fit"
   ll <- logLik(fit)
@@ -161,7 +161,7 @@ test_that("summary.bef_fit validates level", {
   expect_equal(err$arg, "level")
 })
 
-test_that("parent bef_fit format surfaces diagnostic skipped and failed flags", {
+test_that("format() of a fit and of its summary has lines for the skipped diagnostics, the failed checks and the warnings", {
   fit <- methods_fit()
   class(fit) <- "bef_fit"
   diagnostics <- attr(fit$metadata, "diagnostics", exact = TRUE)
@@ -197,7 +197,7 @@ test_that("options(bayesEfron.use_cli = FALSE) makes plain output the default", 
   )
 })
 
-test_that("parent bef_fit format exposes optional cli path with stable shape", {
+test_that("format() rejects a use_cli that is not TRUE, FALSE or NULL, and cli styling keeps the number of lines", {
   fit <- methods_fit()
   class(fit) <- "bef_fit"
   fit_summary <- summary(fit)

@@ -89,18 +89,25 @@ test_that("the posterior probabilities stay finite when a product underflows", {
   expect_equal(out[2L, ], c(0, 0, 0, 0, 1))
 })
 
-test_that("the stored example fit carries the summaries that the code computes", {
-  fit <- bayesEfron::raudenbush_fit
+test_that("a fit with site-level draws carries the summaries that the code computes", {
+  # A fit that version 0.3.0 made, which holds what Stan wrote for each site.
+  fit <- readRDS(test_path("_fixtures", "short_fit.rds"))
   data <- fit$metadata$data_list
   table <- as.data.frame(fit)
 
+  # The posterior variance is the variance given g averaged over the draws
+  # plus the variance over the draws of the mean given g; the table agrees
+  # with the same quantity formed from what Stan wrote for each draw.
+  theta_mean <- site_ns(".bef_site_draws")(fit, "theta_mean")
+  theta_sd <- site_ns(".bef_site_draws")(fit, "theta_sd")
   expect_equal(
     table$sd,
-    site_ns(".bef_posterior_sd")(
-      site_ns(".bef_site_draws")(fit, "theta_mean"),
-      site_ns(".bef_site_draws")(fit, "theta_sd")
-    )
+    unname(sqrt(colMeans(theta_sd^2) + colMeans(sweep(theta_mean, 2L, colMeans(theta_mean))^2))),
+    tolerance = 1e-6
   )
+  expect_equal(table$mean, unname(colMeans(theta_mean)), tolerance = 1e-6)
+  expect_identical(table$mode, table$map)
+  expect_identical(table$estimate, data$theta_hat)
   log_g <- log(site_ns(".bef_plain_draw_matrix")(site_ns(".bef_grid_draws")(fit, "g")))
   expect_equal(
     table$map,
@@ -113,6 +120,8 @@ test_that("the stored example fit carries the summaries that the code computes",
   # The posterior standard deviation is at least the average standard
   # deviation given g, and each interval contains the posterior mode.
   expect_true(all(table$sd >= colMeans(site_ns(".bef_site_draws")(fit, "theta_sd"))))
-  expect_true(all(table$map >= table$hpdi_lower & table$map <= table$hpdi_upper))
+  spacing <- diff(data$grid)[1L]
+  expect_true(all(table$mode >= table$lower - spacing / 2 &
+                    table$mode <= table$upper + spacing / 2))
   expect_identical(site_ns("validate_bef_fit_re")(fit), fit)
 })

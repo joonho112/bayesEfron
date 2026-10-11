@@ -21,27 +21,34 @@ test_that("bayes_efron_compile() rejects invalid arguments", {
   }
 })
 
-test_that("bayes_efron_compile() passes its arguments on and returns the model invisibly", {
-  received <- NULL
-  model <- structure(list(), class = "fake_cmdstan_model")
+test_that("bayes_efron_compile() compiles both programs and returns the model of this version invisibly", {
+  received <- list()
   testthat::local_mocked_bindings(
     .bef_model = function(...) {
-      received <<- list(...)
-      model
+      args <- list(...)
+      received[[length(received) + 1L]] <<- args
+      structure(list(program = args$program), class = "fake_cmdstan_model")
     },
     .package = "bayesEfron"
   )
 
   expect_invisible(out <- bayes_efron_compile(quiet = FALSE, force_recompile = TRUE))
-  expect_identical(out, model)
+  expect_identical(out$program, "efron_mix")
   expect_identical(
     received,
-    list(model_family = "RE", force_recompile = TRUE, quiet = FALSE)
+    list(
+      list(model_family = "RE", force_recompile = TRUE, quiet = FALSE, program = "efron_mix"),
+      list(model_family = "RE", force_recompile = TRUE, quiet = FALSE, program = "efron_re")
+    )
   )
 
+  received <- list()
   bayes_efron_compile()
   expect_identical(
     received,
-    list(model_family = "RE", force_recompile = FALSE, quiet = TRUE)
+    list(
+      list(model_family = "RE", force_recompile = FALSE, quiet = TRUE, program = "efron_mix"),
+      list(model_family = "RE", force_recompile = FALSE, quiet = TRUE, program = "efron_re")
+    )
   )
 })

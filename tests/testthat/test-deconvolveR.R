@@ -13,10 +13,15 @@ parity_fit <- function(panel, seed) {
       sigma = panel$sigma,
       L = panel$grid_count,
       M = panel$basis_df,
+      # The default range rule of version 0.3.0, not "pilot"; the program is
+      # that of this version.
+      grid_method = "paper_realdata",
       expansion = 0.5,
       seed = seed
     ),
-    classes = "bef_sampler_diagnostics_failed"
+    # The number of grid points is that of the stored deconvolveR fit, which
+    # the rule of this package finds a little coarse for one of the panels.
+    classes = c("bef_sampler_diagnostics_failed", "bef_warn_grid_resolution")
   )
 }
 
@@ -50,6 +55,7 @@ test_that("posterior means agree with deconvolveR within one standard error", {
     )
     expect_equal(fit$metadata$data_list$L, panel$grid_count)
     expect_equal(fit$metadata$data_list$M, panel$basis_df)
+    expect_identical(attr(fit$metadata, "program", exact = TRUE), "efron_mix")
   }
 })
 

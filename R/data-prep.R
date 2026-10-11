@@ -1,10 +1,13 @@
-# The data that inst/stan/efron_re.stan reads, from the estimates and standard
-# errors in `bef_data` and a grid from make_efron_grid(): a list with K,
-# theta_hat, sigma, L, grid, M, B and store_grid_quantities.
+# The data that a Stan program of the package reads, from the estimates and
+# standard errors in `bef_data` and a grid from make_efron_grid(): a list
+# with K, theta_hat, sigma, L, grid, M, B and store_grid_quantities, and for
+# the program "efron_mix" also tau_c, the standard deviation of the component
+# at each grid point.
 prepare_stan_data <- function(bef_data,
                               grid,
                               model_family = "RE",
-                              store_grid_quantities = FALSE) {
+                              store_grid_quantities = FALSE,
+                              program = "efron_re") {
   model_family <- .bef_validate_model_family(model_family)
   if (!identical(model_family, "RE")) {
     .bef_abort_data_prep("`model_family` must be \"RE\"; other families are not implemented.")
@@ -27,16 +30,31 @@ prepare_stan_data <- function(bef_data,
     .bef_abort_data_prep("`store_grid_quantities` must be a single non-missing logical.")
   }
 
-  list(
+  program <- match.arg(program, .bef_stan_programs())
+  tau_c <- if (is.null(grid$tau_c)) 0 else grid$tau_c
+  if (!is.numeric(tau_c) || length(tau_c) != 1L || !is.finite(tau_c) || tau_c < 0) {
+    .bef_abort_data_prep("`grid$tau_c` must be a single number that is not negative.")
+  }
+  if (identical(program, "efron_re") && tau_c > 0) {
+    .bef_abort_data_prep(
+      "The Stan program of version 0.3.0 has point masses only; it cannot fit a grid with normal components."
+    )
+  }
+
+  data <- list(
     K = as.integer(length(theta_hat)),
     theta_hat = as.numeric(theta_hat),
     sigma = as.numeric(sigma),
     L = as.integer(grid_obj$L),
     grid = as.numeric(grid_obj$grid),
     M = as.integer(grid_obj$M),
-    B = matrix(as.numeric(grid_obj$B), nrow = grid_obj$L, ncol = grid_obj$M),
-    store_grid_quantities = as.integer(store_grid_quantities)
+    B = matrix(as.numeric(grid_obj$B), nrow = grid_obj$L, ncol = grid_obj$M)
   )
+  if (identical(program, "efron_mix")) {
+    data$tau_c <- as.numeric(tau_c)
+  }
+  data$store_grid_quantities <- as.integer(store_grid_quantities)
+  data
 }
 
 .bef_validate_model_family <- function(model_family) {

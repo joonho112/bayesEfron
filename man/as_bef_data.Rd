@@ -9,7 +9,8 @@
 \alias{print.bef_data}
 \alias{summary.bef_data}
 \alias{format.bef_data}
-\title{Extract estimates and standard errors for a fit}
+\alias{as.data.frame.bef_data}
+\title{Extract estimates and standard errors from a data frame or list}
 \usage{
 as_bef_data(x, ...)
 
@@ -33,50 +34,61 @@ as_bef_data(x, ...)
 \method{summary}{bef_data}(object, ...)
 
 \method{format}{bef_data}(x, ..., use_cli = NULL)
+
+\method{as.data.frame}{bef_data}(x, row.names = NULL, optional = FALSE, ...)
 }
 \arguments{
-\item{x}{A list, a data frame, an \code{escalc} object from the metafor
-package or a \code{bef_data} object.}
+\item{x}{For \code{as_bef_data()}, a data frame, a list, an \code{escalc} object
+from the metafor package or a \code{bef_data} object; see Details. For
+\code{print()}, \code{format()} and \code{as.data.frame()}, a \code{bef_data} object.}
 
 \item{...}{For \code{as_bef_data()}, these dots are for future extensions and
-must be empty. The \code{print()} method passes them on to \code{format()};
-\code{format()} and \code{summary()} do not use them.}
+must be empty. The \code{print()} method passes them on to \code{format()}; the
+other methods ignore them.}
 
-\item{theta_hat, sigma}{For a data frame, character strings naming the
-columns of the estimates and of the standard errors. \code{NULL} (the
-default) means that the columns are found by name, as described in
-Details.}
+\item{theta_hat, sigma}{For a data frame, the names of the columns that
+contain the estimates and the standard errors, as character strings.
+If \code{NULL} (the default), the columns are found by name; see Details.}
 
-\item{variance}{Logical. For a data frame, \code{TRUE} if the column named in
-\code{sigma} holds variances; their square roots are then taken. Defaults
-to \code{FALSE}.}
+\item{variance}{For a data frame, set to \code{TRUE} if the column specified
+in \code{sigma} contains variances. Their square roots are then used as
+the standard errors.}
 
-\item{site}{For a data frame, a character string naming a column of
-site labels. Defaults to \code{NULL}.}
+\item{site}{For a data frame, an optional character string naming a
+column of site labels. If \code{NULL} (the default), row names that have
+been set are used as labels.}
 
 \item{object}{A \code{bef_data} object.}
 
-\item{use_cli}{Logical or \code{NULL}. With \code{TRUE} and the cli package
-installed, the first line is set in bold and section titles in
-color; \code{FALSE} gives plain text. \code{NULL} (the default) takes the value
-of \code{getOption("bayesEfron.use_cli", TRUE)}.}
+\item{use_cli}{For \code{format()}: if \code{TRUE} and the cli package is
+installed, the first line is in bold; if \code{FALSE}, the result is plain
+text. If \code{NULL} (the default), the value of
+\code{getOption("bayesEfron.use_cli", TRUE)} is used.}
+
+\item{row.names, optional}{Not used; they are arguments of the generic
+function.}
 }
 \value{
-A list of class \code{bef_data} with the elements \code{theta_hat}, the
-estimates; \code{sigma}, the standard errors; \code{names}, the site labels or
-\code{NULL}; and \code{source}, which is \code{"list"}, \code{"data.frame"} or
-\code{"metafor::escalc"} according to the class of \code{x}.
+An object of class \code{bef_data}, which is a list with the
+following components.
+\describe{
+\item{\code{theta_hat}}{The estimates.}
+\item{\code{sigma}}{The standard errors.}
+\item{\code{names}}{The site labels, or \code{NULL} if there are none.}
+\item{\code{source}}{\code{"list"}, \code{"data.frame"} or \code{"metafor::escalc"},
+depending on the class of \code{x}.}
+}
 }
 \description{
-\code{\link[=bayes_efron_fit]{bayes_efron_fit()}} takes a vector of estimates and a vector of their
-standard errors. \code{as_bef_data()} takes the two vectors out of the object
-that usually holds them, a list, a data frame or the result of
-\code{metafor::escalc()}, and checks them. The result is a \code{bef_data} object,
-whose elements \code{theta_hat} and \code{sigma} are the arguments of
-\code{\link[=bayes_efron_fit]{bayes_efron_fit()}}.
+\code{\link[=bayes_efron_fit]{bayes_efron_fit()}} needs a vector of effect estimates and a vector of
+their standard errors. \code{as_bef_data()} extracts the two vectors from a
+data frame, a list or an \code{escalc} object from the metafor package and
+checks them. The result is a \code{bef_data} object, which can be passed to
+\code{\link[=bayes_efron_fit]{bayes_efron_fit()}} in place of the two vectors.
 }
 \details{
-The methods differ in where they look for the two vectors.
+The methods differ in where they look for the estimates and the
+standard errors.
 
 For a list, the elements \code{theta_hat} and \code{sigma} are used. Site labels
 are taken from an element \code{names} or, if there is none, from the names
@@ -84,55 +96,68 @@ of \code{theta_hat}.
 
 For a data frame, the estimates are the column named \code{theta_hat}, \code{yi},
 \code{estimate}, \code{effect} or \code{y}, and the standard errors are the column
-named \code{sigma}, \code{se}, \code{std_error}, \code{stderr} or \code{sei}; in each case the
-first of these names that the data frame has. The arguments \code{theta_hat}
-and \code{sigma} name other columns. If the column holds variances, as the
-column \code{vi} of a metafor data set does, name it in \code{sigma} and set
-\code{variance = TRUE}. Site labels are taken from the column named in \code{site}
-or, without it, from the row names if they have been set.
+named \code{sigma}, \code{se}, \code{std_error}, \code{stderr} or \code{sei}. If the data frame
+has more than one of these columns, the first in the list is used. If
+the data frame has none
+of the columns for standard errors but a column \code{vi}, \code{var} or
+\code{variance}, as a metafor data set does, the square roots of that column
+are used, with a message. Use the arguments \code{theta_hat} and \code{sigma} to
+specify columns with other names. For a column of variances with
+another name, specify it as \code{sigma} and set \code{variance = TRUE}. If
+\code{sigma} names a column whose name begins with \code{vi} or \code{var} and
+\code{variance} is not \code{TRUE}, a warning is issued, because the name
+suggests that the column contains variances. Site labels are taken
+from the column named in \code{site}. Without \code{site}, the row names are
+used if they have been set.
 
-For an object of class \code{escalc}, the estimates are the column \code{yi} and
-the standard errors are the square roots of the column \code{vi}. Row names
-that have been set are used as site labels.
+For an \code{escalc} object, the estimates are the column \code{yi} and the
+standard errors are the square roots of the column \code{vi}. Site labels
+are the study labels given to \code{metafor::escalc()} in its argument
+\code{slab} or, without them, row names that have been set.
 
 A \code{bef_data} object is checked again and returned.
 
-At least five sites are needed, and the function stops if a value is
-missing or a standard error is not positive. The site labels are shown
-when the object is printed; a fitted model numbers the sites in the
-order in which they were given.
+At least 5 sites are required. An error is thrown if a value is missing,
+if a standard error is not positive, or if a site label occurs more
+than once. The site labels are stored in a fitted model: they are shown
+in its tables and plots, and sites can be selected by their labels.
 }
 \section{Functions}{
 \itemize{
-\item \code{print(bef_data)}: Prints the number of sites and the range of the estimates and
-of the standard errors.
+\item \code{print(bef_data)}: Prints the number of sites and the ranges of the
+estimates and of the standard errors.
 
-\item \code{summary(bef_data)}: Returns a list with the number of sites \code{K} and summaries of
-\code{theta_hat} and \code{sigma}.
+\item \code{summary(bef_data)}: Returns a list with the number of sites \code{K} and
+summaries of \code{theta_hat} and \code{sigma}.
 
-\item \code{format(bef_data)}: Returns the lines that \code{print()} shows, as a character vector.
+\item \code{format(bef_data)}: Returns the lines that \code{print()} shows as a
+character vector.
+
+\item \code{as.data.frame(bef_data)}: Returns a data frame with one row per site and
+the columns \code{site}, \code{label}, \code{estimate} and \code{se}. If there are no site
+labels, \code{label} is the site number.
 
 }}
 \examples{
 # A data frame: the columns `yi` and `sei` are found by name.
-dat <- as_bef_data(raudenbush1985)
+dat <- as_bef_data(krw_discrimination)
 dat
 
-# The same from the variances, with the authors as site labels.
-as_bef_data(raudenbush1985, sigma = "vi", variance = TRUE, site = "author")
+# The same from the variances, with firm IDs as site labels.
+as_bef_data(krw_discrimination, sigma = "vi", variance = TRUE, site = "firm_id")
 
 # A list.
-as_bef_data(list(theta_hat = raudenbush1985$yi, sigma = raudenbush1985$sei))
+as_bef_data(list(theta_hat = krw_discrimination$yi, sigma = krw_discrimination$sei))
 
 # The two vectors that bayes_efron_fit() takes.
 str(dat[c("theta_hat", "sigma")])
 
 \dontshow{if (requireNamespace("metafor", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 # An escalc object from the metafor package.
-es <- metafor::escalc(measure = "GEN", yi = yi, vi = vi, data = raudenbush1985)
+es <- metafor::escalc(measure = "GEN", yi = yi, vi = vi, data = krw_discrimination)
 as_bef_data(es)
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{\link[=bayes_efron_fit]{bayes_efron_fit()}}, \link{raudenbush1985}
+\code{\link[=bayes_efron_fit]{bayes_efron_fit()}}, \link{krw_discrimination}
 }

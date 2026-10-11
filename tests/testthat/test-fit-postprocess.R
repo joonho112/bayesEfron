@@ -16,13 +16,18 @@ post_sha <- function(letter = "a") {
 
 post_context <- function(keep_cmdstan_fit = FALSE,
                          draws = post_draws_array(),
-                         runtime_seconds = 3.25) {
+                         runtime_seconds = 3.25,
+                         site_draws = TRUE) {
   ctx <- post_ns(".bef_fit_prepare_context")(
     call = quote(bayes_efron_fit(theta_hat, sigma)),
     theta_hat = post_theta_hat(),
     sigma = post_sigma(),
     seed = 321L,
     keep_cmdstan_fit = keep_cmdstan_fit,
+    site_draws = site_draws,
+    # The stand-in below has the variables that the program of version 0.3.0
+    # writes. test-stan-programs.R covers the program of this version.
+    settings = "0.3.0",
     check_installed = FALSE
   )
   ctx$cmdstan_fit <- post_fake_cmdstan_fit(draws)
@@ -155,7 +160,7 @@ test_that("draws are turned into the posterior series and summaries", {
       "sampler_diagnostics_failed",
       "sampler_diagnostics_warned", "mean_g_summary", "var_g_summary",
       "sd_g_summary", "effective_params_summary",
-      "log_marginal_likelihood_summary", "theta_summary"
+      "log_marginal_likelihood_summary", "nuts", "theta_summary"
     )
   )
   expect_named(processed$posterior, post_ns(".bef_generated_quantity_fields")())
@@ -172,8 +177,10 @@ test_that("draws are turned into the posterior series and summaries", {
   expect_equal(nrow(processed$theta_summary), 5L)
   expect_named(
     processed$theta_summary,
-    c("site", "mean", "sd", "hpdi_lower", "hpdi_upper", "map")
+    c("site", "label", "estimate", "se", "mean", "sd", "lower", "upper", "mode",
+      "hpdi_lower", "hpdi_upper", "map")
   )
+  expect_identical(attr(processed$theta_summary, "level"), 0.9)
   expect_equal(processed$theta_summary$site, seq_len(5L))
   expect_true(is.finite(processed$mean_g_summary$mean))
   expect_true(is.finite(processed$sd_g_summary$mean))
@@ -480,4 +487,44 @@ test_that("the Stan file hash is the SHA-256 of the installed Stan file", {
   )
 
   expect_equal(post_ns(".bef_fit_stan_sha256")("RE"), expected)
+})
+
+test_that("by default a fit keeps the draws of g and no site-level draws", {
+  compact <- post_assemble(post_context(site_draws = FALSE))
+  full <- post_assemble(post_context(site_draws = TRUE))
+  blocks <- function(fit) unique(sub("\\[.*$", "", dimnames(fit$draws)[[3L]]))
+  # The stand-in for CmdStan in these tests holds no sampled parameters; the
+  # exact list is checked on a real fit in test-live.R.
+  kept <- c("lp__", "alpha", "lambda", "log_g", "mean_g", "var_g", "sd_g",
+            "effective_params", "log_marginal_likelihood")
+  expect_true(all(blocks(compact) %in% kept))
+  expect_true(all(c("log_g", "mean_g", "var_g", "sd_g") %in% blocks(compact)))
+  expect_true(all(c("theta_mean", "theta_sd", "theta_map", "theta_rep") %in% blocks(full)))
+  expect_false(post_ns(".bef_has_site_draws")(compact))
+  expect_true(post_ns(".bef_has_site_draws")(full))
+  expect_identical(attr(compact$metadata, "storage")$site_draws, FALSE)
+  expect_identical(attr(full$metadata, "storage")$site_draws, TRUE)
+  expect_identical(attr(compact$metadata, "storage")$iterations, dim(compact$draws)[[1L]])
+
+  # The same draws of g, the same table of site effects and the same scalar
+  # series: what is kept does not change what is computed.
+  shared <- dimnames(compact$draws)[[3L]]
+  expect_identical(compact$draws[, , shared], full$draws[, , shared])
+  expect_identical(compact$metadata$theta_summary, full$metadata$theta_summary)
+  expect_identical(compact$posterior, full$posterior)
+  expect_equal(site_summary(compact), site_summary(full))
+  expect_equal(coef(compact), coef(full))
+  expect_equal(vcov(compact), vcov(full))
+  expect_equal(confint(compact), confint(full))
+  expect_error(confint(compact, method = "draws"), "site_draws = TRUE",
+               class = "bef_invalid_args")
+  expect_no_error(confint(full, method = "draws"))
+  expect_true(any(grepl("site-level draws not kept", format(compact, use_cli = FALSE))))
+  expect_true(any(grepl("site-level draws kept", format(full, use_cli = FALSE))))
+
+  # A fit that keeps part of a site-level block is refused.
+  broken <- full
+  broken$draws <- broken$draws[, , dimnames(broken$draws)[[3L]] != "theta_sd[2]", drop = FALSE]
+  expect_error(post_ns("validate_bef_fit_re")(broken), "or none of it",
+               class = "bef_invalid_fit")
 })

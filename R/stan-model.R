@@ -26,8 +26,16 @@
   identical(.Platform$OS.type, "windows")
 }
 
-.bef_stan_file <- function(model_family = "RE") {
-  system.file("stan", "efron_re.stan", package = "bayesEfron", mustWork = TRUE)
+# The Stan programs of the package. "efron_mix" is the program of version
+# 0.4. "efron_re" is the program of versions up to 0.3; it is kept exactly as
+# it was, so that `settings = "0.3.0"` gives the draws of that version.
+.bef_stan_programs <- function() {
+  c("efron_mix", "efron_re")
+}
+
+.bef_stan_file <- function(model_family = "RE", program = "efron_re") {
+  program <- match.arg(program, .bef_stan_programs())
+  system.file("stan", paste0(program, ".stan"), package = "bayesEfron", mustWork = TRUE)
 }
 
 .bef_stan_file_sha256 <- function(stan_file) {
@@ -47,7 +55,8 @@
 
 .bef_exe_file <- function(stan_file) {
   name <- sprintf(
-    "efron_re-%s-cmdstan%s-%s",
+    "%s-%s-cmdstan%s-%s",
+    tools::file_path_sans_ext(basename(stan_file)),
     substr(.bef_stan_file_sha256(stan_file), 1L, 12L),
     .bef_cmdstan_version(),
     R.version$arch
@@ -78,9 +87,10 @@
 
 .bef_model <- function(model_family = "RE",
                        force_recompile = FALSE,
-                       quiet = TRUE) {
+                       quiet = TRUE,
+                       program = "efron_re") {
   .bef_check_cmdstanr_installed()
-  stan_file <- .bef_stan_file(model_family)
+  stan_file <- .bef_stan_file(model_family, program = program)
   exe <- .bef_exe_file(stan_file)
 
   if (isTRUE(force_recompile)) {
@@ -154,38 +164,43 @@
   model
 }
 
-#' Compile the Stan model ahead of time, or remove the compiled model
+#' Compile the Stan programs before the first fit
 #'
 #' @description
-#' The first call to [bayes_efron_fit()] compiles the Stan model, which can
-#' take up to a minute. `bayes_efron_compile()` does that step on its own,
-#' so that a later fit starts sampling at once. `bayes_efron_clear_cache()`
-#' deletes the compiled model.
+#' The first call to [bayes_efron_fit()] compiles the Stan program, which
+#' can take up to a minute. `bayes_efron_compile()` compiles it in advance,
+#' so that the first fit starts sampling immediately.
+#' `bayes_efron_clear_cache()` deletes the compiled models.
 #'
 #' @details
-#' The compiled model is stored in `tools::R_user_dir("bayesEfron", "cache")`
-#' and reused in later sessions. The file name includes a hash of the Stan
-#' file, the CmdStan version and the machine architecture, so the model is
-#' compiled again after an update of the package's Stan file or of CmdStan.
-#' Set the environment variable `BAYESEFRON_CACHE_ROOT` to store it somewhere
-#' else, for example on a cluster where the home directory is not writable.
+#' The package has two Stan programs: the current one, and the program of
+#' version 0.3.0, which [bayes_efron_fit()] runs only with
+#' `settings = "0.3.0"`. `bayes_efron_compile()` compiles both.
 #'
-#' `bayes_efron_compile()` needs the cmdstanr package and a working CmdStan
-#' installation.
+#' Compiled models are stored in `tools::R_user_dir("bayesEfron", "cache")`
+#' and reused in later sessions. A model is compiled again after an update
+#' of the package's Stan file or of CmdStan. To store the models somewhere
+#' else, e.g., on a cluster where the home directory is not writable, set
+#' the environment variable `BAYESEFRON_CACHE_ROOT`.
 #'
-#' @param model_family Character string. `"RE"` is the only model available.
-#' @param quiet Logical. If `TRUE` (the default), the compiler output is not
-#'   shown.
-#' @param force_recompile Logical. If `TRUE`, the model is compiled even when
-#'   a compiled copy exists. Defaults to `FALSE`.
-#' @param scope Character string. `"all"` (the default) deletes the cached
-#'   files. The values `"session"`, `"compiled_models"` and
-#'   `"lock_only"` are accepted for scripts written for earlier versions and
-#'   give a warning; `"lock_only"` no longer does anything.
+#' `bayes_efron_compile()` requires the cmdstanr package and a working
+#' installation of CmdStan.
 #'
-#' @return `bayes_efron_compile()` returns the `cmdstanr::CmdStanModel`
-#'   object, invisibly. `bayes_efron_clear_cache()` returns the number of
-#'   files it deleted, invisibly.
+#' @param model_family Model family. Currently only `"RE"` is available.
+#' @param quiet If `TRUE` (the default), the compiler output is not shown.
+#' @param force_recompile If `TRUE`, compile the programs even if compiled
+#'   models already exist.
+#' @param scope What to delete. `"all"` (the default) deletes the compiled
+#'   models from the cache. The other values are deprecated and are
+#'   accepted with a warning: `"compiled_models"` is equivalent to `"all"`,
+#'   `"session"` deletes no files and only makes the session load the
+#'   compiled models again for the next fit, and `"lock_only"` does
+#'   nothing.
+#'
+#' @return `bayes_efron_compile()` invisibly returns the
+#'   `cmdstanr::CmdStanModel` object for the current Stan program.
+#'   `bayes_efron_clear_cache()` invisibly returns the number of files
+#'   that it deleted.
 #'
 #' @seealso [bayes_efron_fit()]
 #'
@@ -193,7 +208,7 @@
 #' \dontrun{
 #' bayes_efron_compile()
 #'
-#' # Start again from the Stan file.
+#' # Delete the compiled models and compile again.
 #' bayes_efron_clear_cache()
 #' bayes_efron_compile()
 #' }
@@ -211,11 +226,15 @@ bayes_efron_compile <- function(model_family = "RE",
     checkmate::assert_flag(force_recompile),
     arg = "force_recompile"
   )
-  invisible(.bef_model(
-    model_family = model_family,
-    force_recompile = force_recompile,
-    quiet = quiet
-  ))
+  models <- lapply(.bef_stan_programs(), function(program) {
+    .bef_model(
+      model_family = model_family,
+      force_recompile = force_recompile,
+      quiet = quiet,
+      program = program
+    )
+  })
+  invisible(models[[1L]])
 }
 
 #' @rdname bayes_efron_compile
@@ -241,7 +260,7 @@ bayes_efron_clear_cache <- function(scope = "all") {
   if (scope %in% c("all", "compiled_models") && dir.exists(dir)) {
     # The "v1" subdirectory was used by earlier versions of the package.
     files <- c(
-      list.files(dir, pattern = "^efron_re-", full.names = TRUE),
+      list.files(dir, pattern = "^efron_(re|mix)-", full.names = TRUE),
       list.files(file.path(dir, "v1"), full.names = TRUE, all.files = TRUE,
                  no.. = TRUE)
     )

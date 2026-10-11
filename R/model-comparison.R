@@ -1,40 +1,40 @@
 # loo() and waic() methods.
 
-#' Leave-one-out cross-validation for a fitted model
+#' Leave-one-out cross-validation and WAIC for a fitted model
 #'
 #' @description
 #' `loo()` estimates how well the fitted model predicts the estimate of a
 #' site that is left out. It applies Pareto smoothed importance sampling
 #' (Vehtari, Gelman and Gabry, 2017) to the log likelihood of each site,
-#' which is stored with the draws. The result serves to compare fits of the
-#' same data that differ in the grid or in the number of spline functions;
-#' [compare_efron_grids()] makes that comparison in one call.
+#' which is computed from the draws of \eqn{g}. Use the result to compare
+#' fits of the same data that differ in the grid or in the number of spline
+#' functions; [compare_efron_grids()] makes that comparison in one call.
 #'
 #' `waic()` computes the widely applicable information criterion from the
 #' same log likelihood. We recommend `loo()`, because its Pareto k values
 #' show for each site whether the approximation can be relied on, whereas
-#' `waic()` gives only a general warning when some of its terms are large.
+#' `waic()` issues only a general warning when some of its terms are large.
 #'
 #' @details
 #' Both methods need the loo package. The relative efficiency that
 #' [loo::loo()] uses for its Monte Carlo standard errors is computed from
 #' the draws with [loo::relative_eff()].
 #'
-#' @param x A `bef_fit` object from [bayes_efron_fit()].
+#' @param x A `bef_fit` object created by [bayes_efron_fit()].
 #' @param ... Passed to [loo::loo()] or [loo::waic()].
 #'
-#' @return The object that [loo::loo()] or [loo::waic()] returns.
+#' @return An object of class `psis_loo` from [loo::loo()], or of class
+#'   `waic` from [loo::waic()].
 #'
 #' @references
 #' Vehtari, A., Gelman, A. and Gabry, J. (2017). Practical Bayesian model
 #' evaluation using leave-one-out cross-validation and WAIC. *Statistics
 #' and Computing*, 27(5), 1413-1432. \doi{10.1007/s11222-016-9696-4}
 #'
-#' @seealso [compare_efron_grids()], [plot.bef_fit_re()] with
-#'   `type = "loo"`
+#' @seealso [compare_efron_grids()], [plot_loo()]
 #'
 #' @examplesIf requireNamespace("loo", quietly = TRUE)
-#' fit_loo <- loo::loo(raudenbush_fit)
+#' fit_loo <- loo::loo(krw_fit)
 #' fit_loo
 #' range(fit_loo$diagnostics$pareto_k)
 #'
@@ -46,7 +46,8 @@ loo.bef_fit <- function(x, ...) {
     .bef_abort_v01_fit("loo")
   }
 
-  log_lik <- .bef_log_lik_draws(x)
+  x <- .bef_prepare_fit(x)
+  log_lik <- .bef_fit_log_lik(x)
   if (any(!is.finite(log_lik))) {
     .bef_abort_invalid_fit(
       paste0(
@@ -107,7 +108,8 @@ waic.bef_fit <- function(x, ...) {
   if (.bef_is_v01_fit(x)) {
     .bef_abort_v01_fit("waic")
   }
-  loo::waic(.bef_log_lik_draws(x), ...)
+  x <- .bef_prepare_fit(x)
+  loo::waic(.bef_fit_log_lik(x), ...)
 }
 
 # The chain of each draw, in the order of the rows of the draws matrix.
@@ -124,4 +126,15 @@ waic.bef_fit <- function(x, ...) {
     )
   }
   invisible(TRUE)
+}
+
+# The log likelihood of each site for every draw. It is computed from the
+# draws of g. An object put together without them, with `log_lik` draws
+# only, gives those.
+.bef_fit_log_lik <- function(x) {
+  variables <- dimnames(x$draws)[[3L]]
+  if (any(c("log_g[1]", "g[1]") %in% variables)) {
+    return(.bef_log_lik(.bef_engine(x)))
+  }
+  .bef_log_lik_draws(x)
 }

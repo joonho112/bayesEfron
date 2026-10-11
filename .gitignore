@@ -10,11 +10,15 @@
 bayesEfron.Rcheck/
 bayesEfron_*.tar.gz
 
+# What a plot leaves behind when no device is open
+Rplots.pdf
+
 # The site is built and deployed by a workflow
 docs/
 
 # Written next to the Stan file when the model is compiled in the source tree
 inst/stan/efron_re
+inst/stan/efron_mix
 inst/stan/*.hpp
 inst/stan/*.o
 
