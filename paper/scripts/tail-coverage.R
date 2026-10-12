@@ -6,18 +6,44 @@
 # population plugged in, and the ebnm normal and NPMLE fits. Reads the
 # per-site results of the package's benchmark (data-raw/benchmark/ in the
 # source repository) and writes data/tail-coverage.csv and
-# data/tail-coverage-numbers.csv; tables.R draws Table E.2 from the CSV.
+# data/tail-coverage-numbers.csv; data/tail-coverage-panels.csv retains the
+# panel-level results underlying the Monte Carlo standard errors.
+# tables.R draws Table E.2 from the aggregate CSV.
 #
-# Run from the paper folder root:  Rscript scripts/tail-coverage.R
+# Run from the paper folder root:
+#   Rscript scripts/tail-coverage.R [path/to/package-checkout] [--check-inputs]
+# The default first checks the parent checkout (checkout/paper layout),
+# then the two sibling checkout names used for the manuscript source.
+# --check-inputs validates paths and the package version without fitting.
 # ==============================================================================
 root <- normalizePath(".")
 .libPaths(c(file.path(root, "r-library"), .libPaths()))
 suppressPackageStartupMessages({ library(bayesEfron); library(ebnm) })
-candidates <- c(file.path(root, "..", "bayesEfron-R-package-public", "data-raw", "benchmark"),
-                file.path(root, "..", "bayesEfron-R-package", "data-raw", "benchmark"))
-bench <- candidates[dir.exists(file.path(candidates, "results-v040"))][1]
-stopifnot(!is.na(bench))
+print(packageVersion("bayesEfron"))
+stopifnot(packageVersion("bayesEfron") == "0.4.0")
+args <- commandArgs(trailingOnly = TRUE)
+check_inputs <- "--check-inputs" %in% args
+args <- args[args != "--check-inputs"]
+if (length(args) > 1L || any(startsWith(args, "--")))
+  stop("Usage: Rscript scripts/tail-coverage.R [path/to/package-checkout] [--check-inputs]", call. = FALSE)
+checkouts <- if (length(args)) path.expand(args[[1L]]) else
+  file.path(root, "..", c(".", "bayesEfron-R-package-public", "bayesEfron-R-package"))
+candidates <- file.path(checkouts, "data-raw", "benchmark")
+required <- c(sprintf("panels_K%d.rds", c(100L, 1500L)),
+              file.path("results-v040", sprintf("panels-K%d-default-fits.rds", c(100L, 1500L))))
+complete <- vapply(candidates, function(path) all(file.exists(file.path(path, required))), logical(1))
+if (!any(complete)) {
+  missing <- vapply(candidates, function(path) paste0("  ", path, "\n    missing: ",
+    paste(required[!file.exists(file.path(path, required))], collapse = ", ")), character(1))
+  stop(paste0("Benchmark inputs not found. Supply the package checkout as the first argument.\n",
+              paste(missing, collapse = "\n")), call. = FALSE)
+}
+bench <- normalizePath(candidates[which(complete)[1L]])
 message("benchmark folder: ", bench)
+if (check_inputs) {
+  message("Input check passed: all four benchmark files exist; no fits or outputs were generated.")
+  quit(save = "no", status = 0L)
+}
 everything <- ebnm::ebnm_output_all()
 quietly <- function(expr) withCallingHandlers(expr, warning = function(w) {
   if (grepl("local false sign rates", conditionMessage(w), fixed = TRUE)) invokeRestart("muffleWarning")
@@ -33,17 +59,50 @@ plug_in <- function(grid, g, x, s) {
   q <- bayesEfron:::.bef_site_quantile(engine, c(0.05, 0.95), weights = w)
   list(lower = q[, 1], upper = q[, 2])
 }
-# the true distribution of the population (the 1,500 values of disjointTheta,
-# which twin_towers carries) taken as known: the posterior of each site is
-# discrete, and its equal-tailed interval is read from the weighted values
-population <- sort(bayesEfron::twin_towers$theta_true)
+# The generating distribution in benchmark/panels-make.R is continuous:
+# (1/3) Uniform(-1.7, -0.7) + (2/3) Uniform(0.7, 2.7). Its posterior is a
+# mixture of two truncated normals. Integrate the likelihood exactly on
+# each interval, then invert the component CDF; no empirical population,
+# grid approximation or Monte Carlo sampling is used for this comparator.
+# Log probabilities avoid cancellation when an estimate lies far from g.
 known_g <- function(x, s) {
+  stopifnot(length(x) == length(s), all(is.finite(x)),
+            all(is.finite(s)), all(s > 0))
+  a <- c(-1.7, 0.7); b <- c(-0.7, 2.7)
+  log_density <- log(c(1 / 3, 2 / 3) / (b - a))
+  log_add <- function(u, v) {
+    m <- max(u, v)
+    if (is.infinite(m)) return(m)
+    m + log1p(exp(min(u, v) - m))
+  }
   lower <- upper <- numeric(length(x))
   for (i in seq_along(x)) {
-    w <- stats::dnorm(x[i], population, s[i]); cw <- cumsum(w / sum(w))
-    lower[i] <- population[which(cw >= 0.05)[1]]
-    upper[i] <- population[which(cw >= 0.95)[1]]
+    za <- (a - x[i]) / s[i]; zb <- (b - x[i]) / s[i]
+    # Use the upper tail when both endpoints are positive.
+    upper_tail <- za > 0
+    log_big <- ifelse(upper_tail, stats::pnorm(za, lower.tail = FALSE, log.p = TRUE),
+                      stats::pnorm(zb, log.p = TRUE))
+    log_small <- ifelse(upper_tail, stats::pnorm(zb, lower.tail = FALSE, log.p = TRUE),
+                        stats::pnorm(za, log.p = TRUE))
+    log_mass <- log_big + log(-expm1(log_small - log_big))
+    log_weight <- log_density + log_mass
+    w <- exp(log_weight - max(log_weight)); w <- w / sum(w)
+    quantile_at <- function(p) {
+      j <- if (p <= w[1L]) 1L else 2L
+      before <- if (j == 1L) 0 else w[1L]
+      fraction <- (p - before) / w[j]
+      if (fraction <= 0) return(a[j])
+      if (fraction >= 1) return(b[j])
+      lp <- if (upper_tail[j])
+        log_add(stats::pnorm(zb[j], lower.tail = FALSE, log.p = TRUE),
+                log1p(-fraction) + log_mass[j]) else
+        log_add(stats::pnorm(za[j], log.p = TRUE), log(fraction) + log_mass[j])
+      x[i] + s[i] * stats::qnorm(lp, lower.tail = !upper_tail[j], log.p = TRUE)
+    }
+    lower[i] <- quantile_at(0.05)
+    upper[i] <- quantile_at(0.95)
   }
+  stopifnot(all(is.finite(lower)), all(is.finite(upper)), all(lower <= upper))
   list(lower = lower, upper = upper)
 }
 # the groups are (-1.7, -0.7) and (0.7, 2.7); the outer tenth at either end
@@ -52,7 +111,7 @@ subsets <- function(x, truth) {
   cut <- stats::quantile(x, c(0.025, 0.975))
   list("All sites" = rep(TRUE, length(x)),
        "Estimate between the groups (-0.7, 0.7)" = abs(x) < 0.7,
-       "5% most extreme estimates" = x < cut[1] | x > cut[2],
+       "Estimates outside the sample 2.5th and 97.5th percentiles" = x < cut[1] | x > cut[2],
        "True effect in the outer tenth at either end of its group" =
          truth < -1.6 | (truth > -0.8 & truth < -0.7) | (truth > 0.7 & truth < 0.9) | truth > 2.5)
 }
@@ -83,6 +142,7 @@ for (K in c(100L, 1500L)) {
   message("K = ", K, ": ", length(panels), " panels done")
 }
 rows <- do.call(rbind, rows)
+write.csv(rows, "data/tail-coverage-panels.csv", row.names = FALSE)
 agg <- do.call(rbind, lapply(split(rows, list(rows$K, rows$method, rows$subset), drop = TRUE), function(d) {
   data.frame(K = d$K[1], method = d$method[1], subset = d$subset[1], panels = nrow(d),
              sites_per_panel = mean(d$n), inclusion = mean(d$inclusion),

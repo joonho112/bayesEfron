@@ -8,7 +8,7 @@
 #
 # House style (Applied Geography / Geometry papers): Helvetica, theme_minimal
 # with a grey90 grid, bold (a)(b)(c) panel tags, the Okabe-Ito palette with
-# fixed semantic assignments, quartz PDF + ragg PNG. The figures are drawn at
+# fixed semantic assignments, portable PDF + ragg PNG. The figures are drawn at
 # the text width of the elsarticle preprint (137 mm), so that they are
 # included at their natural size.
 # ==============================================================================
@@ -23,6 +23,7 @@ suppressPackageStartupMessages({
   library(scales)
 })
 stopifnot(packageVersion("bayesEfron") == "0.4.0")
+print(packageVersion("bayesEfron"))
 
 FIGDIR <- "figures"; PNGDIR <- "figures/png"; OSMDIR <- "osm/figures"
 for (d in c(FIGDIR, PNGDIR, OSMDIR)) dir.create(d, showWarnings = FALSE, recursive = TRUE)
@@ -73,12 +74,50 @@ theme_paper <- function(base_size = BASE_SIZE) {
       plot.margin = margin(2, 4, 2, 2)
     )
 }
-dev_quartz_pdf <- function(filename, width, height, ...)
-  grDevices::quartz(file = filename, type = "pdf", width = width, height = height, ...)
+# A build can advertise Cairo support while its runtime shared library is
+# missing. Require a loadable Cairo version, then fall back to base PDF.
+cairo_version <- if (capabilities("cairo")) {
+  tryCatch(suppressWarnings(grDevices::cairoVersion()), error = function(e) "")
+} else ""
+use_cairo <- length(cairo_version) == 1L && nzchar(cairo_version)
+dev_paper_pdf <- function(filename, width, height, ...) {
+  if (use_cairo) {
+    grDevices::cairo_pdf(filename = filename, width = width, height = height,
+                        family = BASE_FAMILY, ...)
+  } else {
+    grDevices::pdf(file = filename, width = width, height = height,
+                  family = BASE_FAMILY, useDingbats = FALSE, ...)
+  }
+}
+message("PDF device: ", if (use_cairo) "cairo_pdf" else "pdf")
+# Text in the PDF figures is drawn as vector outlines with showtext, so that
+# the PDFs carry no font to embed (neither the quartz nor the base pdf device
+# embeds Helvetica, and the journal asks for embedded fonts). The outlines come
+# from the two Helvetica faces of macOS when they have been extracted to
+# qa/fonts/ (see the README), else from Arial, which has the same metrics.
+# Without showtext the PDFs are written as before. The PNG proofs keep ragg's
+# own text rendering.
+OUTLINE_FONTS <- list(
+  c(regular = file.path("qa", "fonts", "Helvetica-Regular.ttf"),
+    bold = file.path("qa", "fonts", "Helvetica-Bold.ttf")),
+  c(regular = "/System/Library/Fonts/Supplemental/Arial.ttf",
+    bold = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"))
+use_showtext <- FALSE
+if (requireNamespace("showtext", quietly = TRUE) && requireNamespace("sysfonts", quietly = TRUE)) {
+  for (faces in OUTLINE_FONTS) if (all(file.exists(faces))) {
+    sysfonts::font_add(BASE_FAMILY, regular = faces[["regular"]], bold = faces[["bold"]])
+    use_showtext <- TRUE
+    message("PDF text drawn as outlines from ", basename(faces[["regular"]]))
+    break
+  }
+}
+if (!use_showtext) message("showtext or its font files not found: PDF text keeps the device font")
 save_fig <- function(plot, name, width_mm, height_mm, dir = FIGDIR) {
   w <- width_mm / 25.4; h <- height_mm / 25.4
+  if (use_showtext) { showtext::showtext_auto(TRUE); showtext::showtext_opts(dpi = 72) }
   ggsave(file.path(dir, paste0(name, ".pdf")), plot, width = w, height = h,
-         device = dev_quartz_pdf)
+         device = dev_paper_pdf)
+  if (use_showtext) showtext::showtext_auto(FALSE)
   ggsave(file.path(PNGDIR, paste0(name, ".png")), plot, width = w, height = h,
          dpi = 400, device = ragg::agg_png, bg = "white")
   message("wrote ", name, " (", width_mm, " x ", height_mm, " mm)")
@@ -214,19 +253,14 @@ p3a <- ggplot() +
   label_text(x = 0.95, y = 0.655, vjust = 1, size = 2.2, color = PAL$ink2,
              label = sprintf("no true effect here:\ng puts %.2f, normal %.2f",
                              num("twin_prob_between"), num("twin_normal_between"))) +
-  label_text(x = -2.95, y = 0.655, hjust = 0, vjust = 1, color = PAL$blue, size = 2.2,
-             label = "g, 90% band") +
-  label_text(x = -2.95, y = 0.60, hjust = 0, vjust = 1, color = PAL$vermillion, size = 2.2,
-             label = "Normal (REML)") +
-  label_text(x = -2.95, y = 0.545, hjust = 0, vjust = 1, color = PAL$ink2, size = 2.2,
-             label = "bars: true effects") +
-  label_text(x = -2.95, y = 0.49, hjust = 0, vjust = 1, color = PAL$ink2, size = 2.2,
-             label = "dotted: estimates") +
   scale_x_continuous(breaks = seq(-3, 3, 1), expand = c(0, 0)) +
   scale_y_continuous(limits = c(0, 0.68), expand = c(0, 0)) +
   coord_cartesian(xlim = c(-3.05, 3.75)) +
-  labs(x = "Effect", y = "Density") +
-  theme_paper()
+  labs(x = "Effect", y = "Density",
+       caption = "Blue: g, 90% band; dashed: normal (REML)\nBars: true effects; dotted: estimates") +
+  theme_paper() +
+  theme(plot.caption = element_text(size = BASE_SIZE - 0.8, color = PAL$ink2,
+                                     hjust = 0, margin = margin(t = 3)))
 
 # (b) shrinkage under the two models, colored by the group of the true effect
 sb <- rbind(
@@ -268,24 +302,29 @@ to_panel <- function(site) factor(panel_lab[as.character(site)], levels = panel_
 pc$panel <- to_panel(pc$site); lik$panel <- to_panel(lik$site); gcurve$panel <- to_panel(gcurve$site)
 means <- data.frame(panel = to_panel(site_tab$site), mean = site_tab$mean,
                     lower = site_tab$lower, upper = site_tab$upper)
-key <- data.frame(panel = to_panel(shown[1]), x = 3.6, y = Inf,
-                  label = "area: posterior\ndashed: likelihood\ndotted: g")
 p3c <- ggplot() +
   geom_area(data = pc, aes(x = value, y = posterior), fill = PAL$blue, alpha = 0.25) +
-  geom_line(data = pc, aes(x = value, y = posterior), color = PAL$blue, linewidth = 0.6) +
-  geom_line(data = lik, aes(x = value, y = density), color = PAL$ink2, linewidth = 0.45,
-            linetype = "22") +
-  geom_line(data = gcurve, aes(x = value, y = density), color = PAL$ink3, linewidth = 0.4,
-            linetype = "dotted") +
+  geom_line(data = pc, aes(x = value, y = posterior, linetype = "Posterior"),
+            color = PAL$blue, linewidth = 0.6) +
+  geom_line(data = lik, aes(x = value, y = density, linetype = "Likelihood"),
+            color = PAL$ink2, linewidth = 0.45) +
+  geom_line(data = gcurve, aes(x = value, y = density, linetype = "g"),
+            color = PAL$ink3, linewidth = 0.4) +
   geom_segment(data = means, aes(x = lower, xend = upper, y = -0.08, yend = -0.08),
                color = PAL$blue, linewidth = 0.6) +
   geom_point(data = means, aes(x = mean, y = -0.08), color = PAL$blue, size = 1.4) +
-  geom_text(data = key, aes(x = x, y = y, label = label), vjust = 1.2, hjust = 1, size = 2.3,
-            color = PAL$ink2, family = BASE_FAMILY, lineheight = 0.95) +
   facet_wrap(~ panel, nrow = 1, scales = "free_y") +
+  scale_linetype_manual(values = c("Posterior" = "solid", "Likelihood" = "22", "g" = "dotted"),
+                        breaks = c("Posterior", "Likelihood", "g"), name = NULL) +
+  guides(linetype = guide_legend(nrow = 1,
+    override.aes = list(color = c(PAL$blue, PAL$ink2, PAL$ink3)))) +
   scale_x_continuous(limits = c(-3.05, 3.75), breaks = seq(-3, 3, 1)) +
   labs(x = "Effect", y = "Density") +
-  theme_paper() + theme(strip.text = element_text(size = BASE_SIZE - 0.4))
+  theme_paper() + theme(strip.text = element_text(size = BASE_SIZE - 0.4),
+                         legend.position = "bottom", legend.direction = "horizontal",
+                         legend.key.width = unit(4.5, "mm"),
+                         legend.key.height = unit(2.5, "mm"),
+                         legend.box.margin = margin(-5, 0, 0, 0))
 
 # (d) calibration: the share of the true effects inside the interval at each level
 cal <- twin$calibration
@@ -298,16 +337,17 @@ p3d <- ggplot(cal, aes(x = level, y = inside)) +
   geom_point(color = PAL$blue, size = 1.5) +
   geom_point(data = cal[at90, ], color = PAL$orange, size = 2.6, shape = 21, stroke = 0.8,
              fill = NA) +
-  label_text(x = 0.97, y = 0.26, hjust = 1, vjust = 1, color = PAL$ink2, size = 2.3,
-             label = sprintf("90%% intervals contain %.1f%%\nof the 1,500 true effects",
-                             num("twin_inside_90_pct"))) +
   scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25), labels = percent_format(accuracy = 1),
                      expand = c(0.01, 0)) +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25), labels = percent_format(accuracy = 1),
                      expand = c(0.01, 0)) +
   coord_equal() +
-  labs(x = "Level of the posterior interval", y = "True effects inside the interval") +
-  theme_paper()
+  labs(x = "Level of the posterior interval", y = "True effects inside the interval",
+       caption = sprintf("90%% intervals contain %.1f%%\nof the 1,500 true effects",
+                         num("twin_inside_90_pct"))) +
+  theme_paper() +
+  theme(plot.caption = element_text(size = BASE_SIZE - 1.5, color = PAL$ink2,
+                                     hjust = 1, margin = margin(t = 3)))
 
 fig3 <- tags((p3a | p3b) / (p3c | p3d) + plot_layout(widths = c(1.12, 1)))
 save_fig(fig3, "fig3_twin_towers", MM_FULL, 124)
@@ -364,15 +404,25 @@ names(ref)[2:3] <- c("length_ref", "rmse_ref")
 ev <- merge(ev, ref, by = "design")
 ev$length_ratio <- ev$length / ev$length_ref
 ev$rmse_ratio <- ev$rmse / ev$rmse_ref
-ref_se <- ev[ev$method == "bayesEfron", c("design", "length_se", "rmse_se")]
-names(ref_se)[2:3] <- c("length_se_ref", "rmse_se_ref")
-ev <- merge(ev, ref_se, by = "design")
-# an upper bound for the Monte Carlo SE of a ratio: it ignores that the two
-# methods are evaluated on the same data sets
-ev$length_ratio_se <- ifelse(ev$method == "bayesEfron", 0,
-  ev$length_ratio * sqrt((ev$length_se / ev$length)^2 + (ev$length_se_ref / ev$length_ref)^2))
-ev$rmse_ratio_se <- ifelse(ev$method == "bayesEfron", 0,
-  ev$rmse_ratio * sqrt((ev$rmse_se / ev$rmse)^2 + (ev$rmse_se_ref / ev$rmse_ref)^2))
+# Paired delta-method errors use the same saved data sets for each method and
+# its bayesEfron reference; scripts/ratio-mcse.R generates this portable CSV.
+ratio_mcse <- read.csv("data/ratio-mcse.csv", stringsAsFactors = FALSE)
+ratio_key <- function(x) paste(as.character(x$design), as.character(x$method), sep = " | ")
+assert(!anyDuplicated(ratio_key(ratio_mcse)), "fig4: duplicate ratio MCSE keys")
+j <- match(ratio_key(ev), ratio_key(ratio_mcse))
+assert(!anyNA(j) && nrow(ev) == nrow(ratio_mcse), "fig4: ratio MCSE keys do not match")
+assert(max(abs(ev$length_ratio - ratio_mcse$length_ratio[j])) < 1e-12 &&
+         max(abs(ev$rmse_ratio - ratio_mcse$rmse_ratio[j])) < 1e-12,
+       "fig4: paired-ratio point estimates drifted")
+ev$length_ratio_se <- ratio_mcse$length_ratio_se[j]
+ev$rmse_ratio_se <- ratio_mcse$rmse_ratio_se[j]
+ratio_limits <- function(ratio, se) {
+  bounds <- range(c(ratio - 2 * se, ratio + 2 * se, 1))
+  assert(all(is.finite(bounds)), "fig4: non-finite ratio bounds")
+  bounds + c(-1, 1) * max(0.015, 0.04 * diff(bounds))
+}
+length_limits <- ratio_limits(ev$length_ratio, ev$length_ratio_se)
+rmse_limits <- ratio_limits(ev$rmse_ratio, ev$rmse_ratio_se)
 assert(near(round(ev$inclusion[ev$method == "bayesEfron" & ev$design == design_levels[2]], 3),
             round(num("cov_K1500"), 3)), "fig4: coverage K = 1500 drifted")
 assert(near(round(ev$inclusion[ev$method == "bayesEfron" & ev$design == design_levels[6]], 3),
@@ -401,7 +451,7 @@ p4b <- ggplot(ev, aes(x = length_ratio, y = design, color = method, shape = meth
   geom_point(position = dodge, size = 1.8) +
   scale_color_manual(values = METHOD_COL[method_levels], breaks = method_levels, guide = "none") +
   scale_shape_manual(values = METHOD_SHP, breaks = method_levels, guide = "none") +
-  scale_x_continuous(breaks = c(0.8, 1.0, 1.2), limits = c(0.65, 1.28)) +
+  scale_x_continuous(breaks = c(0.8, 1.0, 1.2), limits = length_limits) +
   labs(x = "Length ratio", y = NULL)
 p4b <- base4(p4b) + theme(axis.text.y = element_blank())
 p4c <- ggplot(ev, aes(x = rmse_ratio, y = design, color = method, shape = method)) +
@@ -411,7 +461,7 @@ p4c <- ggplot(ev, aes(x = rmse_ratio, y = design, color = method, shape = method
   geom_point(position = dodge, size = 1.8) +
   scale_color_manual(values = METHOD_COL[method_levels], breaks = method_levels, guide = "none") +
   scale_shape_manual(values = METHOD_SHP, breaks = method_levels, guide = "none") +
-  scale_x_continuous(breaks = c(0.9, 1.0, 1.1), limits = c(0.84, 1.12)) +
+  scale_x_continuous(breaks = c(0.9, 1.0, 1.1), limits = rmse_limits) +
   labs(x = "RMSE ratio", y = NULL)
 p4c <- base4(p4c) + theme(axis.text.y = element_blank())
 fig4 <- tags((p4a | p4b | p4c) + plot_layout(widths = c(1.6, 1, 1), guides = "collect") &

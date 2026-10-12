@@ -1,5 +1,5 @@
 # ==============================================================================
-# analysis.R: every fit and every number behind the SoftwareX article on
+# analysis.R: the fits and registered numerical results for the SoftwareX article on
 # bayesEfron 0.4.0.
 #
 # Run from the paper folder root:   Rscript scripts/analysis.R
@@ -9,11 +9,11 @@
 #
 #   data/fits.rds            the fits of the two examples and of the 19 studies
 #                            (about 50 MB; not needed by the figure script)
-#   data/krw.rds             tables and curves for Figure 2 and Section 3.1
-#   data/twin.rds            tables and curves for Figure 3 and Section 3.2
+#   data/krw.rds             tables and curves for Figure 3 and Section 3.1
+#   data/twin.rds            tables and curves for Figure 4 and Section 3.2
 #   data/evidence.rds        the simulation tables shipped with the package
 #   data/grid-comparison.rds compare_efron_grids() of the 19 studies (Figure 5)
-#   data/numbers.csv         the registry of every number quoted in the text
+#   data/numbers.csv         the registry of selected numerical quotations
 #   data/console/*.txt       the console output printed in the article
 #
 # The simulation tables in inst/verification/ and inst/examples/ of the
@@ -29,6 +29,7 @@ suppressPackageStartupMessages({
   library(ebnm)
   library(loo)
 })
+print(packageVersion("bayesEfron"))
 stopifnot(packageVersion("bayesEfron") == "0.4.0")
 options(bayesEfron.use_cli = FALSE, width = 76)
 dir.create("data/console", showWarnings = FALSE, recursive = TRUE)
@@ -390,8 +391,8 @@ reg("cov_few_normal_min", min(fn$inclusion), 2); reg("cov_few_normal_max", max(f
 eq <- equal[equal$method == "bayesEfron" & equal$M == 6, ]
 reg("cov_equal_M6", eq$inclusion, 3); reg("cov_equal_M6_se", eq$inclusion_se, 3)
 reg("cov_equal_efron_M6", equal$inclusion[equal$method == "Efron's estimator" & equal$M == 6], 3)
-reg("few_sd_factor_min", min(fb$sd_mean / fn$sd_mean), 1)
-reg("few_sd_factor_max", max(fb$sd_mean / fn$sd_mean), 1)
+reg("few_sd_factor_min", min(fb$sd_mean / fb$true_sd), 1)
+reg("few_sd_factor_max", max(fb$sd_mean / fb$true_sd), 1)
 plug <- panels_methods[panels_methods$method == "g of bayesEfron, plugged in", ]
 reg("extra_length_K100_pct", 100 * (be$mean_length[be$K == 100] / plug$mean_length[plug$K == 100] - 1), 1)
 reg("extra_length_K1500_pct", 100 * (be$mean_length[be$K == 1500] / plug$mean_length[plug$K == 1500] - 1), 2)

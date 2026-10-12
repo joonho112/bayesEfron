@@ -1,53 +1,114 @@
 # Reproduction material for the SoftwareX article on bayesEfron 0.4.0
 
-This folder holds the scripts, data and recorded outputs behind the article
+This folder contains the scripts, data and recorded outputs behind
 "bayesEfron: An R package for fully Bayesian estimation of the distribution
-of effects and of site-specific effects from estimates and standard errors"
-(SoftwareX, submitted in 2026). The LaTeX sources of the article and of its
-supplementary material go to the journal as supplementary material and are
-not kept here. Everything in this folder is excluded from the R package
-build (see `.Rbuildignore`).
+of effects and of site-specific effects from estimates and standard errors,"
+prepared for SoftwareX. The article and supplement LaTeX sources are supplied
+separately as journal supplementary material. They are not kept here. This
+folder is excluded from the R package build by `.Rbuildignore`.
+
+This revision is a local submission snapshot. Its final public commit permalink
+is to be recorded after publication; the package release tag does not identify
+the revision of this reproduction folder.
 
 ## Contents
 
 | Folder or file | Content |
 |:--|:--|
-| `scripts/install-package.sh` | Installs bayesEfron 0.4.0 from a checkout of the tagged commit into a library inside this folder |
-| `scripts/analysis.R` | The fits of the two examples (97 firms, Twin Towers) and of the 19 teacher expectancy studies, the comparisons with REML and with ebnm, the numbers registry and the console outputs |
-| `scripts/stored-examples.R` | Numbers quoted from the package's stored examples (`inst/examples/`) |
-| `scripts/tail-coverage.R` | Coverage of the 90% intervals for subsets of the sites in the two-group simulation designs, from the per-site results in `data-raw/benchmark/results-v040/` |
-| `scripts/figures.R`, `figures/fig1_architecture.tex` | The figures of the article and of the supplement; Figure 1 is TikZ |
-| `scripts/tables.R` | The tables whose numbers come from `data/` |
-| `scripts/check-numbers.R` | Compares every number quoted in the article's sources with the registries; it needs those sources (supplementary material) and is kept here as the record of what was checked |
-| `data/numbers.csv` | The 134 numbers quoted in the article, with the value shown |
-| `data/stored-examples-numbers.csv`, `data/tail-coverage-numbers.csv` | The two smaller registries |
-| `data/tail-coverage.csv` | Coverage by subset of the sites, design and method |
-| `data/krw.rds`, `data/twin.rds`, `data/grid-comparison.rds`, `data/evidence.rds` | The summaries, curves and tables behind the figures |
-| `data/console/` | The console sessions printed in the supplement |
-| `figures/`, `osm/figures/` | The figures as PDF. Working names differ from the article's numbering: `fig1_architecture` is Figure 1, `fig4_evidence` Figure 2, `fig2_firms` Figure 3, `fig3_twin_towers` Figure 4, `fig5_grid_and_uncertainty` Figure 5; `osm/figures/` holds the two figures of the supplement |
-| `tables/` | LaTeX tables built from `data/` (Table 3 of the article and the tables of the supplement) |
-| `qa/` | Session information, the installed commit, and the logs of the analysis and figure scripts |
+| `scripts/install-package.sh` | Installs from a supplied checkout of bayesEfron 0.4.0 into this folder's `r-library/` and records the installed commit |
+| `scripts/analysis.R` | Fits for the two examples and the 19-study grid comparison; empirical Bayes comparisons, numerical registry and console output |
+| `scripts/stored-examples.R` | Numerical quotations from the package's stored examples |
+| `scripts/tail-coverage.R` | Subset coverage in the two-group designs, using the saved benchmark results and the continuous generating distribution |
+| `scripts/ratio-mcse.R` | Paired delta-method Monte Carlo standard errors for the length and RMSE ratios in Figure 2; reads saved benchmark results without refitting |
+| `scripts/figures.R` | Figures 2–5 and both supplementary figures from saved data; no model fitting |
+| `figures/fig1_architecture.tex` | Standalone TikZ source for Figure 1, compiled separately |
+| `scripts/tables.R` | LaTeX tables generated from saved data |
+| `scripts/check-numbers.R` | Checks registered numerical quotations when manuscript sources are present, or compares rerun registries with archived values without those sources |
+| `data/numbers.csv`, `data/stored-examples-numbers.csv`, `data/tail-coverage-numbers.csv` | Registries of selected numerical quotations; these do not enumerate every numeric literal in the article |
+| `data/reference/` | Preserved article registries with the same three filenames, used as the reference for a rerun |
+| `data/tail-coverage.csv`, `data/tail-coverage-panels.csv` | Aggregate and panel-level subset coverage; panel rows support the replication-based MC SE calculation |
+| `data/ratio-mcse.csv` | Plotted ratios and paired MC SEs, so figures do not need a source checkout to read benchmark results |
+| `data/krw.rds`, `data/twin.rds`, `data/grid-comparison.rds`, `data/evidence.rds` | Summaries, curves and simulation tables used by the figures and tables |
+| `data/console/` | Recorded console sessions |
+| `figures/`, `osm/figures/` | Figure PDFs; `fig1_architecture` is Figure 1, `fig4_evidence` Figure 2, `fig2_firms` Figure 3, `fig3_twin_towers` Figure 4 and `fig5_grid_and_uncertainty` Figure 5 |
+| `tables/` | Generated LaTeX tables, without the article's LaTeX sources |
+| `qa/` | Recorded session information, installed commit, and analysis/figure logs |
 
-The large fit objects (`data/fits.rds`, 53 MB) are not kept; `analysis.R`
-writes them again.
+The large `data/fits.rds` is omitted. `analysis.R` regenerates it; figure and
+table regeneration does not require it. Keep `data/reference/` unchanged when
+rerunning; replacing the reference with new results would defeat the comparison.
 
-## Rerunning
+## Requirements and package version
 
-Requirements: R (at least 4.1) with CmdStan installed through cmdstanr, and
-the packages listed in `qa/sessionInfo-analysis.txt` (bayesEfron 0.4.0,
-cmdstanr, metafor, ebnm, loo, ggplot2, patchwork, ragg). From this folder:
+Use R 4.1 or later and the dependencies recorded in
+`qa/sessionInfo-analysis.txt`. The analysis uses bayesEfron 0.4.0, cmdstanr,
+metafor, ebnm and loo; plotting also uses ggplot2, patchwork, scales and ragg.
+CmdStan is needed for `analysis.R`, but not to redraw saved figures or tables.
+The recorded fitting toolchain was R 4.6.0, cmdstanr 0.8.0 and CmdStan 2.38.0.
+
+Use a source checkout at tag `v0.4.0` (commit `89a0a71`) for installation and
+benchmark inputs. The reproduction folder can be a later revision than that
+release; use a separate tagged checkout so switching the package checkout to
+the tag does not remove this folder. Run all commands below from this folder:
 
 ```sh
-bash scripts/install-package.sh path/to/bayesEfron   # a checkout of the tag v0.4.0
-Rscript scripts/analysis.R          # the fits and comparisons; writes data/ (about 2.5 minutes)
-Rscript scripts/stored-examples.R   # numbers read from the package's stored examples
-Rscript scripts/tail-coverage.R     # reads data-raw/benchmark/ of the checkout (about 10 minutes)
-Rscript scripts/figures.R           # figures/ and osm/figures/
-Rscript scripts/tables.R            # tables/
+BAYESEFRON_SOURCE=/absolute/path/to/bayesEfron-v0.4.0
+bash scripts/install-package.sh "$BAYESEFRON_SOURCE"
 ```
 
-With the same versions of CmdStan and of the packages on the same kind of
-machine, the fits reproduce the draws exactly, so every number agrees; on
-another machine or with another CmdStan version the draws differ and the
-summaries agree to within Monte Carlo error, which is below the last digit
-shown in the article for everything but the timings.
+The scripts look first in the local `r-library/`. The install command concerns
+bayesEfron; install its other requirements beforehand.
+
+## Redraw saved figures and tables without fitting
+
+```sh
+Rscript scripts/figures.R
+Rscript scripts/tables.R
+```
+
+The figure script chooses `cairo_pdf` when Cairo is loadable and falls back to
+base R's `pdf` device otherwise; PNG proofs use ragg. Figure 1 is separate and
+requires a LaTeX installation with `latexmk`, the standalone class and TikZ:
+
+```sh
+(cd figures && latexmk -pdf -interaction=nonstopmode -halt-on-error fig1_architecture.tex)
+```
+
+## Recompute and compare the statistical results
+
+```sh
+Rscript scripts/tail-coverage.R "$BAYESEFRON_SOURCE" --check-inputs
+Rscript scripts/ratio-mcse.R "$BAYESEFRON_SOURCE" --check-inputs
+Rscript scripts/analysis.R
+Rscript scripts/stored-examples.R
+Rscript scripts/tail-coverage.R "$BAYESEFRON_SOURCE"
+Rscript scripts/ratio-mcse.R "$BAYESEFRON_SOURCE"
+Rscript scripts/figures.R
+Rscript scripts/tables.R
+Rscript scripts/check-numbers.R --mode=reproduction --reference=data/reference
+```
+
+The tail and ratio scripts accept the package checkout as their first argument.
+When this folder is directly inside a suitable checkout, their default first
+checks the parent; explicit paths also work for a separately extracted capsule.
+`--check-inputs` verifies required benchmark files without fitting or writing
+results. The analysis refits the article examples and reads the package's
+stored simulation results; it does not rerun the full benchmark campaign.
+
+Reproduction mode compares the three regenerated registries with their preserved
+counterparts in `data/reference/` and works without manuscript sources. Runtime
+changes and registered software-version differences are reported separately from
+statistical discrepancies. The criterion is
+`abs(new - recorded) <= 1e-8 * max(1, abs(recorded))`, allowing floating-point
+roundoff when replaying the recorded calculation; it is not a Monte Carlo error
+bound or an accuracy guarantee for all printed digits. The article's fits
+reproduced their stored draws on the recorded machine and toolchain. Other
+platforms or versions can give different draws, requiring an assessment of
+summary differences against Monte Carlo error.
+
+Archival mode, `Rscript scripts/check-numbers.R --mode=archival --reference=data/reference`, checks the preserved
+registries in `data/reference/` against `main.tex` and the supplement sources,
+so a rerun does not replace the archived values used for that check. Those
+sources are in the journal's reproduction supplement, so this mode is not the
+source-free check for this public folder. Neither mode proves that every numeric
+literal in the manuscript has been checked.

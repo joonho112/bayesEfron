@@ -47,7 +47,7 @@
   \note{No-U-Turn sampler over $(\alpha,\lambda)$ only, $M+1$ dimensions; the site effects are summed out on the grid, and the likelihood of all sites is one matrix product; the compiled model is cached across sessions}};
 \node[core] (fit) at ($(stan.south)+(0,-4.5)$) {%
   \head{Fitted object}\\[-1pt] \code{bef\_fit}\\[1pt]
-  \note{posterior draws of $\log g$ at the grid points, of $\alpha$ and $\lambda$, and of the mean, variance and SD of $g$; the data, grid, seed, versions and settings; nothing per site, so the size does not grow with $K$}};
+  \note{draws of $\log g$, $\alpha$, $\lambda$ and moments of $g$; data, grid, seed, versions and settings; per-site summaries, but no per-site posterior draws by default, so default draw storage does not grow with $K$}};
 % ---------------- column 2: the model and what is computed from the draws ----
 \node[side] (model) at (50,0) {%
   \head{Model}\\[1pt]
@@ -56,15 +56,15 @@
   $\alpha_m\mid\lambda\sim N(0,1/\lambda)$, \ $\lambda\sim\text{half-Cauchy}(0,5)$};
 \node[prod] (sites) at ($(model.south)+(0,-4.5)$) {%
   \head{Site effects}\\[1pt]
-  \code{site\_summary()}, \code{coef()}, \code{confint()}, \code{exceedance\_prob()}\\[1pt]
-  \note{the posterior of each $\theta_i$, averaged over the draws of $g$: mean, SD split into ``given $g$'' and ``about $g$'', equal-tailed or shortest interval, mode, $P(\theta_i > c)$}};
+  \code{site\_summary()}, \code{coef()}, \code{confint()}, \code{exceedance\_prob()}, \code{simulate()}\\[1pt]
+  \note{each $\theta_i$ averaged over draws of $g$: mean, SD components ``given $g$'' and ``about $g$'', intervals, mode, $P(\theta_i > c)$; joint posterior draws for the observed sites}};
 \node[prod] (gsum) at ($(sites.south)+(0,-4)$) {%
   \head{Distribution of effects}\\[1pt]
   \code{g\_summary()}\\[1pt]
   \note{density, distribution function, quantiles, $P(a<\theta<b)$, mean, variance and SD, each with a posterior interval}};
 \node[prod] (pred) at ($(gsum.south)+(0,-4)$) {%
   \head{New sites and checks}\\[1pt]
-  \code{predict()}, \code{simulate()}, \code{loo()}, \code{diagnose()}\\[1pt]
+  \code{predict()}, \code{loo()}, \code{diagnose()}\\[1pt]
   \note{the effect or the estimate of a new site; leave-one-out predictive fit; sampler and grid diagnostics}};
 % ---------------- column 3: plots and comparisons ----------------
 \node[prod] (plots) at (98,0) {%

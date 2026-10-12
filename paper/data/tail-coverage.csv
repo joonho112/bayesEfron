@@ -1,41 +1,41 @@
 "K","method","subset","panels","sites_per_panel","inclusion","inclusion_se"
 100,"bayesEfron","All sites",100,100,0.9011,0.00424000905278241
 100,"bayesEfron g, plugged in","All sites",100,100,0.8976,0.00418298622246999
-100,"True g, plugged in","All sites",100,100,0.905,0.00329523684408054
+100,"True g, plugged in","All sites",100,100,0.9016,0.00334156559206319
 100,"Normal (ebnm)","All sites",100,100,0.8984,0.00292229327409108
 100,"NPMLE (ebnm)","All sites",100,100,0.6552,0.00848942300926883
 100,"bayesEfron","Estimate between the groups (-0.7, 0.7)",100,15.88,0.836153315771215,0.0107764964169782
 100,"bayesEfron g, plugged in","Estimate between the groups (-0.7, 0.7)",100,15.88,0.830453530191634,0.0108831769569972
-100,"True g, plugged in","Estimate between the groups (-0.7, 0.7)",100,15.88,0.911838271523424,0.00627995620764011
+100,"True g, plugged in","Estimate between the groups (-0.7, 0.7)",100,15.88,0.914411595859907,0.00631663051106784
 100,"Normal (ebnm)","Estimate between the groups (-0.7, 0.7)",100,15.88,0.730615887498257,0.0115163320462896
 100,"NPMLE (ebnm)","Estimate between the groups (-0.7, 0.7)",100,15.88,0.747454768418492,0.0111217767314352
-100,"bayesEfron","5% most extreme estimates",100,6,0.935,0.0120546361889352
-100,"bayesEfron g, plugged in","5% most extreme estimates",100,6,0.92,0.0126420103815451
-100,"True g, plugged in","5% most extreme estimates",100,6,0.906666666666667,0.0130439987534205
-100,"Normal (ebnm)","5% most extreme estimates",100,6,0.926666666666667,0.00985871005055076
-100,"NPMLE (ebnm)","5% most extreme estimates",100,6,0.696666666666667,0.0177872449539761
+100,"bayesEfron","Estimates outside the sample 2.5th and 97.5th percentiles",100,6,0.935,0.0120546361889352
+100,"bayesEfron g, plugged in","Estimates outside the sample 2.5th and 97.5th percentiles",100,6,0.92,0.0126420103815451
+100,"True g, plugged in","Estimates outside the sample 2.5th and 97.5th percentiles",100,6,0.896666666666667,0.0135628395730375
+100,"Normal (ebnm)","Estimates outside the sample 2.5th and 97.5th percentiles",100,6,0.926666666666667,0.00985871005055076
+100,"NPMLE (ebnm)","Estimates outside the sample 2.5th and 97.5th percentiles",100,6,0.696666666666667,0.0177872449539761
 100,"bayesEfron","True effect in the outer tenth at either end of its group",100,20.1,0.838126763092098,0.0122758935263713
 100,"bayesEfron g, plugged in","True effect in the outer tenth at either end of its group",100,20.1,0.83360138716084,0.0120646523812002
-100,"True g, plugged in","True effect in the outer tenth at either end of its group",100,20.1,0.72132136439917,0.0103972700238015
+100,"True g, plugged in","True effect in the outer tenth at either end of its group",100,20.1,0.704128102292676,0.0100923821685022
 100,"Normal (ebnm)","True effect in the outer tenth at either end of its group",100,20.1,0.886473701946846,0.00799035465432738
 100,"NPMLE (ebnm)","True effect in the outer tenth at either end of its group",100,20.1,0.438632142096865,0.0161337714966785
 1500,"bayesEfron","All sites",20,1500,0.899733333333333,0.00303176169039857
 1500,"bayesEfron g, plugged in","All sites",20,1500,0.899466666666667,0.00297262362704567
-1500,"True g, plugged in","All sites",20,1500,0.901666666666667,0.00195833799924789
+1500,"True g, plugged in","All sites",20,1500,0.899666666666667,0.00177012240631357
 1500,"Normal (ebnm)","All sites",20,1500,0.901733333333333,0.0018646605761713
 1500,"NPMLE (ebnm)","All sites",20,1500,0.779866666666667,0.00901157150849016
 1500,"bayesEfron","Estimate between the groups (-0.7, 0.7)",20,235.35,0.893702863650657,0.0055779576258476
 1500,"bayesEfron g, plugged in","Estimate between the groups (-0.7, 0.7)",20,235.35,0.893259335046988,0.00548031197511431
-1500,"True g, plugged in","Estimate between the groups (-0.7, 0.7)",20,235.35,0.893805838455053,0.00554452260457277
+1500,"True g, plugged in","Estimate between the groups (-0.7, 0.7)",20,235.35,0.898002556974453,0.00530881711570794
 1500,"Normal (ebnm)","Estimate between the groups (-0.7, 0.7)",20,235.35,0.739791500349629,0.00702023256885547
 1500,"NPMLE (ebnm)","Estimate between the groups (-0.7, 0.7)",20,235.35,0.816023449728402,0.0108692903770409
-1500,"bayesEfron","5% most extreme estimates",20,76,0.932236842105263,0.00828199548362858
-1500,"bayesEfron g, plugged in","5% most extreme estimates",20,76,0.932236842105263,0.00828199548362858
-1500,"True g, plugged in","5% most extreme estimates",20,76,0.919078947368421,0.00747224782342141
-1500,"Normal (ebnm)","5% most extreme estimates",20,76,0.946052631578947,0.00674310434362014
-1500,"NPMLE (ebnm)","5% most extreme estimates",20,76,0.78421052631579,0.0247343371160487
+1500,"bayesEfron","Estimates outside the sample 2.5th and 97.5th percentiles",20,76,0.932236842105263,0.00828199548362858
+1500,"bayesEfron g, plugged in","Estimates outside the sample 2.5th and 97.5th percentiles",20,76,0.932236842105263,0.00828199548362858
+1500,"True g, plugged in","Estimates outside the sample 2.5th and 97.5th percentiles",20,76,0.911184210526316,0.00842381144213908
+1500,"Normal (ebnm)","Estimates outside the sample 2.5th and 97.5th percentiles",20,76,0.946052631578947,0.00674310434362014
+1500,"NPMLE (ebnm)","Estimates outside the sample 2.5th and 97.5th percentiles",20,76,0.78421052631579,0.0247343371160487
 1500,"bayesEfron","True effect in the outer tenth at either end of its group",20,300.9,0.775860541389187,0.011972069506173
 1500,"bayesEfron g, plugged in","True effect in the outer tenth at either end of its group",20,300.9,0.776194743685922,0.0118060529165561
-1500,"True g, plugged in","True effect in the outer tenth at either end of its group",20,300.9,0.710044900337908,0.00608479578974196
+1500,"True g, plugged in","True effect in the outer tenth at either end of its group",20,300.9,0.698983001283143,0.00529376038518532
 1500,"Normal (ebnm)","True effect in the outer tenth at either end of its group",20,300.9,0.894851577506672,0.00426133549106357
 1500,"NPMLE (ebnm)","True effect in the outer tenth at either end of its group",20,300.9,0.47600687994936,0.0260167940862881

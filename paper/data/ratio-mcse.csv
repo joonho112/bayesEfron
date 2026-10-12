@@ -1,0 +1,41 @@
+"design_id","design","method","replications","length_ratio","length_ratio_se","rmse_ratio","rmse_ratio_se"
+"two_groups_K100","Two groups, K = 100
+(100 data sets)","bayesEfron",100,1,0,1,0
+"two_groups_K100","Two groups, K = 100
+(100 data sets)","bayesEfron g, plugged in",100,0.995837233686927,0.000178991340196206,1.00344788380053,0.000685111815573082
+"two_groups_K100","Two groups, K = 100
+(100 data sets)","Normal (plug-in)",100,1.0641028456054,0.00914119707561269,1.03691602716769,0.00487704698943868
+"two_groups_K100","Two groups, K = 100
+(100 data sets)","NPMLE",100,0.738826216414178,0.00529259261410411,0.977868162008951,0.00372682499119816
+"two_groups_K1500","Two groups, K = 1,500
+(20 data sets)","bayesEfron",20,1,0,1,0
+"two_groups_K1500","Two groups, K = 1,500
+(20 data sets)","bayesEfron g, plugged in",20,0.999370230191069,1.4908697094199e-05,1.00007815632793,7.25447411203204e-06
+"two_groups_K1500","Two groups, K = 1,500
+(20 data sets)","Normal (plug-in)",20,1.19908677879266,0.00512902639490771,1.08145932700062,0.00326182320565061
+"two_groups_K1500","Two groups, K = 1,500
+(20 data sets)","NPMLE",20,0.903885416567715,0.00404327480323815,0.997234746502844,0.000444050115819445
+"few_normal_014","19 studies, normal SD 0.14
+(200 data sets)","bayesEfron",200,1,0,1,0
+"few_normal_014","19 studies, normal SD 0.14
+(200 data sets)","Normal (plug-in)",200,0.690811526479685,0.0153831606039026,0.971211178031079,0.00999668060543416
+"few_normal_014","19 studies, normal SD 0.14
+(200 data sets)","Known g",200,0.808902189805246,0.00936972001474775,0.875378302323774,0.0110926994229014
+"few_normal_031","19 studies, normal SD 0.31
+(200 data sets)","bayesEfron",200,1,0,1,0
+"few_normal_031","19 studies, normal SD 0.31
+(200 data sets)","Normal (plug-in)",200,0.90231788315517,0.00311254641828655,0.971008793297565,0.00603789716556606
+"few_normal_031","19 studies, normal SD 0.31
+(200 data sets)","Known g",200,0.920273891451282,0.00441621185242041,0.935717528571247,0.00741666745778235
+"few_fitted_g","19 studies, fitted g
+(200 data sets)","bayesEfron",200,1,0,1,0
+"few_fitted_g","19 studies, fitted g
+(200 data sets)","Normal (plug-in)",200,0.927448302947098,0.01061438571064,1.07113238778106,0.010830906660182
+"few_fitted_g","19 studies, fitted g
+(200 data sets)","Known g",200,0.887324473284746,0.00653222373873271,0.94478397257103,0.00822041535958264
+"equal_se_K1500","Two groups, equal SE, K = 1,500
+(20 data sets)","bayesEfron",20,1,0,1,0
+"equal_se_K1500","Two groups, equal SE, K = 1,500
+(20 data sets)","bayesEfron g, plugged in",20,0.998030558174793,4.71258207905256e-05,1.00032893878349,5.65466047803545e-05
+"equal_se_K1500","Two groups, equal SE, K = 1,500
+(20 data sets)","Efron's estimator",20,1.09296245805543,0.00713102026264374,1.00674718915619,0.0008776618533228

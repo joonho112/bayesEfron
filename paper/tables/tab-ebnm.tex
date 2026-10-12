@@ -5,7 +5,7 @@
 \toprule
  & \multicolumn{2}{c}{97 firms} & \multicolumn{3}{c}{1,500 simulated sites} \\
 \cmidrule(lr){2-3} \cmidrule(lr){4-6}
-Method & Correlation & Length ratio & RMSE & Coverage & Length \\
+Method & Correlation & Length ratio & RMSE & Inclusion & Length \\
 \midrule
 Normal (ebnm) & 0.974 & 0.937 & 0.730 & 88.8\% & 2.09 \\
 Unimodal (ebnm) & 0.950 & 0.881 & 0.699 & 91.1\% & 1.89 \\
@@ -14,6 +14,6 @@ bayesEfron $g$, plugged in & 0.999 & 0.996 & 0.688 & 89.7\% & 1.76 \\
 bayesEfron & 1.000 & 1.000 & 0.688 & 89.9\% & 1.76 \\
 \bottomrule
 \end{tabular}
-\caption{bayesEfron beside empirical Bayes fits of the same data by the ebnm package (version 1.1.42; location of each prior estimated; 90\% equal-tailed intervals). For the 97 firms, the correlation of a method's posterior means with those of bayesEfron and the length of its intervals relative to bayesEfron; for the 1,500 simulated sites, the root mean squared error of the posterior means, the coverage of the intervals and their mean length. The plug-in row takes the posterior mean of $g$ from the bayesEfron fit as known, so the last two rows differ by the uncertainty about $g$ alone; the REML normal model of Section 3.2 gives nearly the same numbers as the ebnm normal prior (coverage 89.0\%, RMSE 0.730).}
+\caption{bayesEfron beside empirical Bayes fits of the same data by the ebnm package (version 1.1.42; locations estimated where applicable; 90\% equal-tailed intervals). For the 97 firms, the correlation of a method's posterior means with those of bayesEfron and the length of its intervals relative to bayesEfron; for the 1,500 simulated sites, the root mean squared error of the posterior means, the inclusion of the intervals and their mean length. The plug-in row takes the posterior mean of $g$ from the bayesEfron fit as known, so the last two rows differ by the uncertainty about $g$ alone; the REML normal model of Section 3.2 gives nearly the same numbers as the ebnm normal prior (inclusion 89.0\%, RMSE 0.730).}
 \label{tab:ebnm}
 \end{table}

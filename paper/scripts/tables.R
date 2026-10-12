@@ -10,6 +10,9 @@
 #   tables/tab-convergence.tex  the three settings on the 20 large panels (OSM)
 #   tables/tab-few.tex        the 19-study simulation (OSM)
 # ==============================================================================
+.libPaths(c(file.path(normalizePath("."), "r-library"), .libPaths()))
+print(packageVersion("bayesEfron"))
+stopifnot(packageVersion("bayesEfron") == "0.4.0")
 dir.create("tables", showWarnings = FALSE)
 krw <- readRDS("data/krw.rds")
 twin <- readRDS("data/twin.rds")
@@ -36,17 +39,17 @@ tab3 <- c(
   "\\begin{tabular}{@{}l rr rrr@{}}", "\\toprule",
   " & \\multicolumn{2}{c}{97 firms} & \\multicolumn{3}{c}{1,500 simulated sites} \\\\",
   "\\cmidrule(lr){2-3} \\cmidrule(lr){4-6}",
-  "Method & Correlation & Length ratio & RMSE & Coverage & Length \\\\",
+  "Method & Correlation & Length ratio & RMSE & Inclusion & Length \\\\",
   "\\midrule", rows, "\\bottomrule", "\\end{tabular}",
   paste0("\\caption{bayesEfron beside empirical Bayes fits of the same data by the ebnm package ",
-         "(version ", ev$about$versions[["ebnm"]], "; location of each prior estimated; 90\\% ",
+         "(version ", ev$about$versions[["ebnm"]], "; locations estimated where applicable; 90\\% ",
          "equal-tailed intervals). For the 97 firms, the correlation of a method's posterior means ",
          "with those of bayesEfron and the length of its intervals relative to bayesEfron; for the ",
-         "1,500 simulated sites, the root mean squared error of the posterior means, the coverage ",
+         "1,500 simulated sites, the root mean squared error of the posterior means, the inclusion ",
          "of the intervals and their mean length. ",
          "The plug-in row takes the posterior mean of $g$ from the bayesEfron fit as known, so the ",
          "last two rows differ by the uncertainty about $g$ alone; the REML normal model of Section ",
-         "3.2 gives nearly the same numbers as the ebnm normal prior (coverage ", f(regnum("twin_normal_inside_90_pct"), 1), "\\%, RMSE ",
+         "3.2 gives nearly the same numbers as the ebnm normal prior (inclusion ", f(regnum("twin_normal_inside_90_pct"), 1), "\\%, RMSE ",
          f(regnum("twin_rmse_normal"), 3), ").}"),
   "\\label{tab:ebnm}", "\\end{table}"
 )
@@ -64,6 +67,7 @@ writeLines(c("\\begin{tabular}{@{}l rrrrr@{}}", "\\toprule",
              "Method & Correlation & Largest difference (SE) & SD ratio & Length ratio & Log likelihood \\\\",
              "\\midrule", rows, "\\bottomrule", "\\end{tabular}"), "tables/tab-krw-ebnm-full.tex")
 st <- ev$stored_twin
+st$method[st$method == "Known g"] <- "Empirical reference $g$"
 rows <- apply(st, 1, function(r) {
   paste0(r[["method"]], " & ", f(as.numeric(r[["rmse"]]), 3), " & ",
          pct(as.numeric(r[["inclusion"]]), 1), " (", f(100 * as.numeric(r[["inclusion_se"]]), 1), ") & ",
@@ -71,7 +75,7 @@ rows <- apply(st, 1, function(r) {
          ifelse(is.na(r[["w1"]]), "--", f(as.numeric(r[["w1"]]), 3)), " \\\\")
 })
 writeLines(c("\\begin{tabular}{@{}l rrrr@{}}", "\\toprule",
-             "Method & RMSE & Coverage (SE) & Mean length & $W_1$ to the truth \\\\",
+             "Method & RMSE & Inclusion (ref. SE) & Mean length & $W_1$ to the truth \\\\",
              "\\midrule", rows, "\\bottomrule", "\\end{tabular}"), "tables/tab-twin-ebnm-full.tex")
 
 # ---- OSM: coverage over simulated data sets ----------------------------------
@@ -153,37 +157,39 @@ writeLines(c("\\begin{tabular}{@{}l l rr rr rr rrr l@{}}", "\\toprule",
 message("grid table written")
 
 
-# ---- Table E.2: coverage of the intervals for subsets of the sites ------------------
+# ---- Table E.2: coverage of the intervals for subsets of the sites ------------
+# Stack the two K values and use full-width subset headers. The four body
+# columns remain legible without scaling the table down to fit the page.
 tc <- read.csv("data/tail-coverage.csv", stringsAsFactors = FALSE)
 subset_label <- c("All sites" = "All sites",
                   "Estimate between the groups (-0.7, 0.7)" = "Estimate between the groups",
-                  "5% most extreme estimates" = "5\\% most extreme estimates",
+                  "Estimates outside the sample 2.5th and 97.5th percentiles" =
+                    "Estimates outside the sample 2.5th and 97.5th percentiles",
                   "True effect in the outer tenth at either end of its group" =
-                    "True effect in the outer tenth of its group")
+                    "True effect in the outer tenth at either end of its group")
 stopifnot(all(unique(tc$subset) %in% names(subset_label)))
 method_label <- c("bayesEfron" = "bayesEfron", "bayesEfron g, plugged in" = "bayesEfron $g$, plugged in",
                   "True g, plugged in" = "True $g$, plugged in", "Normal (ebnm)" = "Normal (ebnm)",
                   "NPMLE (ebnm)" = "NPMLE (ebnm)")
 stopifnot(all(unique(tc$method) %in% names(method_label)))
-cell <- function(K, m, s) {
-  r <- tc[tc$K == K & tc$method == m & tc$subset == s, ]
-  stopifnot(nrow(r) == 1)
-  c(f(r$sites_per_panel, 1), f(r$inclusion, 3), f(r$inclusion_se, 3))
-}
-rows <- c("\\begin{tabular}{@{}ll rrr rrr@{}}", "\\toprule",
-          " & & \\multicolumn{3}{c}{$K = 100$, 100 data sets} & \\multicolumn{3}{c}{$K = 1{,}500$, 20 data sets} \\\\",
-          "\\cmidrule(lr){3-5} \\cmidrule(lr){6-8}",
-          "Subset & Method & Sites per set & Coverage & MC SE & Sites per set & Coverage & MC SE \\\\",
-          "\\midrule")
-subsets <- names(subset_label)
-for (s in subsets) {
-  first <- TRUE
-  for (m in names(method_label)) {
-    rows <- c(rows, paste0(if (first) subset_label[[s]] else "", " & ", method_label[[m]], " & ",
-                           paste(c(cell(100, m, s), cell(1500, m, s)), collapse = " & "), " \\\\"))
-    first <- FALSE
+rows <- c("\\begin{tabular}{@{}l rrr@{}}", "\\toprule",
+          "Method & Sites per set & Coverage & MC SE \\\\", "\\midrule")
+for (K in c(100L, 1500L)) {
+  nsets <- unique(tc$panels[tc$K == K])
+  stopifnot(length(nsets) == 1L)
+  if (K == 1500L) rows <- c(rows, "\\midrule")
+  rows <- c(rows, paste0("\\multicolumn{4}{@{}l}{\\textbf{$K = ",
+                         if (K == 1500L) "1{,}500" else "100", "$; ",
+                         nsets, " data sets}} \\\\"))
+  for (s in names(subset_label)) {
+    rows <- c(rows, paste0("\\multicolumn{4}{@{}l}{\\emph{", subset_label[[s]], "}} \\\\"))
+    for (m in names(method_label)) {
+      r <- tc[tc$K == K & tc$method == m & tc$subset == s, ]
+      stopifnot(nrow(r) == 1L)
+      rows <- c(rows, paste0("\\quad ", method_label[[m]], " & ", f(r$sites_per_panel, 1), " & ",
+                            f(r$inclusion, 3), " & ", f(r$inclusion_se, 3), " \\\\"))
+    }
   }
-  if (s != subsets[length(subsets)]) rows <- c(rows, "\\addlinespace")
 }
 rows <- c(rows, "\\bottomrule", "\\end{tabular}")
 writeLines(rows, "tables/tab-tail.tex")
