@@ -1,0 +1,4 @@
+                      label estimate   se mean lower upper prob_above
+1 Genuine Parts (Napa Auto)     9.82 2.05 6.52  2.70 11.71      1.000
+2        Advance Auto Parts     7.40 2.22 3.87  1.27  7.30      0.997
+3       O'Reilly Automotive     7.87 2.44 3.82  1.12  7.53      0.996

@@ -1,0 +1,18 @@
+\begin{tabular}{@{}l rrrrrrr@{}}
+\toprule
+Distribution and method & Mean SD & SD interval covers & Coverage (MC SE) & Length & RMSE & Largest: coverage & Largest: bias \\
+\midrule
+\multicolumn{8}{@{}l}{\emph{normal, SD 0.14, true SD 0.14}} \\
+\quad bayesEfron & 0.23 & 0.84 & 0.904 (0.006) & 0.44 & 0.123 & 0.895 & 0.07 \\
+\quad Normal, REML plug-in & 0.12 & -- & 0.732 (0.021) & 0.30 & 0.119 & 0.670 & -0.01 \\
+\quad Known $g$ & 0.14 & -- & 0.903 (0.005) & 0.35 & 0.107 & 0.910 & 0.00 \\
+\multicolumn{8}{@{}l}{\emph{normal, SD 0.31, true SD 0.31}} \\
+\quad bayesEfron & 0.47 & 0.74 & 0.899 (0.005) & 0.58 & 0.175 & 0.895 & 0.07 \\
+\quad Normal, REML plug-in & 0.31 & -- & 0.882 (0.006) & 0.52 & 0.170 & 0.845 & 0.00 \\
+\quad Known $g$ & 0.31 & -- & 0.894 (0.005) & 0.53 & 0.164 & 0.895 & 0.01 \\
+\multicolumn{8}{@{}l}{\emph{fitted $g$, true SD 0.35}} \\
+\quad bayesEfron & 0.44 & 0.76 & 0.907 (0.006) & 0.53 & 0.159 & 0.905 & 0.01 \\
+\quad Normal, REML plug-in & 0.31 & -- & 0.849 (0.012) & 0.49 & 0.170 & 0.685 & -0.14 \\
+\quad Known $g$ & 0.35 & -- & 0.903 (0.005) & 0.47 & 0.150 & 0.890 & 0.00 \\
+\bottomrule
+\end{tabular}

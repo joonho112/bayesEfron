@@ -1,0 +1,15 @@
+<bef_diagnostic>
+Model family: RE
+Rhat max: 1.002 (log_g[101])
+ESS bulk min: 1287 (alpha[4])
+ESS tail min: 993.3 (log_g[3])
+Divergences: 0
+Max treedepth hits: 0
+E-BFMI min: 0.8582
+Runtime: 12.57 sec
+Grid:
+  lower end -3.003: at most 14.3% of a site's posterior in the outer 2% (site "774"); that end was set by the pilot fit on a wider range
+  upper end 3.674: at most 0.1% of a site's posterior in the outer 2% (site "1146")
+  sd of g: posterior 1.474 (1.435 to 1.511); prior 1.931 (1.613 to 2.101)
+  the central 99.9% of g spans 92% of the grid
+Effective params: mean 917.6; sd 17.08

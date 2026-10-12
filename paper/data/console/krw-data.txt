@@ -1,0 +1,4 @@
+          firm_name         yi        sei n_jobs
+1          Rite Aid 0.04695712 0.01619358    128
+2               KFC 0.02200000 0.01530472    125
+3 Victoria's Secret 0.04216161 0.02296031    125

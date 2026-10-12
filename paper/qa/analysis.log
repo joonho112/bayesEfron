@@ -1,0 +1,13 @@
+Warning message:
+package ‘loo’ was built under R version 4.6.1 
+fit: 97 firms
+The defaults of bayes_efron_fit() changed in version 0.4: the range of the grid is set by a short pilot fit (`grid_method = "pilot"`) and can be narrower than before, and the fit keeps the draws of g only. `settings = "0.3.0"` gives the fit of version 0.3.0. This message is shown once in a session.
+ebnm: 97 firms
+fit: 1,500 simulated sites
+ebnm: 1,500 simulated sites
+compare_efron_grids: 19 studies
+Fit 1 of 3: L = 101, M = 6, rule "paper_realdata", expansion 0.25
+Fit 2 of 3: L = 101, M = 6, rule "paper_realdata", expansion 0.5
+Fit 3 of 3: L = 101, M = 6, rule "paper_realdata", expansion 1
+evidence tables
+done: 134 numbers in data/numbers.csv

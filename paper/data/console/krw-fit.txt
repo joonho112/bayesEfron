@@ -1,0 +1,11 @@
+<bayesEfron fit>
+Model family: RE
+Sites: 97
+Grid method: pilot
+Runtime: 0.7449 sec
+Draws: 12000 (4 chains); site-level draws not kept
+Diagnostics: Rhat 1.002; ESS bulk 1731; ESS tail 1780; divergences 0; treedepth hits 0
+Standard errors: 0.005344 to 0.0392 (largest / smallest 7.335)
+Grid: 101 points from -0.0829 to 0.1585; smallest standard error 2.213 grid spacings
+Grid range: rule "pilot", not narrowed (the range of "paper_realdata"); point masses; 6 spline functions
+Next: summary() and site_summary() for the sites, g_summary() for the distribution of effects, plot().

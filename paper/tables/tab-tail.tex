@@ -1,0 +1,31 @@
+\begin{tabular}{@{}ll rrr rrr@{}}
+\toprule
+ & & \multicolumn{3}{c}{$K = 100$, 100 data sets} & \multicolumn{3}{c}{$K = 1{,}500$, 20 data sets} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8}
+Subset & Method & Sites per set & Coverage & MC SE & Sites per set & Coverage & MC SE \\
+\midrule
+All sites & bayesEfron & 100.0 & 0.901 & 0.004 & 1500.0 & 0.900 & 0.003 \\
+ & bayesEfron $g$, plugged in & 100.0 & 0.898 & 0.004 & 1500.0 & 0.899 & 0.003 \\
+ & True $g$, plugged in & 100.0 & 0.905 & 0.003 & 1500.0 & 0.902 & 0.002 \\
+ & Normal (ebnm) & 100.0 & 0.898 & 0.003 & 1500.0 & 0.902 & 0.002 \\
+ & NPMLE (ebnm) & 100.0 & 0.655 & 0.008 & 1500.0 & 0.780 & 0.009 \\
+\addlinespace
+Estimate between the groups & bayesEfron & 15.9 & 0.836 & 0.011 & 235.3 & 0.894 & 0.006 \\
+ & bayesEfron $g$, plugged in & 15.9 & 0.830 & 0.011 & 235.3 & 0.893 & 0.005 \\
+ & True $g$, plugged in & 15.9 & 0.912 & 0.006 & 235.3 & 0.894 & 0.006 \\
+ & Normal (ebnm) & 15.9 & 0.731 & 0.012 & 235.3 & 0.740 & 0.007 \\
+ & NPMLE (ebnm) & 15.9 & 0.747 & 0.011 & 235.3 & 0.816 & 0.011 \\
+\addlinespace
+5\% most extreme estimates & bayesEfron & 6.0 & 0.935 & 0.012 & 76.0 & 0.932 & 0.008 \\
+ & bayesEfron $g$, plugged in & 6.0 & 0.920 & 0.013 & 76.0 & 0.932 & 0.008 \\
+ & True $g$, plugged in & 6.0 & 0.907 & 0.013 & 76.0 & 0.919 & 0.007 \\
+ & Normal (ebnm) & 6.0 & 0.927 & 0.010 & 76.0 & 0.946 & 0.007 \\
+ & NPMLE (ebnm) & 6.0 & 0.697 & 0.018 & 76.0 & 0.784 & 0.025 \\
+\addlinespace
+True effect in the outer tenth of its group & bayesEfron & 20.1 & 0.838 & 0.012 & 300.9 & 0.776 & 0.012 \\
+ & bayesEfron $g$, plugged in & 20.1 & 0.834 & 0.012 & 300.9 & 0.776 & 0.012 \\
+ & True $g$, plugged in & 20.1 & 0.721 & 0.010 & 300.9 & 0.710 & 0.006 \\
+ & Normal (ebnm) & 20.1 & 0.886 & 0.008 & 300.9 & 0.895 & 0.004 \\
+ & NPMLE (ebnm) & 20.1 & 0.439 & 0.016 & 300.9 & 0.476 & 0.026 \\
+\bottomrule
+\end{tabular}

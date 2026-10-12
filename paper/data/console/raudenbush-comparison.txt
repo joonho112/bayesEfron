@@ -1,0 +1,20 @@
+<bef_grid_comparison> 3 specifications, best first
+
+In every row: grid_method = paper_realdata, component = point, L = 101, M = 6
+
+ expansion  lower upper elpd_loo se_elpd_loo elpd_diff se_diff mean_g  sd_g
+      0.50 -1.070  1.93    -5.22        4.38     0.000   0.000  0.118 0.314
+      0.25 -0.695  1.56    -5.35        4.18    -0.127   0.300  0.136 0.317
+      1.00 -1.820  2.68    -5.72        4.22    -0.494   0.537  0.110 0.297
+ site_4  site_8 max_rhat divergences max_pareto_k end_mass adequate
+  0.663 -0.0802     1.00           0        0.142 1.35e-02     TRUE
+  0.782 -0.0792     1.01          18        0.216 5.62e-02     TRUE
+  0.442 -0.1050     1.00           0        0.276 2.66e-05    FALSE
+
+Rows with convergence or PSIS problems: 2 
+A specification that did not converge should not be selected on elpd_loo alone.
+
+Rows in which a site has more than 5% of its posterior in the outer 2% of the grid: 2 
+
+elpd_loo does not separate these specifications: all are within two standard 
+errors of the best. Compare sd_g and the site columns.

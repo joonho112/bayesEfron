@@ -1,0 +1,15 @@
+<bef_diagnostic>
+Model family: RE
+Rhat max: 1.002 (log_g[97])
+ESS bulk min: 1731 (lp__)
+ESS tail min: 1780 (log_g[2])
+Divergences: 0
+Max treedepth hits: 0
+E-BFMI min: 0.5682
+Runtime: 0.7449 sec
+Grid:
+  lower end -0.0829: at most 0% of a site's posterior in the outer 2% (site "Safeway")
+  upper end 0.1585: at most 0.2% of a site's posterior in the outer 2% (site "Genuine Parts (Napa Auto)")
+  sd of g: posterior 0.01724 (0.01205 to 0.02382); prior 0.06991 (0.05814 to 0.07644)
+  the central 99.9% of g spans 98% of the grid
+Effective params: mean 46.55; sd 6.233

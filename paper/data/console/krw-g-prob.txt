@@ -1,0 +1,2 @@
+  from  to      mean     lower     upper
+1 0.02 Inf 0.3602067 0.2478532 0.4748402

@@ -1,0 +1,3 @@
+mean(theta_true inside 90% interval): 0.899 
+posterior_means       estimates 
+      0.6875837       0.9664180 
