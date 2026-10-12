@@ -1,9 +1,13 @@
-\begin{tabular}{@{}l rrrrrrr@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lrrr@{}}
 \toprule
-Setting & Valid of 20 & Largest R-hat & Smallest bulk ESS & Tree depth share, max & Sampling s & Pilot s & Coverage \\
+ & defaults & M = 8 & \shortstack{settings =\\0.3.0} \\
 \midrule
-defaults & 20 & 1.009 & 679 & 0.131 & 36 & 32 & 0.900 \\
-M = 8 & 20 & 1.004 & 1538 & 0.000 & 15 & 32 & 0.893 \\
-settings = 0.3.0 &  5 & 1.084 & 55 & 0.823 & 145 & 0 & 0.900 \\
+Valid of 20 & 20 & 20 &  5 \\
+Largest R-hat & 1.009 & 1.004 & 1.084 \\
+Smallest bulk ESS & 679 & 1538 & 55 \\
+Tree depth share, max & 0.131 & 0.000 & 0.823 \\
+Sampling (s) & 36 & 15 & 145 \\
+Pilot (s) & 32 & 32 & 0 \\
+Coverage & 0.900 & 0.893 & 0.900 \\
 \bottomrule
-\end{tabular}
+\end{tabular*}

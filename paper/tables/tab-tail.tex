@@ -1,57 +1,27 @@
-\begin{tabular}{@{}l rrr@{}}
-\toprule
-Method & Sites per set & Coverage & MC SE \\
-\midrule
-\multicolumn{4}{@{}l}{\textbf{$K = 100$; 100 data sets}} \\
-\multicolumn{4}{@{}l}{\emph{All sites}} \\
-\quad bayesEfron & 100.0 & 0.901 & 0.004 \\
-\quad bayesEfron $g$, plugged in & 100.0 & 0.898 & 0.004 \\
-\quad True $g$, plugged in & 100.0 & 0.902 & 0.003 \\
-\quad Normal (ebnm) & 100.0 & 0.898 & 0.003 \\
-\quad NPMLE (ebnm) & 100.0 & 0.655 & 0.008 \\
-\multicolumn{4}{@{}l}{\emph{Estimate between the groups}} \\
-\quad bayesEfron & 15.9 & 0.836 & 0.011 \\
-\quad bayesEfron $g$, plugged in & 15.9 & 0.830 & 0.011 \\
-\quad True $g$, plugged in & 15.9 & 0.914 & 0.006 \\
-\quad Normal (ebnm) & 15.9 & 0.731 & 0.012 \\
-\quad NPMLE (ebnm) & 15.9 & 0.747 & 0.011 \\
-\multicolumn{4}{@{}l}{\emph{Estimates outside the sample 2.5th and 97.5th percentiles}} \\
-\quad bayesEfron & 6.0 & 0.935 & 0.012 \\
-\quad bayesEfron $g$, plugged in & 6.0 & 0.920 & 0.013 \\
-\quad True $g$, plugged in & 6.0 & 0.897 & 0.014 \\
-\quad Normal (ebnm) & 6.0 & 0.927 & 0.010 \\
-\quad NPMLE (ebnm) & 6.0 & 0.697 & 0.018 \\
-\multicolumn{4}{@{}l}{\emph{True effect in the outer tenth at either end of its group}} \\
-\quad bayesEfron & 20.1 & 0.838 & 0.012 \\
-\quad bayesEfron $g$, plugged in & 20.1 & 0.834 & 0.012 \\
-\quad True $g$, plugged in & 20.1 & 0.704 & 0.010 \\
-\quad Normal (ebnm) & 20.1 & 0.886 & 0.008 \\
-\quad NPMLE (ebnm) & 20.1 & 0.439 & 0.016 \\
-\midrule
-\multicolumn{4}{@{}l}{\textbf{$K = 1{,}500$; 20 data sets}} \\
-\multicolumn{4}{@{}l}{\emph{All sites}} \\
-\quad bayesEfron & 1500.0 & 0.900 & 0.003 \\
-\quad bayesEfron $g$, plugged in & 1500.0 & 0.899 & 0.003 \\
-\quad True $g$, plugged in & 1500.0 & 0.900 & 0.002 \\
-\quad Normal (ebnm) & 1500.0 & 0.902 & 0.002 \\
-\quad NPMLE (ebnm) & 1500.0 & 0.780 & 0.009 \\
-\multicolumn{4}{@{}l}{\emph{Estimate between the groups}} \\
-\quad bayesEfron & 235.3 & 0.894 & 0.006 \\
-\quad bayesEfron $g$, plugged in & 235.3 & 0.893 & 0.005 \\
-\quad True $g$, plugged in & 235.3 & 0.898 & 0.005 \\
-\quad Normal (ebnm) & 235.3 & 0.740 & 0.007 \\
-\quad NPMLE (ebnm) & 235.3 & 0.816 & 0.011 \\
-\multicolumn{4}{@{}l}{\emph{Estimates outside the sample 2.5th and 97.5th percentiles}} \\
-\quad bayesEfron & 76.0 & 0.932 & 0.008 \\
-\quad bayesEfron $g$, plugged in & 76.0 & 0.932 & 0.008 \\
-\quad True $g$, plugged in & 76.0 & 0.911 & 0.008 \\
-\quad Normal (ebnm) & 76.0 & 0.946 & 0.007 \\
-\quad NPMLE (ebnm) & 76.0 & 0.784 & 0.025 \\
-\multicolumn{4}{@{}l}{\emph{True effect in the outer tenth at either end of its group}} \\
-\quad bayesEfron & 300.9 & 0.776 & 0.012 \\
-\quad bayesEfron $g$, plugged in & 300.9 & 0.776 & 0.012 \\
-\quad True $g$, plugged in & 300.9 & 0.699 & 0.005 \\
-\quad Normal (ebnm) & 300.9 & 0.895 & 0.004 \\
-\quad NPMLE (ebnm) & 300.9 & 0.476 & 0.026 \\
-\bottomrule
-\end{tabular}
+\multicolumn{5}{@{}p{\linewidth}@{}}{\emph{All sites}} \\*
+bayesEfron & 100.0 & 0.901 (0.004) & 1500.0 & 0.900 (0.003) \\*
+bayesEfron $g$, plugged in & 100.0 & 0.898 (0.004) & 1500.0 & 0.899 (0.003) \\*
+True $g$, plugged in & 100.0 & 0.902 (0.003) & 1500.0 & 0.900 (0.002) \\*
+Normal (ebnm) & 100.0 & 0.898 (0.003) & 1500.0 & 0.902 (0.002) \\*
+NPMLE (ebnm) & 100.0 & 0.655 (0.008) & 1500.0 & 0.780 (0.009) \\
+\addlinespace[5pt]
+\multicolumn{5}{@{}p{\linewidth}@{}}{\emph{Estimate between the groups}} \\*
+bayesEfron & 15.9 & 0.836 (0.011) & 235.3 & 0.894 (0.006) \\*
+bayesEfron $g$, plugged in & 15.9 & 0.830 (0.011) & 235.3 & 0.893 (0.005) \\*
+True $g$, plugged in & 15.9 & 0.914 (0.006) & 235.3 & 0.898 (0.005) \\*
+Normal (ebnm) & 15.9 & 0.731 (0.012) & 235.3 & 0.740 (0.007) \\*
+NPMLE (ebnm) & 15.9 & 0.747 (0.011) & 235.3 & 0.816 (0.011) \\
+\addlinespace[5pt]
+\multicolumn{5}{@{}p{\linewidth}@{}}{\emph{Estimates outside the sample 2.5th and 97.5th percentiles}} \\*
+bayesEfron & 6.0 & 0.935 (0.012) & 76.0 & 0.932 (0.008) \\*
+bayesEfron $g$, plugged in & 6.0 & 0.920 (0.013) & 76.0 & 0.932 (0.008) \\*
+True $g$, plugged in & 6.0 & 0.897 (0.014) & 76.0 & 0.911 (0.008) \\*
+Normal (ebnm) & 6.0 & 0.927 (0.010) & 76.0 & 0.946 (0.007) \\*
+NPMLE (ebnm) & 6.0 & 0.697 (0.018) & 76.0 & 0.784 (0.025) \\
+\addlinespace[5pt]
+\multicolumn{5}{@{}p{\linewidth}@{}}{\emph{True effect in the outer tenth at either end of its group}} \\*
+bayesEfron & 20.1 & 0.838 (0.012) & 300.9 & 0.776 (0.012) \\*
+bayesEfron $g$, plugged in & 20.1 & 0.834 (0.012) & 300.9 & 0.776 (0.012) \\*
+True $g$, plugged in & 20.1 & 0.704 (0.010) & 300.9 & 0.699 (0.005) \\*
+Normal (ebnm) & 20.1 & 0.886 (0.008) & 300.9 & 0.895 (0.004) \\*
+NPMLE (ebnm) & 20.1 & 0.439 (0.016) & 300.9 & 0.476 (0.026) \\

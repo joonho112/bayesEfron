@@ -1,15 +1,16 @@
 # Reproduction material for the SoftwareX article on bayesEfron 0.4.0
 
 This folder contains the scripts, data and recorded outputs behind
-"bayesEfron: An R package for fully Bayesian estimation of the distribution
-of effects and of site-specific effects from estimates and standard errors,"
-prepared for SoftwareX. The article and supplement LaTeX sources are supplied
-separately as journal supplementary material. They are not kept here. This
-folder is excluded from the R package build by `.Rbuildignore`.
+"bayesEfron: Fully Bayesian inference with Efron’s log-spline prior in R,"
+prepared for SoftwareX. The article and its online supplementary material
+(OSM) are submitted as PDFs. The statistical results can be reproduced from
+this folder without their LaTeX sources. This folder is excluded from the
+R package build by `.Rbuildignore`.
 
-This revision is a local submission snapshot. Its final public commit permalink
-is to be recorded after publication; the package release tag does not identify
-the revision of this reproduction folder.
+The article's Data availability statement and software metadata (S3) link to
+the commit containing these reproduction files. Use that commit when reproducing
+the submitted article. The package itself remains at tag `v0.4.0`; that release
+tag does not identify the revision of this folder.
 
 ## Contents
 
@@ -22,8 +23,8 @@ the revision of this reproduction folder.
 | `scripts/ratio-mcse.R` | Paired delta-method Monte Carlo standard errors for the length and RMSE ratios in Figure 2; reads saved benchmark results without refitting |
 | `scripts/figures.R` | Figures 2–5 and both supplementary figures from saved data; no model fitting |
 | `figures/fig1_architecture.tex` | Standalone TikZ source for Figure 1, compiled separately |
-| `scripts/tables.R` | LaTeX tables generated from saved data |
-| `scripts/check-numbers.R` | Checks registered numerical quotations when manuscript sources are present, or compares rerun registries with archived values without those sources |
+| `scripts/tables.R`, `scripts/table-layout.R` | Table contents generated from saved data, with the final OSM layout adjustments |
+| `scripts/check-numbers.R` | In reproduction mode, compares rerun registries with archived values without manuscript sources |
 | `data/numbers.csv`, `data/stored-examples-numbers.csv`, `data/tail-coverage-numbers.csv` | Registries of selected numerical quotations; these do not enumerate every numeric literal in the article |
 | `data/reference/` | Preserved article registries with the same three filenames, used as the reference for a rerun |
 | `data/tail-coverage.csv`, `data/tail-coverage-panels.csv` | Aggregate and panel-level subset coverage; panel rows support the replication-based MC SE calculation |
@@ -31,7 +32,7 @@ the revision of this reproduction folder.
 | `data/krw.rds`, `data/twin.rds`, `data/grid-comparison.rds`, `data/evidence.rds` | Summaries, curves and simulation tables used by the figures and tables |
 | `data/console/` | Recorded console sessions |
 | `figures/`, `osm/figures/` | Figure PDFs; `fig1_architecture` is Figure 1, `fig4_evidence` Figure 2, `fig2_firms` Figure 3, `fig3_twin_towers` Figure 4 and `fig5_grid_and_uncertainty` Figure 5 |
-| `tables/` | Generated LaTeX tables, without the article's LaTeX sources |
+| `tables/` | Generated LaTeX table fragments; document preambles and surrounding table layouts are maintained with the manuscript sources |
 | `qa/` | Recorded session information, installed commit, and analysis/figure logs |
 
 The large `data/fits.rds` is omitted. `analysis.R` regenerates it; figure and
@@ -90,7 +91,7 @@ Rscript scripts/check-numbers.R --mode=reproduction --reference=data/reference
 
 The tail and ratio scripts accept the package checkout as their first argument.
 When this folder is directly inside a suitable checkout, their default first
-checks the parent; explicit paths also work for a separately extracted capsule.
+checks the parent; explicit paths also work for a separately downloaded copy of this folder.
 `--check-inputs` verifies required benchmark files without fitting or writing
 results. The analysis refits the article examples and reads the package's
 stored simulation results; it does not rerun the full benchmark campaign.
@@ -106,9 +107,8 @@ reproduced their stored draws on the recorded machine and toolchain. Other
 platforms or versions can give different draws, requiring an assessment of
 summary differences against Monte Carlo error.
 
-Archival mode, `Rscript scripts/check-numbers.R --mode=archival --reference=data/reference`, checks the preserved
-registries in `data/reference/` against `main.tex` and the supplement sources,
-so a rerun does not replace the archived values used for that check. Those
-sources are in the journal's reproduction supplement, so this mode is not the
-source-free check for this public folder. Neither mode proves that every numeric
-literal in the manuscript has been checked.
+The script also retains an archival mode for checking registered quotations
+against manuscript sources during document preparation. That mode requires
+`main.tex` and `osm/appendices/`, which are not included here. Use the reproduction
+command above for this folder. Neither mode checks every numeric literal in
+the manuscript.

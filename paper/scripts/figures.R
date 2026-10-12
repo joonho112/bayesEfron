@@ -6,7 +6,7 @@
 #
 # Run from the paper folder root:   Rscript scripts/figures.R
 #
-# House style (Applied Geography / Geometry papers): Helvetica, theme_minimal
+# Figure style: Helvetica, theme_minimal
 # with a grey90 grid, bold (a)(b)(c) panel tags, the Okabe-Ito palette with
 # fixed semantic assignments, portable PDF + ragg PNG. The figures are drawn at
 # the text width of the elsarticle preprint (137 mm), so that they are

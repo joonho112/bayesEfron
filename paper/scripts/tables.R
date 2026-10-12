@@ -41,15 +41,15 @@ tab3 <- c(
   "\\cmidrule(lr){2-3} \\cmidrule(lr){4-6}",
   "Method & Correlation & Length ratio & RMSE & Inclusion & Length \\\\",
   "\\midrule", rows, "\\bottomrule", "\\end{tabular}",
-  paste0("\\caption{bayesEfron beside empirical Bayes fits of the same data by the ebnm package ",
+  paste0("\\caption{Comparison of bayesEfron with empirical Bayes fits to the same data using ebnm ",
          "(version ", ev$about$versions[["ebnm"]], "; locations estimated where applicable; 90\\% ",
          "equal-tailed intervals). For the 97 firms, the correlation of a method's posterior means ",
          "with those of bayesEfron and the length of its intervals relative to bayesEfron; for the ",
          "1,500 simulated sites, the root mean squared error of the posterior means, the inclusion ",
-         "of the intervals and their mean length. ",
-         "The plug-in row takes the posterior mean of $g$ from the bayesEfron fit as known, so the ",
-         "last two rows differ by the uncertainty about $g$ alone; the REML normal model of Section ",
-         "3.2 gives nearly the same numbers as the ebnm normal prior (inclusion ", f(regnum("twin_normal_inside_90_pct"), 1), "\\%, RMSE ",
+         "proportion and mean interval length. ",
+         "The plug-in row treats the posterior mean of $g$ from bayesEfron as known. The last two ",
+         "rows therefore differ only in accounting for uncertainty in $g$. The REML normal model ",
+         "of Section 3.2 gives similar results to the ebnm normal prior (inclusion ", f(regnum("twin_normal_inside_90_pct"), 1), "\\%, RMSE ",
          f(regnum("twin_rmse_normal"), 3), ").}"),
   "\\label{tab:ebnm}", "\\end{table}"
 )
@@ -113,7 +113,7 @@ rows <- apply(cv, 1, function(r) {
          round(as.numeric(r[["pilot_seconds_median"]])), " & ", f(as.numeric(r[["inclusion"]]), 3), " \\\\")
 })
 writeLines(c("\\begin{tabular}{@{}l rrrrrrr@{}}", "\\toprule",
-             "Setting & Valid of 20 & Largest R-hat & Smallest bulk ESS & Tree depth share, max & Sampling s & Pilot s & Coverage \\\\",
+             "Setting & \\shortstack{Valid\\\\of 20} & \\shortstack{Largest\\\\R-hat} & \\shortstack{Smallest\\\\bulk ESS} & \\shortstack{Tree depth\\\\share, max} & \\shortstack{Sampling\\\\s} & \\shortstack{Pilot\\\\s} & Coverage \\\\",
              "\\midrule", rows, "\\bottomrule", "\\end{tabular}"), "tables/tab-convergence.tex")
 
 # ---- OSM: the 19-study simulation --------------------------------------------
@@ -134,14 +134,16 @@ for (sc in unique(few$scenario)) {
   }
 }
 writeLines(c("\\begin{tabular}{@{}l rrrrrrr@{}}", "\\toprule",
-             "Distribution and method & Mean SD & SD interval covers & Coverage (MC SE) & Length & RMSE & Largest: coverage & Largest: bias \\\\",
+             "\\shortstack{Distribution\\\\and method} & \\shortstack{Mean\\\\SD} & \\shortstack{SD interval\\\\covers} & \\shortstack{Coverage\\\\(MC SE)} & Length & RMSE & \\shortstack{Largest:\\\\coverage} & \\shortstack{Largest:\\\\bias} \\\\",
              "\\midrule", rows, "\\bottomrule", "\\end{tabular}"), "tables/tab-few.tex")
 message("tables written")
 
 # ---- OSM: the three ranges for the 19 studies --------------------------------
+# Put the three specifications in columns to avoid shrinking the type.
+# Keep the previous formatting and precision before transposing the fields.
 g <- readRDS("data/grid-comparison.rds")
 tg <- g$table[order(g$table$expansion), ]
-rows <- apply(tg, 1, function(r) {
+formatted <- apply(tg, 1, function(r) {
   paste0(f(as.numeric(r[["expansion"]]), 2), " & ", f(as.numeric(r[["lower"]]), 2), " to ",
          f(as.numeric(r[["upper"]]), 2), " & ", f(as.numeric(r[["elpd_loo"]]), 2), " (",
          f(as.numeric(r[["se_elpd_loo"]]), 2), ") & ", f(as.numeric(r[["elpd_diff"]]), 2), " (",
@@ -151,9 +153,38 @@ rows <- apply(tg, 1, function(r) {
          as.integer(r[["divergences"]]), " & ", f(as.numeric(r[["end_mass"]]), 3), " & ",
          ifelse(as.logical(r[["adequate"]]), "yes", "no"), " \\\\")
 })
-writeLines(c("\\begin{tabular}{@{}l l rr rr rr rrr l@{}}", "\\toprule",
-             "Extension & Range & elpd (SE) & Difference (SE) & Mean of $g$ & SD of $g$ & Study 4 & Study 8 & Largest R-hat & Divergences & End mass & Resolution adequate \\\\",
-             "\\midrule", rows, "\\bottomrule", "\\end{tabular}"), "tables/tab-grid.tex")
+
+cells <- vapply(strsplit(formatted, " & ", fixed = TRUE), function(r) {
+  r[length(r)] <- trimws(substr(r[length(r)], 1, nchar(r[length(r)]) - 2L))
+  r
+}, character(12))
+grid_row <- function(label, values) {
+  paste0(paste(c(label, values), collapse = " & "), " \\\\")
+}
+rows <- c(
+  "\\begin{tabular*}{\\linewidth}{@{\\extracolsep{\\fill}}lrrr@{}}",
+  "\\toprule",
+  " & \\multicolumn{3}{c}{Extension} \\\\",
+  "\\cmidrule(l){2-4}",
+  grid_row("", cells[1, ]),
+  "\\midrule",
+  grid_row("Range", cells[2, ]),
+  "\\addlinespace",
+  grid_row("elpd (SE)", cells[3, ]),
+  grid_row("Difference (SE)", cells[4, ]),
+  "\\addlinespace",
+  grid_row("Mean of $g$", cells[5, ]),
+  grid_row("SD of $g$", cells[6, ]),
+  grid_row("Study 4", cells[7, ]),
+  grid_row("Study 8", cells[8, ]),
+  "\\addlinespace",
+  grid_row("Largest R-hat", cells[9, ]),
+  grid_row("Divergences", cells[10, ]),
+  grid_row("End mass", cells[11, ]),
+  grid_row("Resolution adequate", cells[12, ]),
+  "\\bottomrule", "\\end{tabular*}"
+)
+writeLines(rows, "tables/tab-grid.tex")
 message("grid table written")
 
 
@@ -194,3 +225,6 @@ for (K in c(100L, 1500L)) {
 rows <- c(rows, "\\bottomrule", "\\end{tabular}")
 writeLines(rows, "tables/tab-tail.tex")
 cat("subset table written\n")
+
+# Format the supplementary tables without changing their numerical values.
+source("scripts/table-layout.R")
