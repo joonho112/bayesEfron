@@ -11,6 +11,7 @@
 ^bayesEfron[.]Rcheck$
 ^bayesEfron_.*[.]tar[.]gz$
 ^LICENSE[.]md$
+^LICENCE[.]txt$
 ^README[.]Rmd$
 ^_pkgdown\.yml$
 ^docs$
